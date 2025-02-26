@@ -1,114 +1,174 @@
 # Routenoptimierungs-App für den Pflegedienst
 
+## Inhaltsverzeichnis
+- [Funktionsübersicht](#funktionsübersicht)
+
+- [Überblick](#überblick)
+- [Tech Stack](#tech-stack)
+- [Funktionsbereiche](#funktionsbereiche)
+  - [1. Benutzerverwaltung](#1-benutzerverwaltung)
+  - [2. Hauptbildschirm: Google Maps](#2-hauptbildschirm-google-maps)
+  - [3. Mitarbeiterverwaltung](#3-mitarbeiterverwaltung)
+  - [4. Patientenverwaltung und Routenübersicht](#4-patientenverwaltung-und-routenübersicht)
+  - [5. Routenoptimierung](#5-routenoptimierung)
+  - [6. Datenexport](#6-datenexport)
+- [Datenbankschema](#datenbankschema)
+- [Projektstruktur](#projektstruktur)
+
+## Funktionsübersicht
+
 Diese App dient der Optimierung von Routen für Pflegedienste. Sie ermöglicht es, Mitarbeiter und Patienten zu verwalten, deren Arbeits- und Besuchszeiten zu planen, und optimierte Routen basierend auf den eingegebenen Informationen zu erstellen.
 
+### Grundlegende Arbeitsweise der App
+
+1. **Benutzeranmeldung**: 
+   - Ein Benutzer (Pflegedienstleiter, Disponent) wählt sein Benutzerprofil oder erstellt ein neues
+   - Jeder Benutzer hat nur einen Namen und eine Rolle
+
+2. **Datenverwaltung**:
+   - Import von Mitarbeiterdaten aus Excel-Dateien (mit Informationen zu Namen, Adresse, Funktion, Arbeitszeit)
+   - Import von Patientendaten aus Excel-Dateien (mit Kontaktinformationen und Besuchszeiten)
+   - Manuelle Bearbeitung der importierten Daten möglich
+
+3. **Tagesplanung**:
+   - Auswahl des relevanten Wochentags in der Seitenleiste
+   - Anzeige verfügbarer Mitarbeiter und zu besuchender Patienten
+   - Visualisierung der Termine mit ihren spezifischen Anforderungen (HB=25 Min, NA=120 Min, TK=kein Besuch nötig)
+
+4. **Routengestaltung**:
+   - Zuordnung von Patienten zu Mitarbeitern durch Drag-and-Drop auf der Karte oder über die Seitenleiste
+   - Berücksichtigung der Arbeitszeiten der Mitarbeiter (basierend auf ihrem Stellenumfang)
+
+5. **Routenoptimierung**:
+   - Automatische Berechnung optimaler Routen durch die Google Maps Routes API
+   - Berücksichtigung von Verkehr, Distanzen und Zeitfenstern
+   - Optimierte Reihenfolge der Patientenbesuche für höchste Effizienz
+
+6. **Visualisierung**:
+   - Google Maps Karte zur Visualisierung aller Routen und Standorte
+   - Übersichtliche Darstellung der Touren für jeden Mitarbeiter in der Seitenleiste
+
+7. **Exportieren der Planung**:
+   - Export fertiger Routenpläne als PDF-Dateien
+   - Weitergabe der Pläne an das Pflegepersonal, das die Besuche durchführt
+
+## Überblick
+
 ## Tech Stack
-- **Frontend**: React (TypeScript) mit Material UI
-- **Backend**: Flask API mit SQLite-Datenbank und SQLAlchemy
-- **Kartenservice**: Google Maps API
-- **Routenoptimierung**: Google Maps Routes API mit Service Account Authentifizierung
-- **Datenimport**: Excel-Dateien (Mitarbeiter und Patienten)
-- **Export**: PDF-Dateien zur Weitergabe optimierter Routen
+
+| Komponente | Technologie |
+|------------|-------------|
+| **Frontend** | React (TypeScript) mit Material UI |
+| **Backend** | Flask API mit SQLite-Datenbank und SQLAlchemy |
+| **Kartenservice** | Google Maps API |
+| **Routenoptimierung** | Google Maps Routes API mit Service Account Authentifizierung |
+| **Datenimport** | Excel-Dateien (Mitarbeiter und Patienten) |
+| **Export** | PDF-Dateien zur Weitergabe optimierter Routen |
 
 ---
 
-## 1. Benutzerverwaltung
+## Funktionsbereiche
 
-### Benutzerübersicht
-Beim Öffnen der App wird zunächst eine Benutzer-Auswahl angezeigt:
-- **Hinzufügen, Bearbeiten und Entfernen von Benutzern**: Jeder Benutzer hat nur einen **Namen** und eine **Rolle** zur Auswahl.
-- **Wechseln des Benutzers**: Nach Auswahl des Benutzers gelangt man zum Hauptbildschirm (Google Maps).
+### 1. Benutzerverwaltung
 
-### Benutzerwechsel
-Oben links auf dem Hauptbildschirm wird der ausgewählte Benutzer angezeigt. Es besteht die Möglichkeit, den Benutzer zu wechseln.
+#### Benutzerübersicht
+- Bei App-Start wird eine Benutzer-Auswahl angezeigt
+- Funktionen:
+  - **Hinzufügen, Bearbeiten und Entfernen** von Benutzern
+  - Benutzer haben nur **Namen** und **Rolle**
+  - **Auswahl** eines Benutzers führt zum Hauptbildschirm
+
+#### Benutzerwechsel
+- Anzeige des aktuellen Benutzers oben links auf dem Hauptbildschirm
+- Möglichkeit zum Benutzerwechsel jederzeit verfügbar
+
+### 2. Hauptbildschirm: Google Maps
+
+#### Kartenanzeige
+- Zentrale Google Maps Karte zur Visualisierung
+- Darstellung von Patienten und Mitarbeitern 
+- Dynamische Aktualisierung bei Wechsel des Wochentags
+
+#### Patienten- und Mitarbeiterauswahl
+- Wochentagsauswahl in der rechten Seitenleiste
+- Anzeige der zugehörigen Patienten und Mitarbeiter für den gewählten Tag
+
+### 3. Mitarbeiterverwaltung
+
+#### Excel-Import von Mitarbeitern
+**Datenstruktur der Excel-Datei:**
+- Vorname
+- Nachname
+- Straße
+- PLZ
+- Ort
+- Funktion
+- Stellenumfang (z.B. 100% = 7 Stunden Arbeit pro Tag)
+
+#### Mitarbeitertabelle
+- Tabellarische Darstellung aller importierten Mitarbeiter
+- Funktionen:
+  - **Manuelles Hinzufügen/Entfernen** von Mitarbeitern
+  - **Aktivieren/Deaktivieren** von Mitarbeitern
+
+#### Vollbildansicht
+- Erweiterbare linke Seitenleiste für bessere Übersicht
+
+### 4. Patientenverwaltung und Routenübersicht
+
+#### Excel-Import von Patienten
+**Datenstruktur der Excel-Datei:**
+- Vorname
+- Nachname
+- Straße
+- PLZ
+- Ort
+- Telefon
+- Telefon2
+- KW (Kalenderwoche)
+- Montag bis Freitag: Uhrzeit/Info (z.B. TK, HB, NA)
+- Tour Pflegekraft (zugewiesener Mitarbeiter)
+
+#### Patiententabelle und Wochentagsauswahl
+- Anzeige der Patientendaten für den ausgewählten Wochentag
+- Automatische Aktualisierung der Kartenansicht bei Änderung
+- Darstellung der benötigten Besuchszeiten und -typen (HB, NA, TK)
+
+#### Tourenübersicht
+- Übersicht aller Mitarbeitertouren
+- Anzeige auch von Mitarbeitern ohne zugewiesene Patienten
+
+### 5. Routenoptimierung
+
+#### Zuordnung von Patienten zu Mitarbeitern
+- **Drag-and-Drop** auf der Karte
+- Alternative Zuordnung über die Seitenleiste
+
+#### Optimierung der Touren
+**Zeitvorgaben:**
+- Stellenumfang: 100% = 7 Stunden Arbeitszeit pro Tag
+- Besuchszeiten:
+  - **HB** (Hausbesuch): 25 Minuten
+  - **NA** (Nachtbesuch): 120 Minuten
+  - **TK** (Telefonkontakt): nicht in Routenplanung berücksichtigt
+
+#### Google Maps Routes API Integration
+- Sichere **Service Account Authentication**
+- Optimierte Routenberechnung mit Berücksichtigung von:
+  - Verkehr
+  - Distanz
+  - Zeitfenstern
+- Automatische Waypoint-Optimierung für effizienteste Routen
+
+### 6. Datenexport
+
+#### PDF-Export
+- Export aller optimierten Routen in einem PDF-Dokument
+- Übersichtliche Darstellung zur Weitergabe an Pflegepersonal
 
 ---
 
-## 2. Hauptbildschirm: Google Maps
-
-### Kartenanzeige
-Der Hauptbildschirm zeigt eine Google Maps Karte, auf der Patienten und Mitarbeiter visualisiert werden. Die Informationen auf der Karte ändern sich je nach ausgewähltem Wochentag und den eingetragenen Daten (Patientenbesuche, Touren).
-
-### Patienten- und Mitarbeiterauswahl
-Die Auswahl des Wochentages rechts in der Seitenleiste zeigt die zugehörigen **Patienten** und **Mitarbeiter** für diesen Tag.
-
----
-
-## 3. Linke Seitenleiste: Mitarbeiterverwaltung
-
-### Excel-Import von Mitarbeitern
-- **Excel-Datei**: Die Mitarbeiterdaten können als Excel-Datei importiert werden. Die Datei enthält folgende Spalten:
-  - Vorname
-  - Nachname
-  - Straße
-  - PLZ
-  - Ort
-  - Funktion
-  - Stellenumfang (z.B. 100 % = 7 Stunden Arbeit pro Tag)
-
-### Mitarbeitertabelle
-Nach dem Import werden die Mitarbeiter in einer Tabelle dargestellt. Funktionen:
-- **Manuelles Hinzufügen oder Entfernen von Mitarbeitern**
-- **Aktivieren/Deaktivieren von Mitarbeitern**
-
-### Vollbildansicht der Seitenleiste
-Die linke Seitenleiste kann fast auf die gesamte Seite erweitert werden, um eine bessere Übersicht der Mitarbeiterliste zu ermöglichen.
-
----
-
-## 4. Rechte Seitenleiste: Patientenverwaltung und Routenübersicht
-
-### Excel-Import von Patienten
-- **Excel-Datei**: Die Patientendaten können ebenfalls als Excel-Datei importiert werden. Die Datei enthält folgende Spalten:
-  - Vorname
-  - Nachname
-  - Straße
-  - PLZ
-  - Ort
-  - Telefon
-  - Telefon2
-  - KW (Kalenderwoche)
-  - Montag bis Freitag: Uhrzeit/Info (z.B. TK, HB, NA)
-  - Tour Pflegekraft (welcher Mitarbeiter den Patienten besucht)
-
-### Patiententabelle und Wochentagsauswahl
-Die rechte Seitenleiste zeigt die Patientendaten und die zugehörigen Touren der Mitarbeiter für den ausgewählten Wochentag. Jede Änderung des Wochentages aktualisiert die Kartenansicht sowie die Daten.
-
-### Tourenübersicht
-Die rechte Seitenleiste zeigt eine Übersicht der Touren der verschiedenen Mitarbeiter. **Auch Mitarbeiter ohne Patienten** werden in dieser Übersicht dargestellt.
-
----
-
-## 5. Optimierung der Touren
-
-### Zuordnung von Patienten zu Mitarbeitern
-- **Kartenansicht**: Patienten können durch Drag-and-Drop auf der Karte einem Mitarbeiter zugeordnet werden.
-- **Seitenleiste**: Alternativ kann die Zuordnung auch in der rechten Seitenleiste vorgenommen werden.
-
-### Optimierung der Touren
-Die Touren der Mitarbeiter können individuell optimiert werden. Dabei werden folgende Zeitvorgaben berücksichtigt:
-- **Stellenumfang**: 100 % = 7 Stunden Arbeitszeit pro Tag
-- **Zeiten für Besuche**:
-  - HB (Hausbesuch): 25 Minuten
-  - NA (Nachtbesuch): 120 Minuten
-  - **Telefonkontakte** werden bei der Routenplanung nicht berücksichtigt.
-
-### Google Maps Routes API Integration
-Die Routenoptimierung erfolgt über die Google Maps Routes API:
-- **Service Account Authentication**: Sichere Authentifizierung über Google Cloud Service Accounts
-- **Optimierte Routenberechnung**: Berücksichtigung von Verkehr, Distanz und Zeitfenstern
-- **Waypoint-Optimierung**: Automatische Neuanordnung der Stopps für effizienteste Route
-
----
-
-## 6. Export der optimierten Routen
-
-### PDF-Export
-Nach der Optimierung können alle Daten zusammengefasst in einer PDF-Datei exportiert werden. Diese Datei enthält die optimierten Routen der Mitarbeiter und dient zur Weitergabe an das Pflegepersonal.
-
----
-
-## 7. Datenbankschema
+## Datenbankschema
 
 ### Benutzer (Users)
 ```sql
@@ -118,6 +178,31 @@ CREATE TABLE users (
     area TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+```
+
+## Hauptnutzen der App
+
+Die App bietet folgende Vorteile für Pflegedienste:
+
+1. **Effizienzsteigerung**: 
+   - Zeit- und Wegersparnis durch optimierte Routen
+   - Mehr Zeit für die eigentliche Pflege statt für Fahrtwege
+
+2. **Übersichtliche Planung**:
+   - Visualisierung aller Termine und Routen auf einen Blick
+   - Klare Zuordnung von Patienten zu Mitarbeitern
+
+3. **Flexible Anpassung**:
+   - Schnelle Reaktion auf Änderungen im Pflegeplan
+   - Einfache Neuzuordnung von Patienten bei Personalausfällen
+
+4. **Ressourcenoptimierung**:
+   - Berücksichtigung der Arbeitszeiten der Mitarbeiter
+   - Ausgewogene Verteilung der Arbeitsbelastung
+
+5. **Datenmanagement**:
+   - Zentrale Verwaltung aller relevanten Patienten- und Mitarbeiterdaten
+   - Einfacher Import und Export von Informationen
 ```
 
 ### Mitarbeiter (Employees)
@@ -185,59 +270,84 @@ CREATE TABLE routes (
 );
 ```
 
-## 8. Projektstruktur
+## Projektstruktur
 
 ```plaintext
 pflegedienst-app/
-├── frontend/                 # React Frontend
+├── frontend/                  # React Frontend
 │   ├── public/
 │   │   ├── index.html
-│   │   └── assets/
+│   │   └── assets/          # Statische Assets (Bilder, Icons)
 │   ├── src/
 │   │   ├── components/      # React Komponenten
-│   │   │   ├── common/      # Wiederverwendbare Komponenten
-│   │   │   ├── layout/      # Layout Komponenten
-│   │   │   ├── maps/        # Google Maps Komponenten
-│   │   │   ├── employees/   # Mitarbeiter-bezogene Komponenten
-│   │   │   └── patients/    # Patienten-bezogene Komponenten
+│   │   │   ├── common/      # Wiederverwendbare UI-Komponenten
+│   │   │   ├── layout/      # Layout-Komponenten (Header, Sidebars)
+│   │   │   ├── map/        # Google Maps Komponenten
+│   │   │   │   ├── MapView.tsx
+│   │   │   │   ├── Markers/
+│   │   │   │   └── Routes/
+│   │   │   ├── employees/   # Mitarbeiter-Komponenten
+│   │   │   │   ├── EmployeeList/
+│   │   │   │   ├── EmployeeForm/
+│   │   │   │   └── EmployeeImport/
+│   │   │   ├── patients/    # Patienten-Komponenten
+│   │   │   │   ├── PatientList/
+│   │   │   │   ├── PatientForm/
+│   │   │   │   └── PatientImport/
+│   │   │   └── routes/      # Routen-Komponenten
+│   │   │       ├── RouteList/
+│   │   │       └── RouteOptimization/
 │   │   ├── contexts/        # React Contexts
-│   │   ├── hooks/           # Custom Hooks
-│   │   ├── services/        # API Services
-│   │   ├── types/           # TypeScript Typdefinitionen
-│   │   ├── utils/           # Hilfsfunktionen
-│   │   ├── App.tsx
-│   │   └── index.tsx
+│   │   │   ├── AuthContext.ts
+│   │   │   └── AreaContext.ts
+│   │   ├── hooks/          # Custom Hooks
+│   │   │   ├── useMap.ts
+│   │   │   └── useRoutes.ts
+│   │   ├── services/       # API Services
+│   │   │   ├── api/        # Backend API Calls
+│   │   │   └── maps/       # Google Maps Services
+│   │   ├── types/         # TypeScript Definitionen
+│   │   │   ├── models.ts
+│   │   │   └── api.ts
+│   │   ├── utils/         # Hilfsfunktionen
+│   │   │   ├── excel.ts   # Excel Import/Export
+│   │   │   └── time.ts    # Zeitberechnungen
+│   │   └── App.tsx
 │   ├── package.json
 │   └── tsconfig.json
 │
-├── backend/                  # Flask Backend
+├── backend/                 # Flask Backend
 │   ├── app/
-│   │   ├── models/          # SQLAlchemy Models
-│   │   ├── routes/          # API Routen
-│   │   ├── services/        # Geschäftslogik
-│   │   ├── utils/           # Hilfsfunktionen
-│   │   └── __init__.py
-│   ├── migrations/          # Datenbank Migrationen
-│   ├── tests/               # Unit Tests
-│   ├── config.py            # Konfigurationsdatei
-│   ├── requirements.txt
-│   └── run.py
+│   │   ├── models/         # SQLAlchemy Models
+│   │   │   ├── user.py
+│   │   │   ├── employee.py
+│   │   │   ├── patient.py
+│   │   │   ├── appointment.py
+│   │   │   └── route.py
+│   │   ├── routes/         # API Endpoints
+│   │   │   ├── auth.py
+│   │   │   ├── employees.py
+│   │   │   ├── patients.py
+│   │   │   └── routes.py
+│   │   ├── services/       # Business Logic
+│   │   │   ├── excel_service.py
+│   │   │   ├── route_optimizer.py
+│   │   │   └── maps_service.py
+│   │   └── utils/          # Hilfsfunktionen
+│   │       ├── validators.py
+│   │       └── converters.py
+│   ├── migrations/         # Alembic Migrationen
+│   ├── tests/             # Unit & Integration Tests
+│   │   ├── test_models/
+│   │   ├── test_routes/
+│   │   └── test_services/
+│   ├── config.py          # Konfiguration
+│   └── requirements.txt
 │
-├── docs/                     # Dokumentation
-│   ├── api/
-│   ├── database/
-│   └── deployment/
-│
-└── docker/                   # Docker Konfiguration
+└── docker/                 # Docker Setup
     ├── frontend/
+    │   └── Dockerfile
     ├── backend/
+    │   └── Dockerfile
     └── docker-compose.yml
 ```
-
-Die Projektstruktur ist in Frontend und Backend aufgeteilt, wobei beide Teile in separate Docker-Container verpackt werden können. Die Dokumentation und Docker-Konfigurationen sind in eigenen Verzeichnissen organisiert.
-
----
-
-## Zusammenfassung
-
-Die App ermöglicht eine umfassende Verwaltung von Mitarbeitern und Patienten, eine Visualisierung und Optimierung der Routen auf einer Google Maps Karte, sowie den Import und Export von Daten über Excel und PDF.
