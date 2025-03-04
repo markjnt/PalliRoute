@@ -1,8 +1,8 @@
 # Konfigurationsdatei
 .env
 
-# Backend
-/backend/palliroute.db
+# Data
+/backend/data/
 
 # IDE-Dateien
 /.idea
