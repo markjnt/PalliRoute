@@ -15,6 +15,19 @@ const defaultCenter = {
 
 const defaultZoom = 12;
 
+// Define libraries as a constant outside the component
+const libraries: ("places")[] = ['places'];
+
+// Map options
+const mapOptions: google.maps.MapOptions = {
+    zoomControl: true,
+    mapTypeControl: false,
+    scaleControl: true,
+    streetViewControl: false,
+    rotateControl: false,
+    fullscreenControl: false
+};
+
 export const MapView: React.FC = () => {
     const [apiKey, setApiKey] = useState<string | null>(null);
     const [error, setError] = useState<string>('');
@@ -64,7 +77,9 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey }) => {
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
         googleMapsApiKey: apiKey,
-        libraries: ['places']
+        libraries,
+        language: 'de',
+        region: 'DE'
     });
 
     const [map, setMap] = React.useState<google.maps.Map | null>(null);
@@ -98,14 +113,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey }) => {
                 zoom={defaultZoom}
                 onLoad={onLoad}
                 onUnmount={onUnmount}
-                options={{
-                    zoomControl: true,
-                    mapTypeControl: false,
-                    scaleControl: true,
-                    streetViewControl: false,
-                    rotateControl: false,
-                    fullscreenControl: false
-                }}
+                options={mapOptions}
             >
                 {/* Markers and Routes will be added here */}
             </GoogleMap>
