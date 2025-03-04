@@ -1,14 +1,17 @@
 import React from 'react';
-import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, useTheme, useMediaQuery } from '@mui/material';
-import { Menu as MenuIcon } from '@mui/icons-material';
+import { Box, AppBar, Toolbar, Typography, IconButton, Drawer, useTheme, useMediaQuery, Button } from '@mui/material';
+import { Menu as MenuIcon, Map as MapIcon } from '@mui/icons-material';
 import { useUser } from '../../contexts/UserContext';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { EmployeeSidebar } from '../employees/EmployeeSidebar';
 
 const DRAWER_WIDTH = 340;
+const DRAWER_WIDTH_EXPANDED = 800;
 const APPBAR_HEIGHT = 64;
 
 export const MainLayout: React.FC = () => {
     const [mobileOpen, setMobileOpen] = React.useState(false);
+    const [sidebarExpanded, setSidebarExpanded] = React.useState(false);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const { currentUser, setCurrentUser } = useUser();
@@ -28,6 +31,10 @@ export const MainLayout: React.FC = () => {
     const handleUserChange = () => {
         setCurrentUser(null);
         navigate('/select-user');
+    };
+
+    const handleSidebarExpandToggle = () => {
+        setSidebarExpanded(!sidebarExpanded);
     };
 
     return (
@@ -54,6 +61,13 @@ export const MainLayout: React.FC = () => {
                     <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
                         SAPV Routenplanung
                     </Typography>
+                    <Button
+                        color="inherit"
+                        startIcon={<MapIcon />}
+                        onClick={() => navigate('/')}
+                    >
+                        Karte
+                    </Button>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Typography variant="body1">
                             {currentUser?.name} ({currentUser?.area})
@@ -73,17 +87,24 @@ export const MainLayout: React.FC = () => {
                 open={isMobile ? mobileOpen : true}
                 onClose={handleDrawerToggle}
                 sx={{
-                    width: DRAWER_WIDTH,
+                    width: sidebarExpanded ? DRAWER_WIDTH_EXPANDED : DRAWER_WIDTH,
                     flexShrink: 0,
                     '& .MuiDrawer-paper': {
-                        width: DRAWER_WIDTH,
+                        width: sidebarExpanded ? DRAWER_WIDTH_EXPANDED : DRAWER_WIDTH,
                         boxSizing: 'border-box',
+                        transition: theme.transitions.create('width', {
+                            easing: theme.transitions.easing.sharp,
+                            duration: theme.transitions.duration.enteringScreen,
+                        }),
                     },
                 }}
             >
                 <Toolbar /> {/* Spacer for AppBar */}
                 <Box sx={{ overflow: 'auto', height: '100%' }}>
-                    {/* Sidebar content will be added later */}
+                    <EmployeeSidebar 
+                        expanded={sidebarExpanded}
+                        onExpandToggle={handleSidebarExpandToggle}
+                    />
                 </Box>
             </Drawer>
 
