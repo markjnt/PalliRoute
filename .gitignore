@@ -1,6 +1,9 @@
 # Konfigurationsdatei
 .env
 
+# Backend
+/backend/palliroute.db
+
 # IDE-Dateien
 /.idea
 /.vscode
@@ -13,3 +16,25 @@ __pycache__/
 # Datenordner
 data/uploads/*
 data/flask_session/*
+
+# dependencies
+/frontend/node_modules
+/frontend/.pnp
+/frontend/.pnp.js
+
+# testing
+/frontend/coverage
+
+# production
+/frontend/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
