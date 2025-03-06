@@ -45,3 +45,7 @@ docs/
 
 # Beispieldateien
 example_import_files/
+
+/frontend/
+/data/
+

@@ -13,3 +13,7 @@ __pycache__/
 # Datenordner
 data/uploads/*
 data/flask_session/*
+backend/data/
+
+# Frontend Dateien
+/frontend/
