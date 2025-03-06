@@ -1,3 +1,5 @@
+# :warning: Nicht aktuell :warning:
+
 # PalliRoute
 
 PalliRoute ist ein Projekt zur automatischen Optimierung von Fahrtrouten im Gesundheitswesen. Es verwendet die Google Maps API zur Visualisierung und Berechnung von optimalen Routen zwischen Patientenstandorten. Das Projekt entstand im Rahmen vom Modul Digitilisierung im Master Maschinenbau an der TH Köln.
