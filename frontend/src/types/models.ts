@@ -3,6 +3,7 @@ export interface User {
     name: string;
     area: Area;
     created_at: string;
+    avatarUrl?: string;
 }
 
 export type Area = 'Nordkreis' | 'Südkreis' | 'Nord- und Südkreis';

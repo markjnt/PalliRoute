@@ -4,15 +4,17 @@ import { User } from '../types/models';
 interface UserContextType {
     currentUser: User | null;
     setCurrentUser: (user: User | null) => void;
+    users: User[];
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [users, setUsers] = useState<User[]>([]);
 
     return (
-        <UserContext.Provider value={{ currentUser, setCurrentUser }}>
+        <UserContext.Provider value={{ currentUser, setCurrentUser, users }}>
             {children}
         </UserContext.Provider>
     );
