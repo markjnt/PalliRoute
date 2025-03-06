@@ -87,7 +87,7 @@ class FileService:
 
             # Verarbeite Patienten
             patients.clear()
-            df_filtered = df[df[weekday].isin(self.VALID_VISIT_TYPES)].copy()
+            df_filtered = df[df[weekday].isin(self.VALID_VISIT_TYPES) | df[weekday].isnull()].copy()
             
             for _, row in df_filtered.iterrows():
                 self._create_patient_from_row(row, weekday)
@@ -202,7 +202,7 @@ class FileService:
         # Erstellt einen Patienten aus einer Excel-Zeile
         name = f"{row['Vorname']} {row['Nachname']}"
         address = f"{row['Strasse']}, {row['PLZ']} {row['Ort']}"
-        visit_type = row[weekday]   
+        visit_type = row[weekday] if pd.notna(row[weekday]) else 'Kein Besuch'
         time_info = str(row.get(f"Uhrzeit/Info {weekday}", ""))
         time_info = "" if time_info.lower() == "nan" else time_info
         
@@ -218,6 +218,7 @@ class FileService:
             lat=lat,
             lon=lon
         )
+        print(patient.visit_type)
         patients.append(patient)
 
     def _create_vehicle_from_row(self, row):

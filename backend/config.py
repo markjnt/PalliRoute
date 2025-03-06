@@ -8,7 +8,7 @@ class Config:
     # API Keys und Secrets
     GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
     GOOGLE_PROJECT_ID = os.getenv('GOOGLE_PROJECT_ID')
-    SECRET_KEY = os.getenv('FLASK_SECRET_KEY')
+    SECRET_KEY = os.getenv('SECRET_KEY')
     
     # Upload und Session Konfiguration
     UPLOAD_FOLDER = os.path.join(os.getcwd(), 'data', 'uploads')

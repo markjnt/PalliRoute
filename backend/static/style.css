@@ -16,14 +16,14 @@
 }
 
 .left-panel {
-    flex: 55%;
+    flex: 30%;
     padding: 20px;
     overflow-y: auto;
     background-color: #ffffff;
 }
 
 .right-panel {
-    flex: 45%;
+    flex: 70%;
     height: 100vh;
     position: sticky;
     top: 0;
@@ -384,6 +384,7 @@ h2 {
 .name-line.hb { background-color: #5fff5f; }
 .name-line.tk { background-color: #54a9ff; }
 .name-line.na { background-color: #ff7e4f; }
+.name-line.gray { background-color: #a9a9a9; }
 
 .name-line strong { flex: 1; }
 .name-line .visit-type { 
@@ -414,6 +415,7 @@ h2 {
 .visit-badge.hb { background-color: #5fff5f; }
 .visit-badge.tk { background-color: #54a9ff; }
 .visit-badge.na { background-color: #ff7e4f; }
+.visit-badge.gray { background-color: #a9a9a9; }
 
 /* ==========================================
    Info-Popups und Modale
@@ -557,6 +559,7 @@ th {
 .marker-visit-type.hb { background-color: #00ff00; }
 .marker-visit-type.tk { background-color: #007efc; }
 .marker-visit-type.na { background-color: #ff4400; }
+.marker-visit-type.gray { background-color: #a9a9a9; }
 
 /* ==========================================
    Anzeige-Seite Spezifische Stile

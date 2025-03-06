@@ -100,7 +100,8 @@ async function loadMarkers(existingRoutesData = null) {
                     <div class="marker-visit-type ${
                         p.visit_type === 'HB' ? 'hb' : 
                         p.visit_type === 'TK' ? 'tk' : 
-                        p.visit_type === 'NA' ? 'na' : ''
+                        p.visit_type === 'NA' ? 'na' : 
+                        p.visit_type === 'Kein Besuch' ? 'gray' : ''
                     }">${p.visit_type}</div>
                     <div class="marker-address">${p.start_address || p.address}</div>
                 </div>
@@ -126,6 +127,7 @@ async function loadMarkers(existingRoutesData = null) {
                     fillColor: p.visit_type === 'HB' ? '#00ff00' :
                                p.visit_type === 'TK' ? '#007efc' :
                                p.visit_type === 'NA' ? '#ff4400' :
+                               p.visit_type === 'Kein Besuch' ? '#a9a9a9' :
                                '#FFFFFF',
                     fillOpacity: 1,
                     strokeWeight: 2,
@@ -219,7 +221,7 @@ function clearRoutes() {
 // ==========================================
 
 // Button "Route optimieren"
-document.getElementById('optimizeButton').addEventListener('click', async () => {
+/* document.getElementById('optimizeButton').addEventListener('click', async () => {
     clearRoutes(); // Alte Routen entfernen
     
     // Animation starten
@@ -248,7 +250,7 @@ document.getElementById('optimizeButton').addEventListener('click', async () => 
         icon.classList.remove('spinning');
         button.disabled = false;
     }
-});
+}); */
 
 // Funktion zum Aktualisieren des Wochentags
 async function updateWeekdayDisplay() {
@@ -444,10 +446,12 @@ function displayRoutes(data) {
                     <div class="name-line ${
                         stop.visit_type === 'HB' ? 'hb' : 
                         stop.visit_type === 'TK' ? 'tk' : 
-                        stop.visit_type === 'NA' ? 'na' : ''
+                        stop.visit_type === 'NA' ? 'na' : 
+                        stop.visit_type === 'Keine Besuch' ? 'gray' : 
+                        ''
                     }">
                         <strong>${stop.patient}</strong>
-                        <span class="visit-type">${stop.visit_type || ''}</span>
+                        <span class="visit-type">${stop.visit_type || 'Kein Besuch'}</span>
                     </div>
                     <div class="address">${stop.address}</div>
                     <div class="time-info">${stop.time_info || ''}</div>
@@ -526,11 +530,12 @@ function displayRoutes(data) {
         const regularStop = document.createElement('div');
         regularStop.className = 'stop-card regular-stop';
         regularStop.draggable = true;
+        const visitTypeClass = stop.visit_type ? stop.visit_type.toLowerCase() : 'gray';
         regularStop.innerHTML = `
             <div class="patient-info">
-                <div class="name-line ${stop.visit_type.toLowerCase()}">
+                <div class="name-line ${visitTypeClass}">
                     <strong>${stop.patient}</strong>
-                    <span class="visit-type">${stop.visit_type}</span>
+                    <span class="visit-type">${stop.visit_type || 'Keine Besuch'}</span>
                 </div>
                 <div class="address">${stop.address}</div>
                 <div class="time-info">${stop.time_info || ''}</div>

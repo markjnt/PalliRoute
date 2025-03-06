@@ -6,7 +6,7 @@ from config import Config
 class RouteOptimizationService:
     def __init__(self, project_id=Config.GOOGLE_PROJECT_ID):
         self.project_id = project_id
-        self.client = routeoptimization_v1.RouteOptimizationClient()
+        # self.client = routeoptimization_v1.RouteOptimizationClient()
 
     def optimize_routes(self, non_tk_patients, available_vehicles, selected_weekday, week_number):
         # Optimiert die Routen für die gegebenen Patienten und Fahrzeuge
@@ -29,7 +29,8 @@ class RouteOptimizationService:
             "consider_road_traffic": True
         })
         
-        return self.client.optimize_tours(request)
+        # return self.client.optimize_tours(request)
+        return None
 
     def _create_shipments(self, patients):
         # Erstellt Lieferungsmuster für Patienten
