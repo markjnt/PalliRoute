@@ -126,7 +126,7 @@ async function loadMarkers(existingRoutesData = null) {
                     scale: 10,
                     fillColor: p.visit_type === 'HB' ? '#00ff00' :
                                p.visit_type === 'TK' ? '#007efc' :
-                               p.visit_type === 'NA' ? '#ff4400' :
+                               p.visit_type === 'NA' ? '#fff700' :
                                p.visit_type === 'Kein Besuch' ? '#a9a9a9' :
                                '#FFFFFF',
                     fillOpacity: 1,
@@ -176,7 +176,7 @@ async function loadMarkers(existingRoutesData = null) {
                 icon: {
                     path: google.maps.SymbolPath.CIRCLE,
                     scale: 10,
-                    fillColor: v.funktion === 'Arzt' ? '#FF0000' :
+                    fillColor: v.funktion === 'Arzt' ? '#ff75fd' :
                                v.funktion === 'Pflegekraft' ? '#be00fe' :
                                v.funktion === 'Honorararzt' ? '#e08147' :
                                v.funktion === 'Physiotherapie' ? '#be00fe' :

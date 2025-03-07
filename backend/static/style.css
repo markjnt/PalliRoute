@@ -383,7 +383,7 @@ h2 {
 
 .name-line.hb { background-color: #5fff5f; }
 .name-line.tk { background-color: #54a9ff; }
-.name-line.na { background-color: #ff7e4f; }
+.name-line.na { background-color: #fff700; }
 .name-line.gray { background-color: #a9a9a9; }
 
 .name-line strong { flex: 1; }
@@ -399,7 +399,7 @@ h2 {
     display: inline-block;
 }
 
-.funktion-line.arzt { background-color: #ff5a5a; }
+.funktion-line.arzt { background-color: #ff75fd; }
 .funktion-line.pflege { background-color: #da6aff; }
 .funktion-line.honorar { background-color: #e08147; }
 .funktion-line.physio { background-color: #da6aff; }
@@ -414,7 +414,7 @@ h2 {
 
 .visit-badge.hb { background-color: #5fff5f; }
 .visit-badge.tk { background-color: #54a9ff; }
-.visit-badge.na { background-color: #ff7e4f; }
+.visit-badge.na { background-color: #fff700; }
 .visit-badge.gray { background-color: #a9a9a9; }
 
 /* ==========================================
@@ -541,7 +541,7 @@ th {
     font-weight: bold;
 }
 
-.marker-function.arzt { background-color: #ff5a5a; }
+.marker-function.arzt { background-color: #ff75fd; }
 .marker-function.pflege { background-color: #da6aff; }
 .marker-function.honorar { background-color: #e08147; }
 .marker-function.physio { background-color: #da6aff; }
@@ -558,7 +558,7 @@ th {
 
 .marker-visit-type.hb { background-color: #00ff00; }
 .marker-visit-type.tk { background-color: #007efc; }
-.marker-visit-type.na { background-color: #ff4400; }
+.marker-visit-type.na { background-color: #fff700; }
 .marker-visit-type.gray { background-color: #a9a9a9; }
 
 /* ==========================================

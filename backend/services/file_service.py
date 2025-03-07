@@ -32,9 +32,10 @@ class FileService:
             if result:
                 location = result[0]['geometry']['location']
                 return location['lat'], location['lng']
+            print(f"Geocoding fehlgeschlagen für Adresse: {address}")
             return None, None
         except Exception as e:
-            print(f"Geocoding error: {e}")
+            print(f"Geocoding error für {address}: {e}")
             return None, None
 
     def process_patient_file(self, file, selected_weekday=None):
@@ -209,6 +210,9 @@ class FileService:
         phone_numbers = self._process_phone_numbers(row)
         lat, lon = self.geocode_address(address)
         
+        if lat is None or lon is None:
+            print(f"Patient {name} konnte nicht auf der Karte angezeigt werden. Adresse: {address}")
+        
         patient = Patient(
             name=name,
             address=address,
@@ -218,7 +222,6 @@ class FileService:
             lat=lat,
             lon=lon
         )
-        print(patient.visit_type)
         patients.append(patient)
 
     def _create_vehicle_from_row(self, row):
