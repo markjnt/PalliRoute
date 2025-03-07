@@ -180,7 +180,7 @@ async function loadMarkers(existingRoutesData = null) {
                                v.funktion === 'Pflegekraft' ? '#be00fe' :
                                v.funktion === 'Honorararzt' ? '#e08147' :
                                v.funktion === 'Physiotherapie' ? '#be00fe' :
-                               v.funktion === 'PDL' ? '#FF0000' :
+                               v.funktion === 'PDL' ? '#be00fe' :
                                '#666666',
                     fillOpacity: 1,
                     strokeWeight: 2,
