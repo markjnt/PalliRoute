@@ -7,7 +7,13 @@ import {
     Tooltip,
     CircularProgress,
     Divider,
-    Collapse,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Avatar,
+    Menu,
+    MenuItem,
 } from '@mui/material';
 import {
     DataGrid,
@@ -19,28 +25,77 @@ import {
     Delete as DeleteIcon,
     CheckCircle as ActiveIcon,
     Cancel as InactiveIcon,
-    ExpandLess as CollapseIcon,
-    ExpandMore as ExpandIcon,
+    LocationOn as LocationIcon,
+    ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { employeesApi } from '../../services/api/employees';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeImport } from './EmployeeImport';
+import { useUser } from '../../contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
+
+// Function to generate a random color based on the user's name
+const stringToColor = (string: string) => {
+    let hash = 0;
+    let i;
+
+    for (i = 0; i < string.length; i += 1) {
+        hash = string.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    let color = '#';
+
+    for (i = 0; i < 3; i += 1) {
+        const value = (hash >> (i * 8)) & 0xff;
+        color += `00${value.toString(16)}`.slice(-2);
+    }
+
+    return color;
+};
+
+// Function to create avatar props based on user's name
+const stringAvatar = (name: string) => {
+    return {
+        sx: {
+            bgcolor: stringToColor(name),
+            marginRight: 2,
+            '&:hover': {
+                cursor: 'pointer',
+                boxShadow: 3,
+                transform: 'scale(1.1)',
+            },
+        },
+        children: name.split(' ').map(part => part[0]).join('').toUpperCase(),
+    };
+};
 
 interface EmployeeSidebarProps {
-    expanded: boolean;
-    onExpandToggle: () => void;
+    width?: number;
 }
 
 export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
-    expanded,
-    onExpandToggle,
+    width = 400,
 }) => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loading, setLoading] = useState(true);
     const [openForm, setOpenForm] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [openImport, setOpenImport] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
+    const { currentUser, setCurrentUser } = useUser();
+    const navigate = useNavigate();
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+    const handleUserChange = () => {
+        setCurrentUser(null);
+        navigate('/select-user');
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -62,14 +117,26 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         setOpenForm(true);
     };
 
-    const handleDelete = async (id: number) => {
-        if (window.confirm('Sind Sie sicher, dass Sie diesen Mitarbeiter löschen möchten?')) {
-            try {
-                await employeesApi.delete(id);
-                await fetchEmployees();
-            } catch (error) {
-                console.error('Error deleting employee:', error);
-            }
+    const handleDeleteClick = (employee: Employee) => {
+        if (!employee.id) return;
+        
+        setEmployeeToDelete({
+            id: employee.id,
+            name: `${employee.first_name} ${employee.last_name}`
+        });
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!employeeToDelete) return;
+        
+        try {
+            await employeesApi.delete(employeeToDelete.id);
+            await fetchEmployees();
+            setDeleteDialogOpen(false);
+            setEmployeeToDelete(null);
+        } catch (error) {
+            console.error('Error deleting employee:', error);
         }
     };
 
@@ -83,8 +150,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     };
 
     const columns: GridColDef[] = [
-        { field: 'first_name', headerName: 'Vorname', width: 130 },
-        { field: 'last_name', headerName: 'Nachname', width: 130 },
         {
             field: 'is_active',
             headerName: 'Status',
@@ -101,6 +166,49 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 </Tooltip>
             ),
         },
+        { 
+            field: 'last_name', 
+            headerName: 'Nachname', 
+            flex: 1,
+            minWidth: 120
+        },
+        { 
+            field: 'first_name', 
+            headerName: 'Vorname', 
+            flex: 1,
+            minWidth: 120
+        },
+        { 
+            field: 'street', 
+            headerName: 'Straße', 
+            flex: 1.5,
+            minWidth: 150
+        },
+        { 
+            field: 'zip_code', 
+            headerName: 'PLZ', 
+            width: 80
+        },
+        { 
+            field: 'city', 
+            headerName: 'Ort', 
+            flex: 1,
+            minWidth: 120
+        },
+        { 
+            field: 'function', 
+            headerName: 'Funktion', 
+            flex: 1,
+            minWidth: 120
+        },
+        {
+            field: 'work_hours',
+            headerName: 'Stellenumfang',
+            width: 110,
+            renderCell: (params: GridRenderCellParams) => (
+                params.value === undefined || params.value === null ? '-' : `${params.value} %`
+            )
+        },
         {
             field: 'actions',
             headerName: 'Aktionen',
@@ -113,7 +221,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Löschen">
-                        <IconButton onClick={() => handleDelete(params.row.id)} color="error" size="small">
+                        <IconButton onClick={() => handleDeleteClick(params.row)} color="error" size="small">
                             <DeleteIcon />
                         </IconButton>
                     </Tooltip>
@@ -123,21 +231,89 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     ];
 
     return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box
+            sx={{
+                height: '100%',
+                width: '100%',
+                bgcolor: 'background.paper',
+                display: 'flex',
+                flexDirection: 'column',
+            }}
+        >
             <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                justifyContent: 'space-between',
+                justifyContent: 'flex-start',
                 p: 2,
+                height: 64,
                 borderBottom: 1,
                 borderColor: 'divider'
             }}>
-                <Typography variant="h6" component="h2">
-                    Mitarbeiterverwaltung
-                </Typography>
-                <IconButton onClick={onExpandToggle}>
-                    {expanded ? <CollapseIcon /> : <ExpandIcon />}
-                </IconButton>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar
+                        onClick={(event) => setAnchorEl(event.currentTarget)}
+                        {...stringAvatar(currentUser?.name || '')}
+                    />
+                    <Typography variant="h6" component="h2">
+                        Mitarbeiterverwaltung
+                    </Typography>
+                </Box>
+                <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={handleMenuClose}
+                    PaperProps={{
+                        elevation: 3,
+                        sx: {
+                            minWidth: 200,
+                            mt: 1,
+                            borderRadius: 2,
+                            overflow: 'visible',
+                            '&:before': {
+                                content: '""',
+                                display: 'block',
+                                position: 'absolute',
+                                top: 0,
+                                left: 14,
+                                width: 10,
+                                height: 10,
+                                bgcolor: 'background.paper',
+                                transform: 'translateY(-50%) rotate(45deg)',
+                                zIndex: 0,
+                            },
+                        },
+                    }}
+                    transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                    anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                >
+                    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Avatar 
+                            {...stringAvatar(currentUser?.name || '')}
+                            sx={{ 
+                                width: 60, 
+                                height: 60, 
+                                mb: 1,
+                                bgcolor: stringToColor(currentUser?.name || '')
+                            }}
+                        />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                            {currentUser?.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                            <LocationIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                            <Typography variant="body2" color="text.secondary">
+                                {currentUser?.area}
+                            </Typography>
+                        </Box>
+                    </Box>
+                    
+                    <Divider />
+                    
+                    <MenuItem onClick={handleUserChange} sx={{ mt: 1 }}>
+                        <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
+                        <Typography>Benutzer wechseln</Typography>
+                    </MenuItem>
+                </Menu>
             </Box>
 
             <Box sx={{ p: 2 }}>
@@ -172,14 +348,26 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     <DataGrid
                         rows={employees}
                         columns={columns}
-                        initialState={{
-                            pagination: {
-                                paginationModel: { page: 0, pageSize: 10 },
-                            },
-                        }}
-                        pageSizeOptions={[10, 25, 50]}
+                        hideFooter={true}
                         disableRowSelectionOnClick
-                        autoHeight
+                        localeText={{
+                            noRowsLabel: 'Keine Einträge'
+                        }}
+                        sx={{
+                            '& .MuiDataGrid-cell': {
+                                py: 1
+                            },
+                            '& .MuiDataGrid-main': {
+                                overflow: 'auto',
+                                width: 'auto',
+                                minWidth: '100%'
+                            },
+                            '& .MuiDataGrid-virtualScroller': {
+                                overflow: 'auto !important'
+                            },
+                            height: '100%',
+                            border: 'none'
+                        }}
                     />
                 )}
             </Box>
@@ -203,6 +391,38 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     onImportSuccess={fetchEmployees}
                 />
             )}
+
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={() => {
+                    setDeleteDialogOpen(false);
+                    setEmployeeToDelete(null);
+                }}
+            >
+                <DialogTitle>Mitarbeiter löschen</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Sind Sie sicher, dass Sie den Mitarbeiter {employeeToDelete?.name} löschen möchten?
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button 
+                        onClick={() => {
+                            setDeleteDialogOpen(false);
+                            setEmployeeToDelete(null);
+                        }}
+                    >
+                        Abbrechen
+                    </Button>
+                    <Button 
+                        onClick={handleDeleteConfirm}
+                        variant="contained"
+                        color="error"
+                    >
+                        Löschen
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }; 

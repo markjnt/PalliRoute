@@ -6,17 +6,18 @@ from ..models.employee import Employee
 from ..models.patient import Patient
 from ..models.appointment import Appointment
 from ..models.route import Route
+from .. import db
 
 class ExcelService:
     @staticmethod
-    def import_employees(file) -> List[Employee]:
+    def import_employees(file) -> Dict[str, List[Any]]:
         """
         Import employees from Excel file
-        Expected columns: Vorname, Nachname, Straße, PLZ, Ort, Funktion, Stellenumfang
+        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang
         """
         try:
             df = pd.read_excel(file)
-            required_columns = ['Vorname', 'Nachname', 'Straße', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang']
+            required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang']
             
             # Validate columns
             if not all(col in df.columns for col in required_columns):
@@ -24,21 +25,60 @@ class ExcelService:
                 raise ValueError(f"Missing required columns: {', '.join(missing)}")
 
             employees = []
+            skipped_employees = []
             for _, row in df.iterrows():
-                employee = Employee(
-                    first_name=row['Vorname'],
-                    last_name=row['Nachname'],
-                    street=row['Straße'],
-                    zip_code=str(row['PLZ']),
-                    city=row['Ort'],
-                    function=row['Funktion'],
-                    work_hours=float(row['Stellenumfang'])
-                )
-                employees.append(employee)
+                try:
+                    # Check if employee already exists
+                    existing_employee = Employee.query.filter_by(
+                        first_name=str(row['Vorname']).strip(),
+                        last_name=str(row['Nachname']).strip()
+                    ).first()
+                    
+                    if existing_employee:
+                        skipped_employees.append(f"{row['Vorname']} {row['Nachname']}")
+                        continue
 
-            return employees
+                    # Convert Stellenumfang to float and handle percentage format
+                    stellenumfang = str(row['Stellenumfang']).replace('%', '')
+                    work_hours = float(stellenumfang)
+                    
+                    # Validate work_hours range
+                    if work_hours < 0 or work_hours > 100:
+                        raise ValueError(f"Stellenumfang muss zwischen 0 und 100 sein, ist aber {work_hours}")
+
+                    employee = Employee(
+                        first_name=str(row['Vorname']).strip(),
+                        last_name=str(row['Nachname']).strip(),
+                        street=str(row['Strasse']).strip(),
+                        zip_code=str(row['PLZ']).strip(),
+                        city=str(row['Ort']).strip(),
+                        function=str(row['Funktion']).strip(),
+                        work_hours=work_hours,
+                        is_active=True
+                    )
+                    
+                    # Validate function
+                    valid_functions = ['PDL', 'Pflegekraft', 'Arzt', 'Honorararzt', 'Physiotherapie']
+                    if employee.function not in valid_functions:
+                        raise ValueError(f"Ungültige Funktion '{employee.function}'. Muss einer der folgenden Werte sein: {', '.join(valid_functions)}")
+                    
+                    employees.append(employee)
+                    
+                except Exception as row_error:
+                    raise ValueError(f"Fehler in Zeile {_ + 2}: {str(row_error)}")
+
+            # Add all employees to database
+            for employee in employees:
+                db.session.add(employee)
+            db.session.commit()
+
+            return {
+                'imported': employees,
+                'skipped': skipped_employees
+            }
 
         except Exception as e:
+            db.session.rollback()
             raise Exception(f"Error importing employees: {str(e)}")
 
     @staticmethod
@@ -50,7 +90,7 @@ class ExcelService:
         try:
             df = pd.read_excel(file)
             required_columns = [
-                'Vorname', 'Nachname', 'Straße', 'PLZ', 'Ort', 
+                'Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 
                 'Telefon', 'Telefon2', 'KW',
                 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'
             ]
@@ -69,7 +109,7 @@ class ExcelService:
                 patient = Patient(
                     first_name=row['Vorname'],
                     last_name=row['Nachname'],
-                    street=row['Straße'],
+                    street=row['Strasse'],
                     zip_code=str(row['PLZ']),
                     city=row['Ort'],
                     phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,

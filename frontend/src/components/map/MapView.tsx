@@ -82,7 +82,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey }) => {
         region: 'DE'
     });
 
-    const [map, setMap] = React.useState<google.maps.Map | null>(null);
+    const [, setMap] = React.useState<google.maps.Map | null>(null);
 
     const onLoad = React.useCallback((map: google.maps.Map) => {
         setMap(map);

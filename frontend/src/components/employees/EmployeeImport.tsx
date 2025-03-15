@@ -53,13 +53,16 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
         setError(null);
 
         try {
-            await employeesApi.import(selectedFile);
+            const result = await employeesApi.import(selectedFile);
             onImportSuccess();
             onClose();
-            // TODO: Add success notification
-        } catch (error) {
+            if (result.message.includes('übersprungen')) {
+                console.log(result.message);
+            }
+        } catch (error: any) {
             console.error('Error importing employees:', error);
-            setError('Fehler beim Importieren der Mitarbeiter. Bitte überprüfen Sie das Dateiformat und versuchen Sie es erneut.');
+            const errorMessage = error.response?.data?.error || 'Fehler beim Importieren der Mitarbeiter. Bitte überprüfen Sie das Dateiformat und versuchen Sie es erneut.';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -78,15 +81,15 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                         <br />
                         • Nachname
                         <br />
-                        • Straße
+                        • Strasse
                         <br />
                         • PLZ
                         <br />
                         • Ort
                         <br />
-                        • Funktion
+                        • Funktion (Pflegekraft, Arzt, Physiotherapie, Honorararzt, PDL)
                         <br />
-                        • Stellenumfang (in %)
+                        • Stellenumfang (0-100)
                     </Typography>
 
                     <Box

@@ -34,6 +34,20 @@ def create_employee():
     if missing_fields:
         return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
     
+    # Check if employee already exists
+    existing_employee = Employee.query.filter_by(
+        first_name=data['first_name'],
+        last_name=data['last_name']
+    ).first()
+    
+    if existing_employee:
+        return jsonify({"error": f"Ein Mitarbeiter mit dem Namen {data['first_name']} {data['last_name']} existiert bereits"}), 400
+    
+    # Validate work_hours
+    work_hours = data['work_hours']
+    if not isinstance(work_hours, (int, float)) or work_hours < 0 or work_hours > 100:
+        return jsonify({"error": "Stellenumfang muss zwischen 0 und 100 liegen"}), 400
+    
     new_employee = Employee(
         first_name=data['first_name'],
         last_name=data['last_name'],
@@ -41,7 +55,7 @@ def create_employee():
         zip_code=data['zip_code'],
         city=data['city'],
         function=data['function'],
-        work_hours=data['work_hours'],
+        work_hours=work_hours,
         is_active=data.get('is_active', True)
     )
     
@@ -54,6 +68,12 @@ def create_employee():
 def update_employee(id):
     employee = Employee.query.get_or_404(id)
     data = request.get_json()
+    
+    # Validate work_hours if provided
+    if 'work_hours' in data:
+        work_hours = data['work_hours']
+        if not isinstance(work_hours, (int, float)) or work_hours < 0 or work_hours > 100:
+            return jsonify({"error": "Stellenumfang muss zwischen 0 und 100 liegen"}), 400
     
     fields = ['first_name', 'last_name', 'street', 'zip_code', 'city', 
               'function', 'work_hours', 'is_active']
@@ -85,9 +105,16 @@ def import_employees():
         return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
     
     try:
-        imported_employees = ExcelService.import_employees(file)
+        result = ExcelService.import_employees(file)
+        imported_employees = result['imported']
+        skipped_employees = result['skipped']
+        
+        message = f"Successfully imported {len(imported_employees)} employees"
+        if skipped_employees:
+            message += f" ({len(skipped_employees)} übersprungen: {', '.join(skipped_employees)})"
+            
         return jsonify({
-            "message": f"Successfully imported {len(imported_employees)} employees",
+            "message": message,
             "employees": [emp.to_dict() for emp in imported_employees]
         }), 201
     except Exception as e:

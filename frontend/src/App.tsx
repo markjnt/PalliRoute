@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { UserProvider } from './contexts/UserContext';
 import UserSelection from './components/users/UserSelection';

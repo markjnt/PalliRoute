@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -9,6 +9,12 @@ import {
     Grid,
     FormControlLabel,
     Switch,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Alert,
+    CircularProgress,
 } from '@mui/material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -41,6 +47,9 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     onSave,
     employee,
 }) => {
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
     const formik = useFormik({
         initialValues: {
             first_name: employee?.first_name || '',
@@ -48,12 +57,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             street: employee?.street || '',
             zip_code: employee?.zip_code || '',
             city: employee?.city || '',
-            function: employee?.function || '',
+            function: employee?.function || 'Pflegekraft',
             work_hours: employee?.work_hours || 100,
             is_active: employee?.is_active ?? true,
         },
         validationSchema,
         onSubmit: async (values: EmployeeFormData) => {
+            setLoading(true);
+            setError(null);
+            
             try {
                 if (employee) {
                     await employeesApi.update(employee.id!, values);
@@ -62,10 +74,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                 }
                 onSave();
                 onClose();
-                // TODO: Add success notification
-            } catch (error) {
-                console.error('Error saving employee:', error);
-                // TODO: Add error notification
+            } catch (error: any) {
+                // Don't log expected errors (like duplicate employee)
+                if (error.response?.status !== 400) {
+                    console.error('Error saving employee:', error);
+                }
+                const errorMessage = error.response?.data?.error || 'Fehler beim Speichern des Mitarbeiters';
+                setError(errorMessage);
+            } finally {
+                setLoading(false);
             }
         },
     });
@@ -77,6 +94,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             </DialogTitle>
             <form onSubmit={formik.handleSubmit}>
                 <DialogContent>
+                    {error && (
+                        <Alert severity="error" sx={{ mb: 2 }}>
+                            {error}
+                        </Alert>
+                    )}
                     <Grid container spacing={2}>
                         <Grid item xs={6}>
                             <TextField
@@ -139,16 +161,24 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                             />
                         </Grid>
                         <Grid item xs={6}>
-                            <TextField
-                                fullWidth
-                                id="function"
-                                name="function"
-                                label="Funktion"
-                                value={formik.values.function}
-                                onChange={formik.handleChange}
-                                error={formik.touched.function && Boolean(formik.errors.function)}
-                                helperText={formik.touched.function && formik.errors.function}
-                            />
+                            <FormControl fullWidth>
+                                <InputLabel id="function-label">Funktion</InputLabel>
+                                <Select
+                                    labelId="function-label"
+                                    id="function"
+                                    name="function"
+                                    value={formik.values.function}
+                                    onChange={formik.handleChange}
+                                    error={formik.touched.function && Boolean(formik.errors.function)}
+                                    label="Funktion"
+                                >
+                                    <MenuItem value="PDL">PDL</MenuItem>
+                                    <MenuItem value="Pflegekraft">Pflegekraft</MenuItem>
+                                    <MenuItem value="Arzt">Arzt</MenuItem>
+                                    <MenuItem value="Honorararzt">Honorararzt</MenuItem>
+                                    <MenuItem value="Physiotherapie">Physiotherapie</MenuItem>
+                                </Select>
+                            </FormControl>
                         </Grid>
                         <Grid item xs={6}>
                             <TextField
@@ -181,9 +211,21 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     </Grid>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={onClose}>Abbrechen</Button>
-                    <Button type="submit" variant="contained" color="primary">
-                        Speichern
+                    <Button onClick={onClose} disabled={loading}>
+                        Abbrechen
+                    </Button>
+                    <Button 
+                        type="submit" 
+                        variant="contained" 
+                        color="primary"
+                        disabled={loading || !formik.isValid || !formik.dirty}
+                    >
+                        {loading ? (
+                            <>
+                                <CircularProgress size={20} sx={{ mr: 1 }} />
+                                Speichert...
+                            </>
+                        ) : 'Speichern'}
                     </Button>
                 </DialogActions>
             </form>

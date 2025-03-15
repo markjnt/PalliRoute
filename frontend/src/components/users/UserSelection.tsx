@@ -22,13 +22,46 @@ import {
     Alert,
     IconButton,
     Stack,
-    Snackbar,
+    Avatar,
+    ListItemAvatar,
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { User, UserFormData, Area } from '../../types/models';
 import { useUser } from '../../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../../services/api/users';
+
+// Function to generate a random color based on the user's name
+const stringToColor = (string: string) => {
+    let hash = 0;
+    let i;
+
+    for (i = 0; i < string.length; i += 1) {
+        hash = string.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    let color = '#';
+
+    for (i = 0; i < 3; i += 1) {
+        const value = (hash >> (i * 8)) & 0xff;
+        color += `00${value.toString(16)}`.slice(-2);
+    }
+
+    return color;
+};
+
+// Function to create avatar props based on user's name
+const stringAvatar = (name: string) => {
+    return {
+        sx: {
+            bgcolor: stringToColor(name),
+            '&:hover': {
+                boxShadow: 3,
+            },
+        },
+        children: name.split(' ').map(part => part[0]).join('').toUpperCase(),
+    };
+};
 
 const UserSelection: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -201,6 +234,9 @@ const UserSelection: React.FC = () => {
                                 }
                             }}
                         >
+                            <ListItemAvatar>
+                                <Avatar {...stringAvatar(user.name)} />
+                            </ListItemAvatar>
                             <ListItemText
                                 primary={user.name}
                                 secondary={`Bereich: ${user.area}`}

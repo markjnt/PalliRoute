@@ -5,6 +5,7 @@ interface UserContextType {
     currentUser: User | null;
     setCurrentUser: (user: User | null) => void;
     users: User[];
+    setUsers: (users: User[]) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -14,7 +15,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [users, setUsers] = useState<User[]>([]);
 
     return (
-        <UserContext.Provider value={{ currentUser, setCurrentUser, users }}>
+        <UserContext.Provider value={{ currentUser, setCurrentUser, users, setUsers }}>
             {children}
         </UserContext.Provider>
     );
