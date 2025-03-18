@@ -13,7 +13,7 @@ class ExcelService:
     def import_employees(file) -> Dict[str, List[Any]]:
         """
         Import employees from Excel file
-        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang
+        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Tournummer (optional)
         """
         try:
             df = pd.read_excel(file)
@@ -46,6 +46,20 @@ class ExcelService:
                     if work_hours < 0 or work_hours > 100:
                         raise ValueError(f"Stellenumfang muss zwischen 0 und 100 sein, ist aber {work_hours}")
 
+                    # Get tour number if exists
+                    tour_number = None
+                    if 'Tournummer' in df.columns and pd.notna(row['Tournummer']):
+                        try:
+                            tour_number = int(row['Tournummer'])
+                            # Check if tour_number already exists
+                            existing_tour = Employee.query.filter_by(tour_number=tour_number).first()
+                            if existing_tour:
+                                raise ValueError(f"Ein Mitarbeiter mit der Tournummer {tour_number} existiert bereits")
+                        except ValueError as ve:
+                            if "existiert bereits" in str(ve):
+                                raise ve
+                            raise ValueError(f"Tournummer muss eine Ganzzahl sein, ist aber {row['Tournummer']}")
+
                     employee = Employee(
                         first_name=str(row['Vorname']).strip(),
                         last_name=str(row['Nachname']).strip(),
@@ -54,6 +68,7 @@ class ExcelService:
                         city=str(row['Ort']).strip(),
                         function=str(row['Funktion']).strip(),
                         work_hours=work_hours,
+                        tour_number=tour_number,
                         is_active=True
                     )
                     

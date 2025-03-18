@@ -22,6 +22,7 @@ export interface Employee {
     city: string;
     function: string;
     work_hours: number;
+    tour_number?: number;
     is_active: boolean;
     created_at?: string;
     updated_at?: string;

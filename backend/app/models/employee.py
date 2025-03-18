@@ -12,6 +12,7 @@ class Employee(db.Model):
     city = db.Column(db.String(100), nullable=False)
     function = db.Column(db.String(100), nullable=False)
     work_hours = db.Column(db.Float, nullable=False)  # Percentage of full-time (e.g., 100.0)
+    tour_number = db.Column(db.Integer, nullable=True)  # Tour number for employee
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -31,6 +32,7 @@ class Employee(db.Model):
             'address': f"{self.street}, {self.zip_code} {self.city}",
             'function': self.function,
             'work_hours': self.work_hours,
+            'tour_number': self.tour_number,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
@@ -46,5 +48,6 @@ class Employee(db.Model):
             city=data.get('city'),
             function=data.get('function'),
             work_hours=data.get('work_hours'),
+            tour_number=data.get('tour_number'),
             is_active=data.get('is_active', True)
         )

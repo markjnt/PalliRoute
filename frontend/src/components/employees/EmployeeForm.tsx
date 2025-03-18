@@ -59,6 +59,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             city: employee?.city || '',
             function: employee?.function || 'Pflegekraft',
             work_hours: employee?.work_hours || 100,
+            tour_number: employee?.tour_number || undefined,
             is_active: employee?.is_active ?? true,
         },
         validationSchema,
@@ -193,6 +194,20 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.work_hours && formik.errors.work_hours}
                                 InputProps={{
                                     inputProps: { min: 0, max: 100 }
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={6}>
+                            <TextField
+                                fullWidth
+                                id="tour_number"
+                                name="tour_number"
+                                label="Tournummer"
+                                type="number"
+                                value={formik.values.tour_number || ''}
+                                onChange={formik.handleChange}
+                                InputProps={{
+                                    inputProps: { min: 0 }
                                 }}
                             />
                         </Grid>

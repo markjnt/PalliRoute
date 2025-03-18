@@ -178,6 +178,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             flex: 1,
             minWidth: 120
         },
+        {
+            field: 'tour_number',
+            headerName: 'Tournummer',
+            width: 110,
+        },
         { 
             field: 'street', 
             headerName: 'Straße', 
