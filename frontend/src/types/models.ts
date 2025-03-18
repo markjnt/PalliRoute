@@ -35,4 +35,46 @@ export interface EmployeeFormData extends Omit<Employee, 'id' | 'created_at' | '
 export interface EmployeeImportResponse {
     message: string;
     employees: Employee[];
+}
+
+export type VisitType = 'HB' | 'NA' | 'TK';
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday';
+
+export interface Appointment {
+    id?: number;
+    patient_id: number;
+    employee_id?: number;
+    weekday: Weekday;
+    time?: string; // Format: "HH:MM"
+    visit_type: VisitType;
+    duration: number;
+    info?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface Patient {
+    id?: number;
+    first_name: string;
+    last_name: string;
+    full_name?: string;
+    street: string;
+    zip_code: string;
+    city: string;
+    address?: string;
+    phone1?: string;
+    phone2?: string;
+    calendar_week?: number;
+    area?: string; // Nordkreis or Südkreis
+    tour?: number; // Numerische Tour-ID
+    created_at?: string;
+    updated_at?: string;
+    appointments?: Appointment[];
+}
+
+export interface PatientImportResponse {
+    message: string;
+    patients: Patient[];
+    appointments: Appointment[];
+    calendar_week?: number;
 } 

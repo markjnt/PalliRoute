@@ -23,9 +23,10 @@ class Appointment(db.Model):
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
     weekday = db.Column(db.String(20), nullable=False)
-    time = db.Column(db.Time, nullable=False)
+    time = db.Column(db.Time, nullable=True)
     visit_type = db.Column(db.String(10), nullable=False)
     duration = db.Column(db.Integer, nullable=False)  # in minutes
+    info = db.Column(db.String(200))  # Additional info from Excel
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -47,6 +48,7 @@ class Appointment(db.Model):
             'time': self.time.strftime('%H:%M') if self.time else None,
             'visit_type': self.visit_type,
             'duration': self.duration,
+            'info': self.info,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

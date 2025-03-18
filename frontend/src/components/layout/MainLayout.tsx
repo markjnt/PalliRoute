@@ -4,7 +4,7 @@ import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, Che
 import { useUser } from '../../contexts/UserContext';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
-import { PatientSidebar } from '../patients/PatientSidebar';
+import { TourPlanSidebar } from '../patients/TourPlanSidebar';
 
 const DEFAULT_SIDEBAR_WIDTH = 425;
 const MIN_MAIN_CONTENT_WIDTH = 100;
@@ -404,7 +404,7 @@ export const MainLayout: React.FC = () => {
                                 <ChevronRightIcon />
                             </IconButton>
 
-                            <PatientSidebar />
+                            <TourPlanSidebar />
                         </Box>
 
                         {/* Resize Handle */}

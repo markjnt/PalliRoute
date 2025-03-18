@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from app import db
 from app.models.appointment import Appointment
+from app.models.patient import Patient
 from datetime import datetime
 
 appointments_bp = Blueprint('appointments', __name__)
@@ -24,10 +25,14 @@ def get_appointments():
     appointments = query.all()
     return jsonify([appointment.to_dict() for appointment in appointments])
 
-@appointments_bp.route('/<int:id>', methods=['GET'])
-def get_appointment(id):
-    appointment = Appointment.query.get_or_404(id)
-    return jsonify(appointment.to_dict())
+@appointments_bp.route('/weekday/<weekday>', methods=['GET'])
+def get_appointments_by_weekday(weekday):
+    """Get all appointments for a specific weekday"""
+    if weekday not in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']:
+        return jsonify({'error': 'Invalid weekday. Use monday, tuesday, wednesday, thursday, or friday'}), 400
+    
+    appointments = Appointment.query.filter_by(weekday=weekday).all()
+    return jsonify([appointment.to_dict() for appointment in appointments])
 
 @appointments_bp.route('/', methods=['POST'])
 def create_appointment():

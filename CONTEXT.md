@@ -128,6 +128,7 @@ Diese App dient der Optimierung von Routen für Pflegedienste. Sie ermöglicht e
 - KW (Kalenderwoche)
 - Montag bis Freitag: Uhrzeit/Info (z.B. TK, HB, NA)
 - Tour Pflegekraft (zugewiesener Mitarbeiter)
+- Gebiet (Nord- oder Südkreis)
 
 #### Patiententabelle und Wochentagsauswahl
 - Anzeige der Patientendaten für den ausgewählten Wochentag

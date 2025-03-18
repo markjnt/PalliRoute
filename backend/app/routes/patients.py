@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.patient import Patient
+from app.models.appointment import Appointment
 from app.services.excel_service import ExcelService
 
 patients_bp = Blueprint('patients', __name__)
@@ -8,10 +9,19 @@ patients_bp = Blueprint('patients', __name__)
 @patients_bp.route('/', methods=['GET'])
 def get_patients():
     calendar_week = request.args.get('calendar_week', type=int)
+    area = request.args.get('area', type=str)
+    tour = request.args.get('tour', type=str)
+    
     query = Patient.query
     
     if calendar_week:
         query = query.filter_by(calendar_week=calendar_week)
+    
+    if area:
+        query = query.filter_by(area=area)
+    
+    if tour:
+        query = query.filter_by(tour=tour)
     
     patients = query.all()
     return jsonify([patient.to_dict() for patient in patients]), 200
@@ -39,7 +49,9 @@ def create_patient():
         city=data['city'],
         phone1=data.get('phone1'),
         phone2=data.get('phone2'),
-        calendar_week=data.get('calendar_week')
+        calendar_week=data.get('calendar_week'),
+        area=data.get('area'),
+        tour=data.get('tour')
     )
     
     db.session.add(new_patient)
@@ -53,7 +65,7 @@ def update_patient(id):
     data = request.get_json()
     
     fields = ['first_name', 'last_name', 'street', 'zip_code', 'city', 
-              'phone1', 'phone2', 'calendar_week']
+              'phone1', 'phone2', 'calendar_week', 'area', 'tour']
     
     for field in fields:
         if field in data:
@@ -65,12 +77,21 @@ def update_patient(id):
 @patients_bp.route('/<int:id>', methods=['DELETE'])
 def delete_patient(id):
     patient = Patient.query.get_or_404(id)
+    # Also delete related appointments
+    Appointment.query.filter_by(patient_id=id).delete()
     db.session.delete(patient)
     db.session.commit()
     return jsonify({"message": "Patient deleted successfully"}), 200
 
 @patients_bp.route('/import', methods=['POST'])
 def import_patients():
+    """
+    Import patients and appointments from an Excel file.
+    This endpoint will:
+    1. Delete all existing patients and appointments
+    2. Import new patients from the Excel file
+    3. Create new appointments based on the imported data
+    """
     if 'file' not in request.files:
         return jsonify({"error": "No file provided"}), 400
     
@@ -82,26 +103,34 @@ def import_patients():
         return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
     
     try:
+        # Clear the database first
+        print(f"Clearing existing data...")
+        appointment_count = Appointment.query.count()
+        patient_count = Patient.query.count()
+        Appointment.query.delete()
+        Patient.query.delete()
+        db.session.commit()
+        print(f"Deleted {appointment_count} appointments and {patient_count} patients")
+        
+        # Import the new data
+        print(f"Starting import from file: {file.filename}")
         result = ExcelService.import_patients(file)
         patients = result['patients']
         appointments = result['appointments']
         
-        # Add all patients to database
-        for patient in patients:
-            db.session.add(patient)
-        db.session.flush()  # This assigns IDs to patients
+        # Get the calendar week
+        calendar_week = patients[0].calendar_week if patients else None
         
-        # Add appointments with correct patient_ids
-        for appointment in appointments:
-            db.session.add(appointment)
-        
-        db.session.commit()
-        
+        # Prepare the response
         return jsonify({
-            "message": f"Successfully imported {len(patients)} patients and {len(appointments)} appointments",
-            "patients": [patient.to_dict() for patient in patients],
-            "appointments": [appointment.to_dict() for appointment in appointments]
+            "message": f"Successfully imported {len(patients)} patients and {len(appointments)} appointments for calendar week {calendar_week}",
+            "patient_count": len(patients),
+            "appointment_count": len(appointments),
+            "calendar_week": calendar_week
         }), 201
+    
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 400
+        error_message = str(e)
+        print(f"Error during import: {error_message}")
+        return jsonify({"error": error_message}), 400
