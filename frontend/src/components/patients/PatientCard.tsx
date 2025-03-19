@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { 
     Card, 
     CardContent, 
@@ -12,7 +12,9 @@ import {
     PersonOutline as PersonIcon,
     Home as HomeIcon
 } from '@mui/icons-material';
+import { useDrag } from 'react-dnd';
 import { Patient, Appointment } from '../../types/models';
+import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 
 interface PatientCardProps {
     patient: Patient;
@@ -29,6 +31,26 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     index,
     compact = false
 }) => {
+    const cardRef = useRef<HTMLDivElement>(null);
+    
+    // Configure drag and drop
+    const [{ isDragging }, drag] = useDrag<PatientDragItem, unknown, { isDragging: boolean }>({
+        type: DragItemTypes.PATIENT,
+        item: {
+            type: DragItemTypes.PATIENT,
+            patientId: patient.id || 0,
+            appointmentIds: appointments.map(a => a.id || 0).filter(id => id !== 0),
+            sourceTourNumber: patient.tour
+        },
+        collect: (monitor) => ({
+            isDragging: !!monitor.isDragging()
+        }),
+        canDrag: () => !!patient.id // Only allow dragging if patient has an ID
+    });
+    
+    // Connect the drag ref to our cardRef
+    drag(cardRef);
+
     const getBgColor = () => {
         switch (visitType) {
             case 'HB': return 'rgba(25, 118, 210, 0.08)'; // Light blue
@@ -68,12 +90,20 @@ export const PatientCard: React.FC<PatientCardProps> = ({
 
     return (
         <Card 
+            ref={cardRef}
             variant="outlined" 
             sx={{ 
                 mb: compact ? 1 : 2,
                 backgroundColor: getBgColor(),
                 position: 'relative',
-                width: '100%'
+                width: '100%',
+                opacity: isDragging ? 0.5 : 1,
+                cursor: 'grab',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                    boxShadow: 2,
+                    transform: 'translateY(-2px)'
+                }
             }}
         >
             <CardContent sx={{ py: compact ? 1 : 2, px: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1 : 2 } }}>

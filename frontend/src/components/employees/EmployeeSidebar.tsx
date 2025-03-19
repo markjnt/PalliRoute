@@ -365,7 +365,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                             '& .MuiDataGrid-main': {
                                 overflow: 'auto',
                                 width: 'auto',
-                                minWidth: '100%'
+                                minWidth: '100%',
                             },
                             '& .MuiDataGrid-virtualScroller': {
                                 overflow: 'auto !important'

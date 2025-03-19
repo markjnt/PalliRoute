@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
 import { Patient, Appointment, Employee, Weekday } from '../../types/models';
 import { TourContainer } from './TourContainer';
@@ -15,12 +15,25 @@ interface ToursViewProps {
 
 export const ToursView: React.FC<ToursViewProps> = ({
     employees,
-    patients,
-    appointments,
+    patients: initialPatients,
+    appointments: initialAppointments,
     selectedDay,
     loading,
     error
 }) => {
+    // Create local state to manage patients and appointments, allowing updates via drag and drop
+    const [patients, setPatients] = useState<Patient[]>(initialPatients);
+    const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
+    
+    // Update local state when props change
+    useEffect(() => {
+        setPatients(initialPatients);
+    }, [initialPatients]);
+    
+    useEffect(() => {
+        setAppointments(initialAppointments);
+    }, [initialAppointments]);
+    
     // Get employees with tour numbers
     const employeesWithTours = [...employees]
         .filter(e => e.tour_number)
@@ -31,6 +44,38 @@ export const ToursView: React.FC<ToursViewProps> = ({
     
     // Get employees without tour numbers
     const employeesWithoutTours = employees.filter(e => !e.tour_number);
+    
+    // Handler for when a patient is moved to a different tour
+    const handlePatientMoved = (movedPatient: Patient, newTourNumber: number) => {
+        // Update the patient in our local state
+        setPatients(prevPatients => 
+            prevPatients.map(patient => 
+                patient.id === movedPatient.id 
+                    ? { ...patient, tour: newTourNumber } 
+                    : patient
+            )
+        );
+        
+        // Get the employee of the target tour
+        const targetEmployee = employees.find(e => e.tour_number === newTourNumber);
+        if (!targetEmployee || !targetEmployee.id) return;
+        
+        // Update any appointments for the patient for the selected day
+        const patientAppointments = appointments.filter(
+            a => a.patient_id === movedPatient.id
+        );
+        
+        if (patientAppointments.length > 0) {
+            // Update appointments in our local state
+            setAppointments(prevAppointments => 
+                prevAppointments.map(appt => 
+                    appt.patient_id === movedPatient.id
+                        ? { ...appt, employee_id: targetEmployee.id }
+                        : appt
+                )
+            );
+        }
+    };
     
     if (loading) {
         return (
@@ -95,6 +140,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                             patients={patients}
                             appointments={appointments}
                             selectedDay={selectedDay}
+                            onPatientMoved={handlePatientMoved}
                         />
                     ))}
                 </Box>
