@@ -13,7 +13,7 @@ def create_app(config_class=Config):
     # Enable CORS
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000"],  # Frontend development server
+            "origins": app.config['CORS_ORIGINS'],  # Get allowed origins from config
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"]
         }

@@ -4,7 +4,10 @@ import axios from 'axios';
 import App from './App';
 
 // Configure axios defaults
-axios.defaults.baseURL = 'http://localhost:9000/api';
+// Use hostname from current domain with the backend port
+// This works for both localhost and any server where the app is deployed
+const apiBaseURL = `${window.location.protocol}//${window.location.hostname}:9000/api`;
+axios.defaults.baseURL = apiBaseURL;
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
