@@ -12,7 +12,12 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
     
     # Database configuration
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'data', 'palliroute.db')
+    # Using os.path.join ensures path separators are correct for the current OS
+    data_dir = os.path.join(basedir, 'data')
+    # Create data directory if it doesn't exist
+    os.makedirs(data_dir, exist_ok=True)
+    db_path = os.path.join(data_dir, 'palliroute.db')
+    SQLALCHEMY_DATABASE_URI = f'sqlite:///{db_path}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Google Maps configuration
