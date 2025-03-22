@@ -19,8 +19,6 @@ services:
   frontend:
     image: markjnt/palliroute-frontend
     container_name: palliroute-frontend
-    volumes:
-      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
     ports:
       - "3000:3000"
     depends_on:
