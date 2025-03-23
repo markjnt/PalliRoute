@@ -1,50 +1,46 @@
-# :warning: Nicht aktuell :warning:
-
 # PalliRoute
 
-PalliRoute ist ein Projekt zur automatischen Optimierung von Fahrtrouten im Gesundheitswesen. Es verwendet die Google Maps API zur Visualisierung und Berechnung von optimalen Routen zwischen Patientenstandorten. Das Projekt entstand im Rahmen vom Modul Digitilisierung im Master Maschinenbau an der TH Köln.
+PalliRoute ist ein Projekt zur automatischen Optimierung von Fahrtrouten im Gesundheitswesen.
 
-## 1. Google Authentifizierung
+## Installation und Start
 
-- Erstellen Sie ein [Google Cloud Project](https://console.cloud.google.com/) und kopieren Sie die Project ID.
-- Aktivieren Sie die folgende APIs in der [Google Maps Platform](https://console.cloud.google.com/google/maps-apis) für das Projekt:
-  - Directions API
-  - Geocoding API
-  - Maps JavaScript API
-  - Routes Optimization API
-- Erstellen Sie ein Google Maps API Key für die aktivierten APIs und speichern Sie diesen.
-- Erstellen Sie einen Service Account und laden Sie einen Schlüssel im JSON Format herunter.
+Die Installation und Ausführung von PalliRoute erfolgt in drei einfachen Schritten mit Docker Compose:
 
-## 2. .env Datei
+### 1. docker-compose.yml Datei herunterladen
 
-Erstellen Sie eine `.env` Datei mit folgenden Variablen:
-```env
-GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-GOOGLE_PROJECT_ID=your_google_project_id
-FLASK_SECRET_KEY=your_secret_key
-```
+Laden Sie die Beispieldatei `docker-compose.example.yml` herunter und benennen Sie sie um:
 
-- Ersetzen Sie `your_google_maps_api_key` mit Ihrem Google Maps API Key.
-- Ersetzen Sie `your_google_project_id` mit Ihrer Google Project ID.
-- Ersetzen Sie `your_secret_key` mit einem sicheren Schlüssel für die Flask Session.
-
-## 3. Docker Ausführung
-
-Das Image ist auf [Docker Hub](https://hub.docker.com/r/markjnt/palliroute) verfügbar.
-
-### 1. Docker Image von Docker Hub laden:
 ```bash
-docker pull markjnt/palliroute
+cp docker-compose.example.yml docker-compose.yml
 ```
 
-### 2. Container starten:
+### 2. Umgebungsvariablen anpassen
 
-Vergeben Sie ein Volume mit der zuvor heruntergeladenen Service Account JSON Datei:
+Öffnen Sie die Datei `docker-compose.yml` und passen Sie die folgenden Umgebungsvariablen an:
+
+```yaml
+environment:
+  - SECRET_KEY=your_secret_key_here
+  - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
+  - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000
+```
+
+### 3. Container starten
+
+Starten Sie die Container mit Docker Compose:
+
 ```bash
-docker run -d --name my-palliroute -p 8000:8000 --env-file .env -v '/path/to/your/service-account-key.json:/app/google-credentials.json' markjnt/palliroute
+docker-compose up -d
 ```
 
-Die Anwendung ist unter `http://localhost:8000` sowie im Netzwerk unter der IP-Adresse des Hosts (z. B. `192.168.1.100:8000`) erreichbar
+Die Anwendung ist anschließend unter folgenden URLs erreichbar:
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:9000`
+
+Zum Stoppen der Container:
+```bash
+docker-compose down
+```
 
 ## Lizenz
 
