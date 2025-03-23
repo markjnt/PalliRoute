@@ -8,7 +8,7 @@ Die Installation und Ausführung von PalliRoute erfolgt in drei einfachen Schrit
 
 ### 1. docker-compose.yml Datei herunterladen
 
-Laden Sie die Beispieldatei `docker-compose.example.yml` herunter und benennen Sie sie um:
+Laden Sie die Beispieldatei [`docker-compose.example.yml`](docker-compose.example.yml) herunter und benennen Sie sie um:
 
 ```bash
 cp docker-compose.example.yml docker-compose.yml
