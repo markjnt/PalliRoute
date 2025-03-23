@@ -1,4 +1,4 @@
-# <img src="frontend/public/logo192.png" alt="PalliRoute Logo" width="30" height="30" style="vertical-align: middle;"> PalliRoute
+# <img src="frontend/public/logo512.png" alt="PalliRoute Logo" width="32" height="32" style="vertical-align: middle;"> PalliRoute
 
 PalliRoute ist ein Projekt zur automatischen Optimierung von Fahrtrouten im Gesundheitswesen.
 
