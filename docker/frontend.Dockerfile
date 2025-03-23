@@ -15,6 +15,8 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
+RUN apk update && apk upgrade
+
 # Copy the build output from the previous stage
 COPY --from=build /frontend/build /usr/share/nginx/html
 
