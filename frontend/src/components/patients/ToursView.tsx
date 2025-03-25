@@ -167,8 +167,8 @@ export const ToursView: React.FC<ToursViewProps> = ({
             // Lade alle Routen (wir brauchen Routen für alle Wochentage)
             const allRoutes = await routesApi.getRoutes({});
             
-            // Verarbeite jeden Wochentag mit HB-Terminen
-            for (const entry of Array.from(appointmentsByWeekday.entries())) {
+            // Erstelle ein Array von Promises für die Routenaktualisierungen aller Tage
+            const updatePromises = Array.from(appointmentsByWeekday.entries()).map(async (entry) => {
                 const weekday = entry[0];
                 const dayAppointments = entry[1];
                 console.log(`Verarbeite Routenaktualisierung für ${weekday} mit ${dayAppointments.length} HB-Terminen`);
@@ -186,7 +186,8 @@ export const ToursView: React.FC<ToursViewProps> = ({
                 
                 // Verarbeite Routenaktualisierungen für diesen Tag
                 if (dayAppointments.length > 0) {
-                    // A) Entferne aus der Quellroute
+                    // A) Erstelle Promise für Entfernen aus der Quellroute
+                    const removePromises: Promise<any>[] = [];
                     if (sourceRoute && sourceRoute.id) {
                         const appointmentIdsToRemove = dayAppointments
                             .filter((a: Appointment) => a.id)
@@ -196,17 +197,17 @@ export const ToursView: React.FC<ToursViewProps> = ({
                         
                         if (appointmentIdsToRemove.length > 0) {
                             for (const appId of appointmentIdsToRemove) {
-                                try {
-                                    await removeFromRouteOrder(sourceRoute.id, appId);
-                                    console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`);
-                                } catch (error) {
-                                    console.error(`Fehler beim Entfernen von Termin ${appId} aus Route:`, error);
-                                }
+                                removePromises.push(
+                                    removeFromRouteOrder(sourceRoute.id, appId)
+                                        .then(() => console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`))
+                                        .catch(error => console.error(`Fehler beim Entfernen von Termin ${appId} aus Route:`, error))
+                                );
                             }
                         }
                     }
                     
-                    // B) Füge zur Zielroute hinzu
+                    // B) Erstelle Promise für Hinzufügen zur Zielroute
+                    let addPromise = Promise.resolve();
                     if (targetRoute && targetRoute.id) {
                         const appointmentIdsToAdd = dayAppointments
                             .filter((a: Appointment) => a.id)
@@ -235,16 +236,23 @@ export const ToursView: React.FC<ToursViewProps> = ({
                             // Füge die neuen Termin-IDs am Ende der Zielroute hinzu
                             const updatedTargetRouteOrder = [...currentTargetRouteOrder, ...appointmentIdsToAdd];
                             
-                            try {
-                                await updateRouteOrder(targetRoute.id, updatedTargetRouteOrder);
-                                console.log(`Zielroute (${weekday}) erfolgreich aktualisiert`);
-                            } catch (error) {
-                                console.error(`Fehler beim Aktualisieren der Zielroute (${weekday}):`, error);
-                            }
+                            addPromise = updateRouteOrder(targetRoute.id, updatedTargetRouteOrder)
+                                .then(() => console.log(`Zielroute (${weekday}) erfolgreich aktualisiert`))
+                                .catch(error => console.error(`Fehler beim Aktualisieren der Zielroute (${weekday}):`, error));
                         }
                     }
+                    
+                    // Warte auf alle Quell- und Zielrouten-Operationen für diesen Tag
+                    await Promise.all([...removePromises, addPromise]);
+                    return { weekday, success: true };
                 }
-            }
+                
+                return { weekday, success: false };
+            });
+            
+            // Warte auf alle Tagesaktualisierungen (parallel)
+            const results = await Promise.all(updatePromises);
+            console.log(`Routenaktualisierungen abgeschlossen für Tage: ${results.filter(r => r.success).map(r => r.weekday).join(', ')}`);
             
             // Schritt 5: Lade die Routen für den aktuellen Tag neu zur Aktualisierung der Anzeige
             try {
