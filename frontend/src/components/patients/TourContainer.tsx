@@ -25,6 +25,7 @@ import { Patient, Appointment, Weekday, Employee, Route } from '../../types/mode
 import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useDrag } from '../../contexts/DragContext';
+import { appointmentsApi } from '../../services/api/appointments';
 
 interface TourContainerProps {
     employee: Employee;
@@ -88,7 +89,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 await updatePatientTour(patientId, employee.tour_number);
                 
                 // Schritt 2: Finde ALLE Termine dieses Patienten (über ALLE Tage hinweg)
-                const allPatientAppointments = appointments.filter(a => a.patient_id === patientId);
+                const allPatientAppointments = await appointmentsApi.getByPatientId(patientId);
                 
                 console.log(`2. Aktualisiere alle ${allPatientAppointments.length} Termine des Patienten zu Mitarbeiter ${employee.id}`);
                 
