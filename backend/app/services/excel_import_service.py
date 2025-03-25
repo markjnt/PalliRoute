@@ -8,8 +8,9 @@ from ..models.patient import Patient
 from ..models.appointment import Appointment
 from ..models.route import Route
 from .. import db
+import json
 
-class ExcelService:
+class ExcelImportService:
     @staticmethod
     def import_employees(file) -> Dict[str, List[Any]]:
         """
@@ -116,7 +117,10 @@ class ExcelService:
         try:
             # Step 1: Load the Excel file and validate columns
             print("Step 1: Loading Excel file and validating columns...")
-            df = pd.read_excel(file)
+            # Standard NaN-Werte ohne "NA" definieren, damit "NA" als String und nicht als NaN interpretiert wird
+            custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
+                               '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
+            df = pd.read_excel(file, keep_default_na=False, na_values=custom_na_values)
             required_columns = [
                 'Gebiet', 'Touren', 'Nachname', 'Vorname', 'Ort', 'PLZ', 'Strasse', 'KW',
                 'Montag', 'Uhrzeit/Info Montag', 'Dienstag', 'Uhrzeit/Info Dienstag', 
@@ -235,36 +239,34 @@ class ExcelService:
                     for weekday in weekdays:
                         weekday_value = excel_row[weekday]
                         
-                        # Überspringe den Tag, wenn kein Wert vorhanden
-                        if pd.isna(weekday_value) or str(weekday_value).strip() == "":
-                            continue
+                        # Überspringe den Tag nicht mehr, sondern erstelle einen Termin mit leerem Typ
+                        visit_type = None
+                        duration = 0
                         
-                        # Konvertiere den Wert in einen String und verarbeite ihn
-                        visit_info = str(weekday_value).strip().upper()
-                        if not visit_info:
-                            print(f"    Skipping {weekday} - no visit type specified")
-                            continue
+                        if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
+                            # Konvertiere den Wert in einen String und verarbeite ihn
+                            visit_info = str(weekday_value).strip().upper()
+                            
+                            # Besuchstyp bestimmen
+                            if "HB" in visit_info:
+                                visit_type = "HB"
+                                duration = 25  # Minuten
+                            elif "NA" in visit_info:
+                                visit_type = "NA"
+                                duration = 120  # Minuten
+                            elif "TK" in visit_info:
+                                visit_type = "TK"
+                                duration = 0  # Minuten (nur Telefonat)
+                            else:
+                                # Standard: HB wenn nicht anders angegeben, aber ein Wert existiert
+                                visit_type = "HB"
+                                duration = 25  # Minuten
                         
                         # Hole die Zeit/Info für diesen Tag
                         time_info_column = f"Uhrzeit/Info {weekday}"
                         time_info = None
                         if time_info_column in excel_row and not pd.isna(excel_row[time_info_column]):
                             time_info = str(excel_row[time_info_column])
-                        
-                        # Besuchstyp bestimmen
-                        if "HB" in visit_info:
-                            visit_type = "HB"
-                            duration = 25  # Minuten
-                        elif "NA" in visit_info:
-                            visit_type = "NA"
-                            duration = 120  # Minuten
-                        elif "TK" in visit_info:
-                            visit_type = "TK"
-                            duration = 0  # Minuten (nur Telefonat)
-                        else:
-                            # Standard: HB wenn nicht anders angegeben
-                            visit_type = "HB"
-                            duration = 25  # Minuten
                         
                         # Zeitinfo parsen, wenn vorhanden
                         appointment_time = None
@@ -287,19 +289,24 @@ class ExcelService:
                         }
                         english_weekday = weekday_map.get(weekday, weekday.lower())
                         
+                        # Wenn Visit-Type None ist, setze einen leeren String
+                        # Datenbank-Modell erwartet einen String, keine None-Werte
+                        visit_type_value = visit_type if visit_type is not None else ""
+                        
                         # Termin erstellen mit englischem Wochentag
                         appointment = Appointment(
                             patient_id=patient.id,
                             employee_id=employee.id,
                             weekday=english_weekday,
                             time=appointment_time,
-                            visit_type=visit_type,
+                            visit_type=visit_type_value,
                             duration=duration,
                             info=time_info
                         )
                         patient_appointments.append(appointment)
                         appointments.append(appointment)
-                        print(f"    Added {visit_type} appointment on {weekday} ({english_weekday}) for patient at {appointment_time or 'unspecified time'}")
+                        visit_type_display = visit_type if visit_type else "LEER"
+                        print(f"    Added {visit_type_display} appointment on {weekday} ({english_weekday}) for patient at {appointment_time or 'unspecified time'}")
                     
                     print(f"  Created {len(patient_appointments)} appointments for patient {patient.first_name} {patient.last_name}")
             
@@ -308,9 +315,88 @@ class ExcelService:
             db.session.add_all(appointments)
             db.session.commit()
             
+            # Step 6: Create routes for each employee by weekday (only HB appointments)
+            print("\nStep 6: Creating routes for each employee by weekday...")
+            routes = []
+            
+            # Gruppiere Termine nach Mitarbeiter und Wochentag
+            employee_weekday_appointments = {}
+            for app in appointments:
+                if app.visit_type == 'HB':  # Nur HB-Termine berücksichtigen
+                    key = (app.employee_id, app.weekday)
+                    if key not in employee_weekday_appointments:
+                        employee_weekday_appointments[key] = []
+                    employee_weekday_appointments[key].append(app)
+            
+            # Erstelle für jede Mitarbeiter-Wochentag-Kombination eine Route
+            for (employee_id, weekday), apps in employee_weekday_appointments.items():
+                if not apps:
+                    continue
+                
+                # Neue Route erstellen mit allen HB-Terminen für diesen Mitarbeiter an diesem Wochentag
+                appointment_ids = [app.id for app in apps]
+                
+                new_route = Route(
+                    employee_id=employee_id,
+                    weekday=weekday,
+                    route_order=json.dumps(appointment_ids),
+                    total_duration=0,  # Wird später aktualisiert
+                    total_distance=None  # Wird später aktualisiert
+                )
+                db.session.add(new_route)
+                routes.append(new_route)
+            
+            # Speichere alle Routen in der Datenbank
+            if routes:
+                print(f"  Saving {len(routes)} routes to database...")
+                db.session.commit()
+                print(f"  Routes saved successfully")
+            else:
+                print("  No routes to save")
+            
+            # Step 7: Erstelle leere Routen für alle Mitarbeiter mit Tour-Nummern für jeden Wochentag,
+            # falls noch keine Route existiert
+            print("\nStep 7: Creating empty routes for all employees with tour numbers...")
+            weekday_map = {
+                'Montag': 'monday',
+                'Dienstag': 'tuesday',
+                'Mittwoch': 'wednesday',
+                'Donnerstag': 'thursday',
+                'Freitag': 'friday'
+            }
+            english_weekdays = list(weekday_map.values())
+            
+            empty_routes = []
+            for employee in employees_with_tours:
+                for weekday in english_weekdays:
+                    # Prüfen, ob bereits eine Route für diesen Mitarbeiter und Tag existiert
+                    existing_route = Route.query.filter_by(
+                        employee_id=employee.id,
+                        weekday=weekday
+                    ).first()
+                    
+                    if not existing_route:
+                        print(f"  Creating empty route for employee {employee.first_name} {employee.last_name} on {weekday}")
+                        new_route = Route(
+                            employee_id=employee.id,
+                            weekday=weekday,
+                            route_order=json.dumps([]),  # Leere Route
+                            total_duration=0,
+                            total_distance=None
+                        )
+                        db.session.add(new_route)
+                        empty_routes.append(new_route)
+            
+            if empty_routes:
+                print(f"  Saving {len(empty_routes)} empty routes to database...")
+                db.session.commit()
+                print(f"  Empty routes saved successfully")
+            else:
+                print("  No empty routes to save")
+            
             # Return the results with summary
             calendar_week = patients[0].calendar_week if patients else None
-            print(f"\nImport complete: {len(patients)} patients, {len(appointments)} appointments for calendar week {calendar_week}")
+            print(f"\nImport complete: {len(patients)} patients, {len(appointments)} appointments, {len(routes) + len(empty_routes)} routes (including {len(empty_routes)} empty routes) for calendar week {calendar_week}")
             
             # Terminate with some statistics
             appointment_by_day = {}
@@ -325,7 +411,8 @@ class ExcelService:
             
             return {
                 'patients': patients,
-                'appointments': appointments
+                'appointments': appointments,
+                'routes': routes
             }
 
         except Exception as e:

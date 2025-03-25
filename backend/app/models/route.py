@@ -10,6 +10,7 @@ class Route(db.Model):
     weekday = db.Column(db.String(20), nullable=False)
     route_order = db.Column(db.Text, nullable=False)  # JSON Array of appointment ids
     total_duration = db.Column(db.Integer, nullable=False)  # in minutes
+    total_distance = db.Column(db.Float, nullable=True)  # in kilometers
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -28,6 +29,7 @@ class Route(db.Model):
             'weekday': self.weekday,
             'route_order': self.get_route_order(),
             'total_duration': self.total_duration,
+            'total_distance': self.total_distance,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

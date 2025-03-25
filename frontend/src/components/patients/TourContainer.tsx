@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
     Box, 
     Typography, 
@@ -6,7 +6,6 @@ import {
     Divider,
     List,
     ListItem,
-    ListItemText,
     IconButton,
     Collapse,
     Chip,
@@ -15,7 +14,6 @@ import {
 } from '@mui/material';
 import { 
     Home as HomeIcon,
-    Nightlight as NightIcon,
     Phone as PhoneIcon,
     Person as PersonIcon,
     ExpandMore as ExpandMoreIcon,
@@ -23,7 +21,7 @@ import {
     AddCircle as AddCircleIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
-import { Patient, Appointment, Weekday, Employee } from '../../types/models';
+import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
 import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useDrag } from '../../contexts/DragContext';
@@ -33,6 +31,7 @@ interface TourContainerProps {
     patients: Patient[];
     appointments: Appointment[];
     selectedDay: Weekday;
+    routes: Route[];
     onPatientMoved?: (patient: Patient, newTourNumber: number) => void;
 }
 
@@ -41,6 +40,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     patients,
     appointments,
     selectedDay,
+    routes,
     onPatientMoved
 }) => {
     // State zum Tracking des ausgeklappten/eingeklappten Zustands
@@ -58,39 +58,63 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         setExpanded(!expanded);
     };
     
-    // Configure drop functionality
+    /**
+     * Konfiguration der Drop-Funktionalität
+     * 
+     * Ermöglicht das Ziehen und Ablegen eines Patienten in einer neuen Tour
+     * Initiiert den gesamten Patientenverschiebungsprozess
+     */
     const [{ isOver, canDrop }, drop] = useDrop<PatientDragItem, unknown, { isOver: boolean; canDrop: boolean }>({
         accept: DragItemTypes.PATIENT,
         drop: async (item) => {
-            // Don't do anything if dropped in the same tour
+            // Nichts tun, wenn der Patient in die gleiche Tour gezogen wird
             if (item.sourceTourNumber === employee.tour_number) {
                 return;
             }
             
             try {
-                // Update the patient's tour
-                await updatePatientTour(item.patientId, employee.tour_number);
+                const patientId = item.patientId;
+                const patient = patients.find(p => p.id === patientId);
                 
-                // Update all appointments for the selected day to the new employee
-                for (const appointmentId of item.appointmentIds) {
-                    await updateAppointmentEmployee(appointmentId, employee.id);
+                if (!patient) {
+                    console.error(`Patient mit ID ${patientId} nicht gefunden`);
+                    return;
                 }
                 
-                // Show success notification
+                console.log(`Verschiebe Patient ${patientId} (${patient.first_name} ${patient.last_name}) von Tour ${item.sourceTourNumber} zu Tour ${employee.tour_number}`);
+                
+                // Schritt 1: Aktualisiere die Tour-Nummer des Patienten
+                console.log(`1. Aktualisiere Tour-Nummer des Patienten zu ${employee.tour_number}`);
+                await updatePatientTour(patientId, employee.tour_number);
+                
+                // Schritt 2: Finde ALLE Termine dieses Patienten (über ALLE Tage hinweg)
+                const allPatientAppointments = appointments.filter(a => a.patient_id === patientId);
+                
+                console.log(`2. Aktualisiere alle ${allPatientAppointments.length} Termine des Patienten zu Mitarbeiter ${employee.id}`);
+                
+                // Aktualisiere alle Termine mit dem neuen Mitarbeiter
+                for (const appt of allPatientAppointments) {
+                    if (appt.id) {
+                        console.log(`   Aktualisiere Termin ${appt.id} (${appt.weekday}) zu Mitarbeiter ${employee.id}`);
+                        await updateAppointmentEmployee(appt.id, employee.id);
+                    }
+                }
+                
+                // Zeige Erfolgsbenachrichtigung an
                 setNotification({
                     open: true,
                     message: `Patient erfolgreich zu Tour ${employee.tour_number} verschoben`,
                     severity: 'success'
                 });
                 
-                // Notify parent component if needed
-                const patient = patients.find(p => p.id === item.patientId);
-                if (patient && onPatientMoved) {
+                // Schritt 3: Aktualisiere die Routen-Reihenfolgen (wird von der übergeordneten Komponente verarbeitet)
+                if (onPatientMoved) {
+                    console.log(`3. Benachrichtige ToursView zur Aktualisierung der Route-Reihenfolge`);
                     onPatientMoved(patient, employee.tour_number || 0);
                 }
             } catch (err) {
-                console.error('Error moving patient:', err);
-                // Show error notification
+                console.error('Fehler beim Verschieben des Patienten:', err);
+                // Zeige Fehlerbenachrichtigung an
                 setNotification({
                     open: true,
                     message: error || 'Fehler beim Verschieben des Patienten',
@@ -98,70 +122,119 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 });
             }
         },
-        canDrop: (item) => item.sourceTourNumber !== employee.tour_number, // Only allow dropping in a different tour
+        canDrop: (item) => item.sourceTourNumber !== employee.tour_number, // Nur das Ablegen in einer anderen Tour erlauben
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
             canDrop: !!monitor.canDrop()
         })
     });
     
-    // Apply the drop ref to our container
+    // Drop-Ref auf unseren Container anwenden
     drop(dropRef);
 
-    // Filter to only include patients for this employee's tour
+    // Filtere Termine für den ausgewählten Tag und diesen Mitarbeiter
+    const employeeAppointments = appointments.filter(a => 
+        a.employee_id === employee.id && a.weekday === selectedDay
+    );
+    
+    // Function to get appointments for a specific patient and the selected day
+    const getPatientAppointments = useCallback((patientId: number) => {
+        return employeeAppointments.filter(a => a.patient_id === patientId);
+    }, [employeeAppointments]);
+    
+    // 3. Patients for this tour (based on tour assignment)
     const tourPatients = patients.filter(p => p.tour === employee.tour_number);
     
-    // Filter appointments for the selected day and this tour's patients
-    const tourPatientIds = tourPatients.map(p => p.id).filter((id): id is number => id !== undefined);
-    
-    // Die Termine sind bereits nach Wochentag gefiltert (appointments enthält nur Termine für den ausgewählten Tag)
-    // Wir müssen nur noch nach den Patienten dieser Tour filtern
-    const tourAppointments = appointments.filter(a => tourPatientIds.includes(a.patient_id));
-    
-    // Get all patient IDs that have appointments on this day
-    const patientIdsWithAppointments = tourAppointments.map(a => a.patient_id);
-    
-    // Group patients by their appointment types for this tour
-    const getFilteredPatients = (visitType: 'HB' | 'NA' | 'TK') => {
-        // Find patient IDs with the specific visit type
-        const patientIds = tourAppointments
-            .filter(a => a.visit_type === visitType)
-            .map(a => a.patient_id);
+    // Group patients by their appointment types (HB, TK, NA, or empty string)
+    const getFilteredPatients = (visitType: 'HB' | 'NA' | 'TK' | '') => {
+        // Find all appointments with this specific visit type
+        const typeAppointments = employeeAppointments.filter(a => a.visit_type === visitType);
         
-        // Return patients in this tour with the specified visit type
-        return tourPatients.filter(p => p.id !== undefined && patientIds.includes(p.id));
+        // Get unique patient IDs
+        const patientIds = Array.from(new Set(typeAppointments.map(a => a.patient_id)));
+        
+        // Return the corresponding patients
+        return patientIds
+            .map(id => patients.find(p => p.id === id))
+            .filter((p): p is Patient => p !== undefined);
     };
     
-    // Find patients in this tour with no appointments on the selected day
-    const getPatientsWithNoAppointments = () => {
-        // Return patients from this tour that don't have appointments on the selected day
-        return tourPatients.filter(p => p.id !== undefined && !patientIdsWithAppointments.includes(p.id));
-    };
-    
-    // Get appointments for a specific patient and day
-    const getPatientAppointments = (patientId: number) => {
-        return tourAppointments.filter(a => a.patient_id === patientId);
-    };
-    
+    // Get patients by visit type
     const hbPatients = getFilteredPatients('HB');
     const tkPatients = getFilteredPatients('TK');
     const naPatients = getFilteredPatients('NA');
-    const noAppointmentPatients = getPatientsWithNoAppointments();
+    const emptyTypePatients = getFilteredPatients('');
     
-    // Sort HB patients by time if available
-    const sortedHbPatients = [...hbPatients].sort((a, b) => {
-        const aAppts = getPatientAppointments(a.id || 0);
-        const bAppts = getPatientAppointments(b.id || 0);
+    // Sort HB patients by route order
+    const sortedHbPatients = React.useMemo(() => {
+        // Find route for this employee on the selected day
+        const route = routes.find(r => 
+            r.employee_id === employee.id && 
+            r.weekday === selectedDay.toLowerCase()
+        );
+
+        // Create appointment ID to patient mapping
+        const appointmentToPatient = new Map<number, Patient>();
+        hbPatients.forEach(patient => {
+            // Find all HB appointments for this patient
+            const patientAppts = getPatientAppointments(patient.id || 0)
+                .filter(app => app.visit_type === 'HB');
+            
+            // Map appointment IDs to the patient
+            patientAppts.forEach(app => {
+                if (app.id !== undefined) {
+                    appointmentToPatient.set(app.id, patient);
+                }
+            });
+        });
         
-        const aTime = aAppts[0]?.time || '';
-        const bTime = bAppts[0]?.time || '';
+        // Create ordered patient list based on route order
+        const orderedPatients: Patient[] = [];
         
-        if (!aTime && !bTime) return 0;
-        if (!aTime) return 1;
-        if (!bTime) return -1;
+        if (route) {
+            // Handle route_order (could be array or string)
+            let routeOrder: number[] = [];
+            
+            if (route.route_order) {
+                // If route_order is already an array, use it
+                if (Array.isArray(route.route_order)) {
+                    routeOrder = route.route_order;
+                } else {
+                    // Otherwise, try to parse it as JSON string
+                    try {
+                        const parsedOrder = JSON.parse(route.route_order as unknown as string);
+                        if (Array.isArray(parsedOrder)) {
+                            routeOrder = parsedOrder;
+                        } else {
+                            console.warn('Parsed route_order is not an array:', parsedOrder);
+                        }
+                    } catch (error) {
+                        console.error('Failed to parse route_order:', error);
+                    }
+                }
+            }
+                        
+            // Add patients in the order specified by route_order
+            for (const appointmentId of routeOrder) {
+                const patient = appointmentToPatient.get(appointmentId);
+                if (patient && !orderedPatients.includes(patient)) {
+                    orderedPatients.push(patient);
+                }
+            }
+            
+            // Add any remaining HB patients not in the route_order
+            hbPatients.forEach(patient => {
+                if (!orderedPatients.includes(patient)) {
+                    orderedPatients.push(patient);
+                }
+            });
+        } else {
+            // No route exists, just use all HB patients
+            orderedPatients.push(...hbPatients);
+        }
         
-        return aTime.localeCompare(bTime);
-    });
+        return orderedPatients;
+    }, [employee.id, selectedDay, hbPatients, routes, getPatientAppointments]);
     
     // Get the title for the tour container
     const getTourTitle = () => {
@@ -197,10 +270,10 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     );
     
     // Check if there are any patients with appointments for the selected day
-    const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0;
+    const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0 || emptyTypePatients.length > 0;
     
-    // Zusammenfassung für den eingeklappten Zustand
-    const patientSummary = `${tourPatients.length} Patienten${hasAppointmentsForDay ? `: ${hbPatients.length} Hausbesuche, ${tkPatients.length} Telefonkontakte, ${naPatients.length} Neuaufnahmen` : ', keine Termine heute'}`;
+    // Summary for collapsed state
+    const patientSummary = `${tourPatients.length} Patienten${hasAppointmentsForDay ? `: ${hbPatients.length} Hausbesuche, ${tkPatients.length} Telefonkontakte, ${naPatients.length} Neuaufnahmen${emptyTypePatients.length > 0 ? `, ${emptyTypePatients.length} ohne Besuch` : ''}` : ', keine Termine heute'}`;
     
     // Define the border style based on drag and drop state
     const getBorderStyle = () => {
@@ -290,6 +363,9 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                 {naPatients.length > 0 && (
                                     <Chip size="small" icon={<AddCircleIcon fontSize="small" />} label={naPatients.length} color="secondary" variant="outlined" />
                                 )}
+                                {emptyTypePatients.length > 0 && (
+                                    <Chip size="small" icon={<PersonIcon fontSize="small" />} label={emptyTypePatients.length} color="default" variant="outlined" />
+                                )}
                             </Box>
                         )}
                     </Box>
@@ -321,6 +397,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                 appointments={getPatientAppointments(patient.id || 0)}
                                                 visitType="HB"
                                                 index={index + 1}
+                                                selectedDay={selectedDay}
                                             />
                                         </ListItem>
                                     ))}
@@ -368,6 +445,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                         appointments={getPatientAppointments(patient.id || 0)}
                                                         visitType="TK"
                                                         compact
+                                                        selectedDay={selectedDay}
                                                     />
                                                 </ListItem>
                                             ))}
@@ -415,6 +493,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                         appointments={getPatientAppointments(patient.id || 0)}
                                                         visitType="NA"
                                                         compact
+                                                        selectedDay={selectedDay}
                                                     />
                                                 </ListItem>
                                             ))}
@@ -426,54 +505,49 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                     )}
                                 </Paper>
                             </Box>
+                            
+                            {/* Patients with empty visit type */}
+                            {emptyTypePatients.length > 0 && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Paper 
+                                        variant="outlined" 
+                                        sx={{ 
+                                            p: 2,
+                                            bgcolor: 'rgba(158, 158, 158, 0.04)'
+                                        }}
+                                    >
+                                        <SectionTitle 
+                                            icon={<PersonIcon color="action" />} 
+                                            title="Patienten ohne geplanten Besuch" 
+                                            count={emptyTypePatients.length}
+                                            color="text.secondary"
+                                        />
+                                        
+                                        <List dense disablePadding>
+                                            {emptyTypePatients.map((patient) => (
+                                                <ListItem 
+                                                    key={`empty-${patient.id}`} 
+                                                    disablePadding 
+                                                    sx={{ width: '100%' }}
+                                                >
+                                                    <PatientCard
+                                                        patient={patient}
+                                                        appointments={getPatientAppointments(patient.id || 0)}
+                                                        visitType="none"
+                                                        compact
+                                                        selectedDay={selectedDay}
+                                                    />
+                                                </ListItem>
+                                            ))}
+                                        </List>
+                                    </Paper>
+                                </Box>
+                            )}
                         </>
                     ) : (
                         <Alert severity="info" sx={{ mt: 2 }}>
                             Keine Termine für diesen Tag geplant.
                         </Alert>
-                    )}
-                    
-                    {/* Patients with no appointments for the selected day */}
-                    {noAppointmentPatients.length > 0 && (
-                        <Box sx={{ mt: 3 }}>
-                            <Divider sx={{ my: 2 }} />
-                            <Typography variant="subtitle1" component="h4" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                                <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                                Patienten ohne Termin an diesem Tag ({noAppointmentPatients.length})
-                            </Typography>
-                            
-                            <List dense disablePadding sx={{ 
-                                display: 'flex', 
-                                flexWrap: 'wrap', 
-                                gap: 1,
-                                '& > *': {
-                                    flexBasis: {
-                                        xs: '100%',
-                                        sm: 'calc(50% - 8px)',
-                                        md: 'calc(33.33% - 8px)',
-                                        lg: 'calc(25% - 8px)'
-                                    },
-                                    minWidth: {
-                                        xs: '100%',
-                                        sm: '250px'
-                                    }
-                                }
-                            }}>
-                                {noAppointmentPatients.map((patient) => (
-                                    <ListItem 
-                                        key={`no-appt-${patient.id}`} 
-                                        disablePadding 
-                                    >
-                                        <PatientCard
-                                            patient={patient}
-                                            appointments={[]}
-                                            visitType="none"
-                                            compact
-                                        />
-                                    </ListItem>
-                                ))}
-                            </List>
-                        </Box>
                     )}
                 </Collapse>
             </Paper>

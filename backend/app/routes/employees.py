@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, send_file
 from app import db
 from app.models.employee import Employee
-from app.services.excel_service import ExcelService
+from app.services.excel_import_service import ExcelImportService
 import pandas as pd
 from io import BytesIO
 import openpyxl
@@ -121,7 +121,7 @@ def import_employees():
         return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
     
     try:
-        result = ExcelService.import_employees(file)
+        result = ExcelImportService.import_employees(file)
         imported_employees = result['imported']
         skipped_employees = result['skipped']
         

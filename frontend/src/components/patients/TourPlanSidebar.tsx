@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Typography,
@@ -8,16 +8,14 @@ import {
     Select,
     MenuItem,
     SelectChangeEvent,
-    CircularProgress,
-    Alert,
     Chip,
-    InputLabel
+    Snackbar,
+    Alert
 } from '@mui/material';
 import {
     Today as TodayIcon,
     CloudUpload as UploadIcon,
-    Event as CalendarIcon,
-    DirectionsCar as CarIcon
+    Event as CalendarIcon
 } from '@mui/icons-material';
 import { Patient, Appointment, Weekday, Employee } from '../../types/models';
 import { ToursView } from './ToursView';
@@ -41,26 +39,56 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [loadingEmployees, setLoadingEmployees] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    const fetchPatients = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+            // Lade alle Patienten
+            const patients = await patientsApi.getAll();
+            setPatients(patients);
+            
+            // Bestimme die Kalenderwoche aus den Patientendaten
+            let extractedCalendarWeek: number | null = null;
+            
+            // Finde die erste nicht-null Kalenderwoche
+            for (const patient of patients) {
+                if (patient.calendar_week) {
+                    extractedCalendarWeek = patient.calendar_week;
+                    break;
+                }
+            }
+            
+            setCalendarWeek(extractedCalendarWeek);
+            
+            // Initial loading of appointments for the selected day
+            fetchAppointmentsByWeekday(selectedDay);
+        } catch (error) {
+            console.error('Error fetching patients:', error);
+            setError('Fehler beim Laden der Patienten.');
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedDay]);
 
     useEffect(() => {
         fetchPatients();
         fetchEmployees();
-    }, []);
+    }, [fetchPatients]);
 
     // Fetch appointments for the selected day when the day changes
     useEffect(() => {
         fetchAppointmentsByWeekday(selectedDay);
-    }, [selectedDay]);
+    }, [selectedDay, fetchPatients]);
 
     const fetchAppointmentsByWeekday = async (day: Weekday) => {
         setLoadingDayAppointments(true);
-        try {
-            console.log(`Fetching appointments for weekday: ${day}`);
-            
+        try {            
             const response = await appointmentsApi.getByWeekday(day);
             
             if (response && response.length > 0) {
-                console.log(`Found ${response.length} appointments for ${day}`);
                 setDayAppointments(response);
             } else {
                 console.log(`No appointments found from API for ${day}, falling back to client filtering`);
@@ -70,7 +98,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 if (allAppointments) {
                     // Direkte Filterung ohne Normalisierung
                     const filteredAppointments = allAppointments.filter(a => a.weekday === day);
-                    console.log(`Found ${filteredAppointments.length} appointments by client filtering`);
                     setDayAppointments(filteredAppointments);
                 }
             }
@@ -106,38 +133,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         }
     };
 
-    const fetchPatients = async () => {
-        setLoading(true);
-        setError(null);
-        
-        try {
-            // Lade alle Patienten
-            const patients = await patientsApi.getAll();
-            setPatients(patients);
-            
-            // Bestimme die Kalenderwoche aus den Patientendaten
-            let extractedCalendarWeek: number | null = null;
-            
-            // Finde die erste nicht-null Kalenderwoche
-            for (const patient of patients) {
-                if (patient.calendar_week) {
-                    extractedCalendarWeek = patient.calendar_week;
-                    break;
-                }
-            }
-            
-            setCalendarWeek(extractedCalendarWeek);
-            
-            // Initial loading of appointments for the selected day
-            fetchAppointmentsByWeekday(selectedDay);
-        } catch (error) {
-            console.error('Error fetching patients:', error);
-            setError('Fehler beim Laden der Patienten.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleDayChange = (event: SelectChangeEvent) => {
         setSelectedDay(event.target.value as Weekday);
     };
@@ -159,10 +154,20 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         // Close the dialog
         handleImportDialogClose();
         
-        // Refresh the patient list
+        // Refresh all data
         fetchPatients();
-        // Refresh employees list as well
         fetchEmployees();
+        
+        // Refresh appointments for the selected day which will also update routes
+        fetchAppointmentsByWeekday(selectedDay);
+        
+        // Show success notification
+        setSuccessMessage(`Import erfolgreich abgeschlossen.`);
+    };
+
+    // Handler zum Schließen der Erfolgsbenachrichtigung
+    const handleCloseSuccessMessage = () => {
+        setSuccessMessage(null);
     };
 
     const getWeekdayName = (day: Weekday): string => {
@@ -262,6 +267,23 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 onClose={handleImportDialogClose}
                 onSuccess={handleImportSuccess}
             />
+            
+            {/* Erfolgsbenachrichtigung */}
+            <Snackbar
+                open={!!successMessage}
+                autoHideDuration={6000}
+                onClose={handleCloseSuccessMessage}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert 
+                    onClose={handleCloseSuccessMessage} 
+                    severity="success" 
+                    variant="filled"
+                    sx={{ width: '100%' }}
+                >
+                    {successMessage}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }; 

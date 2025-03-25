@@ -1,20 +1,22 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
     Card, 
     CardContent, 
     Typography, 
     Box, 
     Chip,
-    Badge
+    Badge,
+    Grid,
+    Tooltip
 } from '@mui/material';
 import { 
     Phone as PhoneIcon,
-    PersonOutline as PersonIcon,
     Home as HomeIcon
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
-import { Patient, Appointment } from '../../types/models';
+import { Patient, Appointment, Weekday } from '../../types/models';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
+import { appointmentsApi } from '../../services/api/appointments';
 
 interface PatientCardProps {
     patient: Patient;
@@ -22,6 +24,7 @@ interface PatientCardProps {
     visitType: 'HB' | 'NA' | 'TK' | 'none';
     index?: number;  // For numbered list of HB visits
     compact?: boolean; // For more compact display in TK, NA, and no-appointment sections
+    selectedDay: Weekday; // Der ausgewählte Wochentag
 }
 
 export const PatientCard: React.FC<PatientCardProps> = ({ 
@@ -29,9 +32,27 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     appointments,
     visitType,
     index,
-    compact = false
+    compact = false,
+    selectedDay
 }) => {
     const cardRef = useRef<HTMLDivElement>(null);
+    const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+    
+    // Lade alle Termine des Patienten
+    useEffect(() => {
+        const fetchAppointments = async () => {
+            try {
+                if (patient.id) {
+                    const allAppointments = await appointmentsApi.getByPatientId(patient.id);
+                    setPatientAppointments(allAppointments);
+                }
+            } catch (error) {
+                console.error('Fehler beim Laden der Termine:', error);
+            }
+        };
+        
+        fetchAppointments();
+    }, [patient.id]);
     
     // Configure drag and drop
     const [{ isDragging }, drag] = useDrag<PatientDragItem, unknown, { isDragging: boolean }>({
@@ -56,44 +77,105 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             case 'HB': return 'rgba(25, 118, 210, 0.08)'; // Light blue
             case 'NA': return 'rgba(156, 39, 176, 0.08)'; // Light purple
             case 'TK': return 'rgba(76, 175, 80, 0.08)';  // Light green
-            default: return 'rgba(244, 244, 244, 0.8)';    // Light gray
+            default: return 'rgba(158, 158, 158, 0.08)';  // Light gray with same opacity as others
         }
     };
 
-    const getAppointmentInfo = () => {
-        if (appointments.length === 0) return null;
-        
-        const appt = appointments[0];
-        return (
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: compact ? 0 : 1, gap: 1, flexWrap: 'wrap' }}>
-                <Chip 
-                    label={appt.visit_type} 
-                    size="small" 
-                    color={
-                        appt.visit_type === 'HB' ? 'primary' :
-                        appt.visit_type === 'NA' ? 'secondary' : 'success'
-                    }
-                />
-                {appt.time && (
-                    <Typography variant="body2" color="text.secondary">
-                        {appt.time}
-                    </Typography>
-                )}
-                {appt.info && (
-                    <Typography variant="body2" color="text.secondary">
-                        {appt.info}
-                    </Typography>
-                )}
-            </Box>
-        );
+    // Erstelle ein Mapping für alle Termine des Patienten nach Wochentag
+    const allWeekdays: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const weekdayLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr'];
+    
+    // Funktion zum Abrufen des Besuchstyps für einen bestimmten Wochentag
+    const getVisitTypeForWeekday = (weekday: Weekday): string | null => {
+        const appt = patientAppointments.find(a => a.weekday === weekday);
+        return appt?.visit_type || null;
     };
+    
+    // Funktion zum Übersetzen des englischen Wochentags in Deutsch
+    const getGermanWeekday = (weekday: Weekday): string => {
+        switch (weekday) {
+            case 'monday': return 'Montag';
+            case 'tuesday': return 'Dienstag';
+            case 'wednesday': return 'Mittwoch';
+            case 'thursday': return 'Donnerstag';
+            case 'friday': return 'Freitag';
+            default: return weekday; // Fallback
+        }
+    };
+    
+    // Funktion zum Erzeugen einer Stilfarbe basierend auf dem Besuchstyp
+    const getVisitTypeColor = (visitType: string | null): string => {
+        switch (visitType) {
+            case 'HB': return 'primary.main';  // Blau
+            case 'TK': return 'success.main';  // Grün
+            case 'NA': return 'secondary.main'; // Lila
+            default: return 'text.disabled';    // Grau für leere Felder
+        }
+    };
+    
+    // Funktion zum Erzeugen einer Stilfarbe für den Hintergrund basierend auf dem Besuchstyp
+    const getVisitTypeBgColor = (visitType: string | null): string => {
+        switch (visitType) {
+            case 'HB': return 'rgba(25, 118, 210, 0.1)';  // Helles Blau
+            case 'TK': return 'rgba(76, 175, 80, 0.1)';   // Helles Grün
+            case 'NA': return 'rgba(156, 39, 176, 0.1)';  // Helles Lila
+            default: return 'transparent';                // Transparent für leere Felder
+        }
+    };
+    
+    // Komponente für die Wochentagsübersicht
+    const WeekdayOverview = () => (
+        <Box sx={{ mt: 1, mb: 1 }}>
+            <Grid container spacing={0.5} sx={{ width: '100%' }}>
+                {allWeekdays.map((weekday, idx) => {
+                    const visit = getVisitTypeForWeekday(weekday);
+                    const isSelectedDay = weekday === selectedDay;
+                    return (
+                        <Grid item key={weekday} sx={{ width: 'calc(100% / 7)' }}>
+                            <Tooltip title={`${getGermanWeekday(weekday)}: ${visit || 'Kein Besuch'}`}>
+                                <Box 
+                                    sx={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
+                                        alignItems: 'center',
+                                        p: 0.5,
+                                        borderRadius: 1,
+                                        bgcolor: isSelectedDay 
+                                            ? visit ? getVisitTypeBgColor(visit) : 'rgba(0, 0, 0, 0.04)'
+                                            : 'transparent',
+                                        border: '1px solid',
+                                        borderColor: visit ? getVisitTypeColor(visit) : 'divider',
+                                    }}
+                                >
+                                    <Typography 
+                                        variant="caption" 
+                                        fontWeight="bold" 
+                                        color="text.secondary"
+                                    >
+                                        {weekdayLabels[idx]}
+                                    </Typography>
+                                    <Typography 
+                                        variant="caption" 
+                                        fontWeight={visit ? 'bold' : 'normal'}
+                                        color={getVisitTypeColor(visit)}
+                                    >
+                                        {visit || '–'}
+                                    </Typography>
+                                </Box>
+                            </Tooltip>
+                        </Grid>
+                    );
+                })}
+            </Grid>
+        </Box>
+    );
 
     return (
         <Card 
             ref={cardRef}
             variant="outlined" 
             sx={{ 
-                mb: compact ? 1 : 2,
+                mb: 2,
                 backgroundColor: getBgColor(),
                 position: 'relative',
                 width: '100%',
@@ -106,7 +188,30 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 }
             }}
         >
-            <CardContent sx={{ py: compact ? 1 : 2, px: compact ? 1.5 : 2, '&:last-child': { pb: compact ? 1 : 2 } }}>
+            {/* Nummer in der linken oberen Ecke */}
+            {index !== undefined && (
+                <Box sx={{ 
+                    position: 'absolute', 
+                    top: '10px', 
+                    right: '25px', 
+                    zIndex: 1 
+                }}>
+                    <Badge
+                        badgeContent={index}
+                        color="primary"
+                        sx={{ 
+                            '& .MuiBadge-badge': {
+                                fontSize: '0.9rem',
+                                height: '30px',
+                                minWidth: '30px',
+                                borderRadius: '50%'
+                            }
+                        }}
+                    />
+                </Box>
+            )}
+            
+            <CardContent sx={{ py: 2, px: 2, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
@@ -114,31 +219,16 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 }}>
                     <Box sx={{ width: '100%' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                            {index !== undefined && (
-                                <Badge
-                                    badgeContent={index}
-                                    color="primary"
-                                    sx={{ 
-                                        mr: 1,
-                                        '& .MuiBadge-badge': {
-                                            fontSize: '0.8rem',
-                                            height: '22px',
-                                            minWidth: '22px',
-                                            borderRadius: '50%'
-                                        }
-                                    }}
-                                />
-                            )}
                             <Typography 
-                                variant={compact ? "body1" : "h6"} 
+                                variant="h6" 
                                 component="div" 
                                 fontWeight="bold"
-                                gutterBottom={!compact}
+                                gutterBottom
                             >
                                 {patient.last_name}, {patient.first_name}
                             </Typography>
                             
-                            {patient.area && !compact && (
+                            {patient.area && (
                                 <Chip 
                                     label={patient.area} 
                                     size="small" 
@@ -147,16 +237,15 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             )}
                         </Box>
                         
-                        {!compact && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                                <HomeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                                <Typography variant="body2" color="text.secondary">
-                                    {patient.street}, {patient.zip_code} {patient.city}
-                                </Typography>
-                            </Box>
-                        )}
+                        {/* Adresse immer mit Haussymbol anzeigen */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            <HomeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                            <Typography variant="body2" color="text.secondary">
+                                {patient.street}, {patient.zip_code} {patient.city}
+                            </Typography>
+                        </Box>
                         
-                        {patient.phone1 && !compact && (
+                        {patient.phone1 && (
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                                 <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
                                 <Typography variant="body2" color="text.secondary">
@@ -165,29 +254,8 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             </Box>
                         )}
                         
-                        {getAppointmentInfo()}
-                        
-                        {compact && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-                                    {patient.street}
-                                </Typography>
-                                {patient.area && (
-                                    <Chip 
-                                        label={patient.area} 
-                                        size="small" 
-                                        variant="outlined"
-                                        sx={{ 
-                                            height: '18px',
-                                            '& .MuiChip-label': {
-                                                fontSize: '0.625rem',
-                                                px: 0.8
-                                            }
-                                        }}
-                                    />
-                                )}
-                            </Box>
-                        )}
+                        {/* Wochentagsübersicht */}
+                        <WeekdayOverview />
                     </Box>
                 </Box>
             </CardContent>

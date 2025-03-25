@@ -16,7 +16,7 @@ export const appointmentsApi = {
     // Get appointments by patient ID
     async getByPatientId(patientId: number): Promise<Appointment[]> {
         try {
-            const response = await axios.get(`/patients/${patientId}/appointments`);
+            const response = await axios.get(`/appointments?patient_id=${patientId}`);
             return response.data;
         } catch (error) {
             console.error(`Failed to fetch appointments for patient with ID ${patientId}:`, error);

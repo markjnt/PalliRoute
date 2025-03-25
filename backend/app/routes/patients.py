@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models.patient import Patient
 from app.models.appointment import Appointment
-from app.services.excel_service import ExcelService
+from app.models.route import Route
+from app.services.excel_import_service import ExcelImportService
 
 patients_bp = Blueprint('patients', __name__)
 
@@ -107,25 +108,39 @@ def import_patients():
         print(f"Clearing existing data...")
         appointment_count = Appointment.query.count()
         patient_count = Patient.query.count()
+        route_count = Route.query.count()
+        
+        # Löschen in der richtigen Reihenfolge (wegen Fremdschlüsselbeziehungen)
+        Route.query.delete()
         Appointment.query.delete()
         Patient.query.delete()
+        
         db.session.commit()
-        print(f"Deleted {appointment_count} appointments and {patient_count} patients")
+        print(f"Deleted {route_count} routes, {appointment_count} appointments and {patient_count} patients")
         
         # Import the new data
         print(f"Starting import from file: {file.filename}")
-        result = ExcelService.import_patients(file)
+        result = ExcelImportService.import_patients(file)
         patients = result['patients']
         appointments = result['appointments']
         
         # Get the calendar week
         calendar_week = patients[0].calendar_week if patients else None
         
+        # Get the number of created routes (from the result dictionary)
+        routes = result.get('routes', [])
+        
         # Prepare the response
         return jsonify({
-            "message": f"Successfully imported {len(patients)} patients and {len(appointments)} appointments for calendar week {calendar_week}",
+            "message": f"Successfully imported {len(patients)} patients, {len(appointments)} appointments, and {len(routes)} routes for calendar week {calendar_week}",
             "patient_count": len(patients),
             "appointment_count": len(appointments),
+            "route_count": len(routes),
+            "deleted_count": {
+                "patients": patient_count,
+                "appointments": appointment_count,
+                "routes": route_count
+            },
             "calendar_week": calendar_week
         }), 201
     

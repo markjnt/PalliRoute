@@ -305,37 +305,8 @@ def get_route(route_id):
     """Get details of a specific route"""
     try:
         route = Route.query.get_or_404(route_id)
-        employee = Employee.query.get_or_404(route.employee_id)
-        
-        appointments = Appointment.query.filter_by(
-            employee_id=employee.id,
-            weekday=route.weekday
-        ).order_by(Appointment.time).all()
-
         return jsonify({
-            'route': {
-                'id': route.id,
-                'employee': {
-                    'id': employee.id,
-                    'first_name': employee.first_name,
-                    'last_name': employee.last_name
-                },
-                'weekday': route.weekday,
-                'total_duration': route.total_duration,
-                'appointments': [{
-                    'id': appt.id,
-                    'time': appt.time.strftime('%H:%M') if appt.time else None,
-                    'visit_type': appt.visit_type,
-                    'duration': appt.duration,
-                    'patient': {
-                        'id': appt.patient.id,
-                        'first_name': appt.patient.first_name,
-                        'last_name': appt.patient.last_name,
-                        'address': f"{appt.patient.street}, {appt.patient.zip_code} {appt.patient.city}"
-                    }
-                } for appt in appointments]
-            }
+            'route': route.to_dict()
         })
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

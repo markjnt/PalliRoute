@@ -77,4 +77,15 @@ export interface PatientImportResponse {
     patients: Patient[];
     appointments: Appointment[];
     calendar_week?: number;
+}
+
+export interface Route {
+    id: number;
+    employee_id: number;
+    weekday: string;
+    route_order: number[];  // Array of appointment IDs
+    total_duration: number;
+    total_distance?: number;
+    created_at: string;
+    updated_at: string;
 } 
