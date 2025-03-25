@@ -33,7 +33,7 @@ interface TourContainerProps {
     appointments: Appointment[];
     selectedDay: Weekday;
     routes: Route[];
-    onPatientMoved?: (patient: Patient, newTourNumber: number) => void;
+    onPatientMoved?: (patient: Patient, newTourNumber: number, hbAppointments?: Appointment[]) => void;
 }
 
 export const TourContainer: React.FC<TourContainerProps> = ({
@@ -110,8 +110,12 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 
                 // Schritt 3: Aktualisiere die Routen-Reihenfolgen (wird von der übergeordneten Komponente verarbeitet)
                 if (onPatientMoved) {
-                    console.log(`3. Benachrichtige ToursView zur Aktualisierung der Route-Reihenfolge`);
-                    onPatientMoved(patient, employee.tour_number || 0);
+                    // Extrahiere nur die HB-Termine, die für Routenaktualisierungen relevant sind
+                    const hbAppointments = allPatientAppointments.filter(a => a.visit_type === 'HB');
+                    console.log(`3. Benachrichtige ToursView zur Aktualisierung der Route-Reihenfolge für ${hbAppointments.length} HB-Termine`);
+                    
+                    // Übergebe Patient und Tour-Nummer sowie HB-Termine an die übergeordnete Komponente
+                    onPatientMoved(patient, employee.tour_number || 0, hbAppointments);
                 }
             } catch (err) {
                 console.error('Fehler beim Verschieben des Patienten:', err);

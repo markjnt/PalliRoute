@@ -88,9 +88,13 @@ export const ToursView: React.FC<ToursViewProps> = ({
      * Handler für den Fall, dass ein Patient in eine andere Tour verschoben wird
      * 
      * Wird von TourContainer.tsx aufgerufen (Schritt 3 im Verschiebungsprozess)
-     * Führt die komplexe Aktualisierung der Routen-Reihenfolge durch (Schritt 4)
+     * Führt die komplexe Aktualisierung der Routen-Reihenfolge für alle relevanten Tage durch
      */
-    const handlePatientMoved = async (movedPatient: Patient, newTourNumber: number) => {
+    const handlePatientMoved = async (
+        movedPatient: Patient, 
+        newTourNumber: number, 
+        hbAppointments?: Appointment[]
+    ) => {
         console.log(`Patient ${movedPatient.id} (${movedPatient.first_name} ${movedPatient.last_name}) wurde zu Tour ${newTourNumber} verschoben`);
         
         // Schritt 3.1: Aktualisiere den Patienten in unserem lokalen State
@@ -124,111 +128,134 @@ export const ToursView: React.FC<ToursViewProps> = ({
             )
         );
         
-        // Schritt 4: Aktualisiere die Routen-Reihenfolgen für den aktuellen Tag
-        try {
-            const weekday = selectedDay.toLowerCase();
-            console.log(`Aktualisiere Routen für Wochentag: ${weekday}`);
-            
-            // Finde Quell- und Zielrouten für den ausgewählten Tag
-            const sourceRoute = routes.find(r => 
-                sourceEmployee && r.employee_id === sourceEmployee.id && r.weekday === weekday
-            );
-            
-            const targetRoute = routes.find(r => 
-                r.employee_id === targetEmployee.id && r.weekday === weekday
-            );
-            
-            console.log('Quellroute:', sourceRoute);
-            console.log('Zielroute:', targetRoute);
-            
-            // Finde alle HB-Termine für diesen Patienten am ausgewählten Tag
-            const dayAppointments = appointments.filter(
-                a => a.patient_id === movedPatient.id && a.weekday === selectedDay
-            );
-            
-            const hbAppointments = dayAppointments.filter(a => a.visit_type === 'HB');
-            console.log(`HB-Termine für Patient am ${selectedDay}:`, hbAppointments);
-            
-            // Verarbeite nur HB-Termine, da nur diese in Routen-Reihenfolgen enthalten sind
-            if (hbAppointments.length > 0) {
-                // Schritt 4.1: Aktualisiere Quellroute (entferne Termine aus der Quellroute)
-                if (sourceRoute && sourceRoute.id) {
-                    const appointmentIdsToRemove = hbAppointments
-                        .filter(a => a.id)
-                        .map(a => a.id as number);
-                    
-                    console.log(`Entferne Termine aus Quellroute: ${appointmentIdsToRemove.join(', ')}`);
-                    
-                    // Verwende removeFromRouteOrder, um jeden Termin einzeln zu aktualisieren
-                    if (appointmentIdsToRemove.length > 0) {
-                        for (const appId of appointmentIdsToRemove) {
-                            try {
-                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                const updatedRoute = await removeFromRouteOrder(sourceRoute.id, appId);
-                                console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`);
-                            } catch (error) {
-                                console.error(`Fehler beim Entfernen von Termin ${appId} aus Route ${sourceRoute.id}:`, error);
-                            }
-                        }
-                    }
-                }
+        // Gruppiere Termine nach Wochentagen für Routenaktualisierungen
+        const appointmentsByWeekday = new Map<Weekday, Appointment[]>();
+        
+        // Wenn hbAppointments übergeben wurden, verwende diese, sonst nur die des aktuellen Tages
+        if (hbAppointments && hbAppointments.length > 0) {
+            // Gruppiere nach Wochentag
+            hbAppointments.forEach(appt => {
+                if (!appt.weekday) return;
                 
-                // Schritt 4.2: Aktualisiere Zielroute (füge Termine zur Zielroute hinzu)
-                if (targetRoute && targetRoute.id) {
-                    const appointmentIdsToAdd = hbAppointments
-                        .filter(a => a.id)
-                        .map(a => a.id as number);
-                    
-                    console.log(`Füge Termine zur Zielroute hinzu: ${appointmentIdsToAdd.join(', ')}`);
-                    
-                    if (appointmentIdsToAdd.length > 0) {
-                        // Hole die aktuelle Routen-Reihenfolge der Zielroute
-                        let currentTargetRouteOrder: number[] = [];
+                const weekday = appt.weekday as Weekday;
+                if (!appointmentsByWeekday.has(weekday)) {
+                    appointmentsByWeekday.set(weekday, []);
+                }
+                appointmentsByWeekday.get(weekday)?.push(appt);
+            });
+            
+            console.log(`HB-Termine gruppiert nach Wochentagen:`, Object.fromEntries(appointmentsByWeekday));
+        } else {
+            // Fallback: Nur aktuelle Termine verwenden
+            const dayAppointments = appointments.filter(
+                a => a.patient_id === movedPatient.id && a.weekday === selectedDay && a.visit_type === 'HB'
+            );
+            
+            if (dayAppointments.length > 0) {
+                appointmentsByWeekday.set(selectedDay, dayAppointments);
+            }
+        }
+        
+        // Keine HB-Termine gefunden
+        if (appointmentsByWeekday.size === 0) {
+            console.log('Keine HB-Termine gefunden, keine Routenaktualisierung notwendig');
+            return;
+        }
+        
+        // Schritt 4: Aktualisiere Routen für ALLE betroffenen Tage
+        try {
+            // Lade alle Routen (wir brauchen Routen für alle Wochentage)
+            const allRoutes = await routesApi.getRoutes({});
+            
+            // Verarbeite jeden Wochentag mit HB-Terminen
+            for (const entry of Array.from(appointmentsByWeekday.entries())) {
+                const weekday = entry[0];
+                const dayAppointments = entry[1];
+                console.log(`Verarbeite Routenaktualisierung für ${weekday} mit ${dayAppointments.length} HB-Terminen`);
+                
+                const weekdayLower = weekday.toLowerCase() as Weekday;
+                
+                // Finde Quell- und Zielrouten für diesen Tag
+                const sourceRoute = allRoutes.find(r => 
+                    sourceEmployee && r.employee_id === sourceEmployee.id && r.weekday === weekdayLower
+                );
+                
+                const targetRoute = allRoutes.find(r => 
+                    r.employee_id === targetEmployee.id && r.weekday === weekdayLower
+                );
+                
+                // Verarbeite Routenaktualisierungen für diesen Tag
+                if (dayAppointments.length > 0) {
+                    // A) Entferne aus der Quellroute
+                    if (sourceRoute && sourceRoute.id) {
+                        const appointmentIdsToRemove = dayAppointments
+                            .filter((a: Appointment) => a.id)
+                            .map((a: Appointment) => a.id as number);
                         
-                        if (targetRoute.route_order) {
-                            if (Array.isArray(targetRoute.route_order)) {
-                                currentTargetRouteOrder = targetRoute.route_order;
-                            } else {
+                        console.log(`Entferne Termine aus Quellroute (${weekday}): ${appointmentIdsToRemove.join(', ')}`);
+                        
+                        if (appointmentIdsToRemove.length > 0) {
+                            for (const appId of appointmentIdsToRemove) {
                                 try {
-                                    const parsed = JSON.parse(targetRoute.route_order as unknown as string);
-                                    currentTargetRouteOrder = Array.isArray(parsed) ? parsed : [];
-                                } catch (err) {
-                                    console.error('Fehler beim Parsen der Zielroute:', err);
-                                    currentTargetRouteOrder = [];
+                                    await removeFromRouteOrder(sourceRoute.id, appId);
+                                    console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`);
+                                } catch (error) {
+                                    console.error(`Fehler beim Entfernen von Termin ${appId} aus Route:`, error);
                                 }
                             }
                         }
+                    }
+                    
+                    // B) Füge zur Zielroute hinzu
+                    if (targetRoute && targetRoute.id) {
+                        const appointmentIdsToAdd = dayAppointments
+                            .filter((a: Appointment) => a.id)
+                            .map((a: Appointment) => a.id as number);
                         
-                        console.log('Aktuelle Zielroute:', currentTargetRouteOrder);
+                        console.log(`Füge Termine zur Zielroute (${weekday}) hinzu: ${appointmentIdsToAdd.join(', ')}`);
                         
-                        // Füge die neuen Termin-IDs am Ende der Zielroute hinzu
-                        const updatedTargetRouteOrder = [...currentTargetRouteOrder, ...appointmentIdsToAdd];
-                        console.log('Aktualisierte Zielroute:', updatedTargetRouteOrder);
-                        
-                        // Aktualisiere die Zielroute mit der neuen Reihenfolge
-                        try {
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            const updatedRoute = await updateRouteOrder(targetRoute.id, updatedTargetRouteOrder);
-                            console.log('Zielroute erfolgreich aktualisiert');
-                        } catch (error) {
-                            console.error('Fehler beim Aktualisieren der Zielroute:', error);
+                        if (appointmentIdsToAdd.length > 0) {
+                            // Hole die aktuelle Routen-Reihenfolge der Zielroute
+                            let currentTargetRouteOrder: number[] = [];
+                            
+                            if (targetRoute.route_order) {
+                                if (Array.isArray(targetRoute.route_order)) {
+                                    currentTargetRouteOrder = targetRoute.route_order;
+                                } else {
+                                    try {
+                                        const parsed = JSON.parse(targetRoute.route_order as unknown as string);
+                                        currentTargetRouteOrder = Array.isArray(parsed) ? parsed : [];
+                                    } catch (err) {
+                                        console.error('Fehler beim Parsen der Zielroute:', err);
+                                        currentTargetRouteOrder = [];
+                                    }
+                                }
+                            }
+                            
+                            // Füge die neuen Termin-IDs am Ende der Zielroute hinzu
+                            const updatedTargetRouteOrder = [...currentTargetRouteOrder, ...appointmentIdsToAdd];
+                            
+                            try {
+                                await updateRouteOrder(targetRoute.id, updatedTargetRouteOrder);
+                                console.log(`Zielroute (${weekday}) erfolgreich aktualisiert`);
+                            } catch (error) {
+                                console.error(`Fehler beim Aktualisieren der Zielroute (${weekday}):`, error);
+                            }
                         }
                     }
                 }
-                
-                // Schritt 5: Lade die Routen neu, um die Änderungen zu reflektieren
-                try {
-                    const weekdayForApi = selectedDay.toLowerCase() as Weekday;
-                    console.log(`Lade Routen für ${weekdayForApi} neu`);
-                    const updatedRoutes = await routesApi.getRoutes({ weekday: weekdayForApi });
-                    setRoutes(updatedRoutes);
-                    console.log(`${updatedRoutes.length} Routen neu geladen`);
-                } catch (error) {
-                    console.error('Fehler beim Neuladen der Routen:', error);
-                    setRoutesError('Fehler beim Neuladen der Routen-Reihenfolge');
-                }
-            } else {
-                console.log('Keine HB-Termine gefunden, keine Routenaktualisierung notwendig');
+            }
+            
+            // Schritt 5: Lade die Routen für den aktuellen Tag neu zur Aktualisierung der Anzeige
+            try {
+                const weekdayForApi = selectedDay.toLowerCase() as Weekday;
+                console.log(`Lade Routen für ${weekdayForApi} neu (für aktuelle Anzeige)`);
+                const updatedRoutes = await routesApi.getRoutes({ weekday: weekdayForApi });
+                setRoutes(updatedRoutes);
+                console.log(`${updatedRoutes.length} Routen neu geladen`);
+            } catch (error) {
+                console.error('Fehler beim Neuladen der Routen:', error);
+                setRoutesError('Fehler beim Neuladen der Routen-Reihenfolge');
             }
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Routen:', error);
