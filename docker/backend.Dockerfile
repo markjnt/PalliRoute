@@ -21,4 +21,4 @@ ENV FLASK_ENV=production
 EXPOSE 9000
 
 # Run the application with Gunicorn
-CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=4"] 
+CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=2", "--timeout=300"] 
