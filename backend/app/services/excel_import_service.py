@@ -1,8 +1,11 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 import pandas as pd
 import re  # Modul für reguläre Ausdrücke hinzugefügt
 from datetime import datetime, time
 from io import BytesIO
+import os
+import time as time_module
+import googlemaps
 from ..models.employee import Employee
 from ..models.patient import Patient
 from ..models.appointment import Appointment
@@ -11,6 +14,64 @@ from .. import db
 import json
 
 class ExcelImportService:
+    # Class-level cache for geocoding to avoid redundant API calls
+    _geocode_cache: Dict[str, Tuple[float, float]] = {}
+    
+    @staticmethod
+    def geocode_address(street: str, zip_code: str, city: str) -> Tuple[Optional[float], Optional[float]]:
+        """
+        Geocode an address using Google Maps Geocoding API with caching
+        Returns a tuple of (latitude, longitude) or (None, None) if geocoding fails
+        """
+        # Format the address
+        address = f"{street}, {zip_code} {city}, Germany"
+        cache_key = address.lower().strip()
+        made_api_call = False
+        
+        try:
+            # Check if address is already in cache
+            if cache_key in ExcelImportService._geocode_cache:
+                cached_result = ExcelImportService._geocode_cache[cache_key]
+                print(f"  Using cached geocode for address: {address} -> ({cached_result[0]}, {cached_result[1]})")
+                return cached_result
+            
+            # Get API key from environment variable
+            api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+            if not api_key:
+                print("Warning: GOOGLE_MAPS_API_KEY environment variable not set. Geocoding will not work.")
+                return None, None
+            
+            # Initialize Google Maps client
+            gmaps = googlemaps.Client(key=api_key)
+            
+            # Call the Google Maps Geocoding API
+            made_api_call = True
+            geocode_result = gmaps.geocode(address)
+            
+            # Check if the request was successful and has results
+            if geocode_result and len(geocode_result) > 0:
+                location = geocode_result[0]['geometry']['location']
+                latitude = location['lat']
+                longitude = location['lng']
+                print(f"  Geocoded address: {address} -> ({latitude}, {longitude})")
+                
+                # Store result in cache
+                ExcelImportService._geocode_cache[cache_key] = (latitude, longitude)
+                
+                return latitude, longitude
+            else:
+                print(f"  Warning: Failed to geocode address: {address}")
+                return None, None
+                
+        except Exception as e:
+            print(f"  Error geocoding address: {e}")
+            return None, None
+        finally:
+            # Add a small delay to avoid hitting API rate limits
+            # Only add delay for actual API calls (not cached results)
+            if made_api_call:
+                time_module.sleep(0.2)
+
     @staticmethod
     def import_employees(file) -> Dict[str, List[Any]]:
         """
@@ -63,13 +124,21 @@ class ExcelImportService:
                                 if "existiert bereits" in str(ve):
                                     raise ve
                                 raise ValueError(f"Tournummer muss eine Ganzzahl sein, ist aber {row['Tournummer']}")
+                    
+                    # Geocode the address to get latitude and longitude
+                    street = str(row['Strasse']).strip()
+                    zip_code = str(row['PLZ']).strip()
+                    city = str(row['Ort']).strip()
+                    latitude, longitude = ExcelImportService.geocode_address(street, zip_code, city)
 
                     employee = Employee(
                         first_name=str(row['Vorname']).strip(),
                         last_name=str(row['Nachname']).strip(),
-                        street=str(row['Strasse']).strip(),
-                        zip_code=str(row['PLZ']).strip(),
-                        city=str(row['Ort']).strip(),
+                        street=street,
+                        zip_code=zip_code,
+                        city=city,
+                        latitude=latitude,
+                        longitude=longitude,
                         function=str(row['Funktion']).strip(),
                         work_hours=work_hours,
                         tour_number=tour_number,
@@ -153,13 +222,21 @@ class ExcelImportService:
                     except Exception as e:
                         print(f"  Warning: Error extracting tour number: {str(e)}")
                 
+                # Geocode the address to get latitude and longitude
+                street = str(row['Strasse'])
+                zip_code = str(row['PLZ'])
+                city = str(row['Ort'])
+                latitude, longitude = ExcelImportService.geocode_address(street, zip_code, city)
+                
                 # Create patient with integer tour_number
                 patient = Patient(
                     first_name=str(row['Vorname']),
                     last_name=str(row['Nachname']),
-                    street=str(row['Strasse']),
-                    zip_code=str(row['PLZ']),
-                    city=str(row['Ort']),
+                    street=street,
+                    zip_code=zip_code,
+                    city=city,
+                    latitude=latitude,
+                    longitude=longitude,
                     phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
                     phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
                     calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,

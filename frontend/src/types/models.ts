@@ -20,6 +20,8 @@ export interface Employee {
     street: string;
     zip_code: string;
     city: string;
+    latitude?: number;
+    longitude?: number;
     function: string;
     work_hours: number;
     tour_number?: number;
@@ -62,6 +64,8 @@ export interface Patient {
     zip_code: string;
     city: string;
     address?: string;
+    latitude?: number;
+    longitude?: number;
     phone1?: string;
     phone2?: string;
     calendar_week?: number;

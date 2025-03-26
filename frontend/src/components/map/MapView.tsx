@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CircularProgress, Alert } from '@mui/material';
+import { Box, CircularProgress, Alert, Button, Typography, IconButton, Tooltip } from '@mui/material';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { configApi } from '../../services/api/config';
 import { routesApi } from '../../services/api/routes';
@@ -9,6 +9,7 @@ import { employeesApi } from '../../services/api/employees';
 import { Route, Patient, Appointment, Employee } from '../../types/models';
 import { useWeekday } from '../../contexts/WeekdayContext';
 import { useTheme } from '@mui/material/styles';
+import { RefreshOutlined as RefreshIcon } from '@mui/icons-material';
 
 const containerStyle = {
     width: '100%',
@@ -54,22 +55,19 @@ const appointmentTypeColors: Record<string, string> = {
     'default': '#9E9E9E' // Grey - Default for unknown types
 };
 
+// Employee type colors (in MUI style)
+const employeeTypeColors: Record<string, string> = {
+    'Arzt': '#FFC107', // Yellow - Doctor
+    'Honorararzt': '#795548', // Brown - Freelance doctor
+    'default': '#9c27b0' // Purple - PDL, Physiotherapie, Pflegekraft, etc.
+};
+
 // Get current weekday in lowercase English (e.g., 'monday')
 const getCurrentWeekday = (): string => {
     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
     return days[today];
 };
-
-// Geocoding cache to avoid redundant requests
-interface GeocodeCacheEntry {
-    address: string;
-    position: google.maps.LatLng;
-    timestamp: number;
-}
-
-const geocodeCache: GeocodeCacheEntry[] = [];
-const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export const MapView: React.FC = () => {
     const [apiKey, setApiKey] = useState<string | null>(null);
@@ -129,6 +127,7 @@ interface MarkerData {
     label?: string;
     type: 'employee' | 'patient';
     visitType?: string; // HB, TK, or NA
+    employeeType?: string; // Job title for employees
 }
 
 const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
@@ -145,7 +144,6 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     const [markers, setMarkers] = React.useState<MarkerData[]>([]);
     const [mapError, setMapError] = React.useState<string | null>(null);
     const [loading, setLoading] = React.useState<boolean>(false);
-    const [geocodingStatus, setGeocodingStatus] = React.useState<string | null>(null);
     
     // State for actual data
     const [routes, setRoutes] = React.useState<Route[]>([]);
@@ -154,99 +152,53 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     const [patients, setPatients] = React.useState<Patient[]>([]);
     const [appointments, setAppointments] = React.useState<Appointment[]>([]);
     
-    // Geocode an address to coordinates
-    const geocodeAddress = React.useCallback(
-        async (address: string): Promise<google.maps.LatLng | null> => {
-            // Check cache first
-            const now = Date.now();
-            const cachedEntry = geocodeCache.find(entry => entry.address === address);
-            
-            if (cachedEntry && (now - cachedEntry.timestamp) < CACHE_EXPIRY_MS) {
-                return cachedEntry.position;
-            }
-            
-            // Clear expired entries
-            const validEntries = geocodeCache.filter(
-                entry => (now - entry.timestamp) < CACHE_EXPIRY_MS
-            );
-            geocodeCache.length = 0;
-            geocodeCache.push(...validEntries);
-            
-            if (!window.google || !window.google.maps) {
-                return null;
-            }
-            
-            try {
-                setGeocodingStatus(`Geocoding: ${address}`);
-                
-                return new Promise((resolve) => {
-                    const geocoder = new google.maps.Geocoder();
-                    
-                    geocoder.geocode({ address }, (results, status) => {
-                        if (status === google.maps.GeocoderStatus.OK && results && results[0]) {
-                            const location = results[0].geometry.location;
-                            const position = new google.maps.LatLng(
-                                location.lat(),
-                                location.lng()
-                            );
-                            
-                            // Cache the result
-                            geocodeCache.push({
-                                address,
-                                position,
-                                timestamp: now
-                            });
-                            
-                            resolve(position);
-                        } else {
-                            console.error(`Geocoding failed for address: ${address}, status: ${status}`);
-                            resolve(null);
-                        }
-                    });
-                });
-            } catch (err) {
-                console.error('Error geocoding address:', err);
-                return null;
-            } finally {
-                setGeocodingStatus(null);
-            }
-        },
-        []
-    );
+    const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
+    const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
     
     // Fetch all necessary data
-    React.useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                // Fetch all routes with route_order
-                const routesData = await routesApi.getRoutes();
-                setAllRoutes(routesData);
-                
-                // Fetch all employees
-                const employeesData = await employeesApi.getAll();
-                setEmployees(employeesData);
-                
-                // Fetch all appointments
-                const appointmentsData = await appointmentsApi.getAll();
-                setAppointments(appointmentsData);
-                
-                // Fetch all patients
-                const patientsData = await patientsApi.getAll();
-                setPatients(patientsData);
-                
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setMapError('Fehler beim Laden der Daten');
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        if (isLoaded) {
-            fetchData();
+    const fetchData = React.useCallback(async (showLoading = true) => {
+        if (showLoading) setLoading(true);
+        if (!showLoading) setIsRefreshing(true);
+        try {
+            // Fetch all routes with route_order
+            const routesData = await routesApi.getRoutes();
+            setAllRoutes(routesData);
+            
+            // Fetch all employees
+            const employeesData = await employeesApi.getAll();
+            setEmployees(employeesData);
+            
+            // Fetch all appointments
+            const appointmentsData = await appointmentsApi.getAll();
+            setAppointments(appointmentsData);
+            
+            // Fetch all patients
+            const patientsData = await patientsApi.getAll();
+            setPatients(patientsData);
+            
+            // Update last refreshed timestamp
+            setLastRefreshed(new Date());
+            
+        } catch (err) {
+            console.error('Error fetching data:', err);
+            setMapError('Fehler beim Laden der Daten');
+        } finally {
+            if (showLoading) setLoading(false);
+            if (!showLoading) setIsRefreshing(false);
         }
-    }, [isLoaded]);
+    }, []);
+    
+    // Initial data fetch
+    React.useEffect(() => {
+        if (isLoaded) {
+            fetchData(true);
+        }
+    }, [isLoaded, fetchData]);
+    
+    // Handle manual refresh
+    const handleRefresh = () => {
+        fetchData(false);
+    };
     
     // Filter routes when selected weekday changes
     React.useEffect(() => {
@@ -262,8 +214,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     // Create markers for all employees and appointments for the selected day
     React.useEffect(() => {
         const createMarkers = async () => {
-            if (!window.google || !window.google.maps || employees.length === 0 || 
-                patients.length === 0 || appointments.length === 0 || !map) {
+            if (!window.google || !window.google.maps || !map) {
                 return;
             }
             
@@ -271,35 +222,32 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
             const newMarkers: MarkerData[] = [];
             
             try {
-                // Get all appointments for the selected day with a non-empty visit_type
-                const appointmentsForDay = appointments.filter(appointment => 
-                    appointment.weekday === selectedWeekday && 
-                    appointment.visit_type && 
-                    appointment.visit_type.trim() !== ''
-                );
-                
-                // Get unique employee IDs from appointments
-                const employeeIdsFromAppointments = Array.from(new Set(
-                    appointmentsForDay
-                        .filter(a => a.employee_id !== undefined)
-                        .map(a => a.employee_id as number)
-                ));
-                
-                // Create employee markers
-                for (const employeeId of employeeIdsFromAppointments) {
-                    const employee = employees.find(e => e.id === employeeId);
-                    if (employee) {
-                        const employeeMarkerData = await createEmployeeMarkerData(employee);
+                // Create employee markers for all active employees
+                // This should work even if there are no patients or appointments
+                if (employees.length > 0) {
+                    const activeEmployees = employees.filter(e => e.is_active);
+                    for (const employee of activeEmployees) {
+                        const employeeMarkerData = createEmployeeMarkerData(employee);
                         if (employeeMarkerData) newMarkers.push(employeeMarkerData);
                     }
                 }
                 
-                // Create patient markers for all appointments (HB, TK, and NA) on this day
-                for (const appointment of appointmentsForDay) {
-                    const patient = patients.find(p => p.id === appointment.patient_id);
-                    if (patient) {
-                        const patientMarkerData = await createPatientMarkerData(patient, appointment);
-                        if (patientMarkerData) newMarkers.push(patientMarkerData);
+                // Only create patient markers if we have both patients and appointments
+                if (patients.length > 0 && appointments.length > 0) {
+                    // Get all appointments for the selected day with a non-empty visit_type
+                    const appointmentsForDay = appointments.filter(appointment => 
+                        appointment.weekday === selectedWeekday && 
+                        appointment.visit_type && 
+                        appointment.visit_type.trim() !== ''
+                    );
+                    
+                    // Create patient markers for all appointments (HB, TK, and NA) on this day
+                    for (const appointment of appointmentsForDay) {
+                        const patient = patients.find(p => p.id === appointment.patient_id);
+                        if (patient) {
+                            const patientMarkerData = createPatientMarkerData(patient, appointment);
+                            if (patientMarkerData) newMarkers.push(patientMarkerData);
+                        }
                     }
                 }
                 
@@ -315,49 +263,34 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         };
         
         createMarkers();
-    }, [selectedWeekday, employees, patients, appointments, map, geocodeAddress]);
+    }, [selectedWeekday, employees, patients, appointments, map]);
     
-    // Create employee marker data
-    const createEmployeeMarkerData = async (employee: Employee): Promise<MarkerData | null> => {
-        if (!employee.street || !employee.zip_code || !employee.city) return null;
-        
-        try {
-            // Create a complete address
-            const address = `${employee.street}, ${employee.zip_code} ${employee.city}, Deutschland`;
-            
-            // Geocode the address
-            const position = await geocodeAddress(address);
-            if (!position) {
-                console.warn(`Could not geocode employee address: ${address}`);
-                return null;
-            }
+    // Create employee marker data using latitude and longitude from backend
+    const createEmployeeMarkerData = (employee: Employee): MarkerData | null => {
+        // Check if we have latitude and longitude from the backend
+        if (employee.latitude && employee.longitude) {
+            // Create position using coordinates from backend
+            const position = new google.maps.LatLng(employee.latitude, employee.longitude);
             
             return {
                 position,
-                title: `${employee.first_name} ${employee.last_name}`,
-                type: 'employee'
+                title: `${employee.first_name} ${employee.last_name} - ${employee.function || 'Mitarbeiter'}`,
+                type: 'employee',
+                employeeType: employee.function
             };
-            
-        } catch (err) {
-            console.error('Error creating employee marker:', err);
+        } else {
+            // If no coordinates, log warning and skip
+            console.warn(`No coordinates for employee: ${employee.first_name} ${employee.last_name}`);
             return null;
         }
     };
     
-    // Create patient marker data with appointment type
-    const createPatientMarkerData = async (patient: Patient, appointment: Appointment): Promise<MarkerData | null> => {
-        if (!patient.street || !patient.zip_code || !patient.city) return null;
-        
-        try {
-            // Create a complete address
-            const address = `${patient.street}, ${patient.zip_code} ${patient.city}, Deutschland`;
-            
-            // Geocode the address
-            const position = await geocodeAddress(address);
-            if (!position) {
-                console.warn(`Could not geocode patient address: ${address}`);
-                return null;
-            }
+    // Create patient marker data with appointment type using latitude and longitude from backend
+    const createPatientMarkerData = (patient: Patient, appointment: Appointment): MarkerData | null => {
+        // Check if we have latitude and longitude from the backend
+        if (patient.latitude && patient.longitude) {
+            // Create position using coordinates from backend
+            const position = new google.maps.LatLng(patient.latitude, patient.longitude);
             
             return {
                 position,
@@ -365,9 +298,9 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                 type: 'patient',
                 visitType: appointment.visit_type
             };
-            
-        } catch (err) {
-            console.error('Error creating patient marker:', err);
+        } else {
+            // If no coordinates, log warning and skip
+            console.warn(`No coordinates for patient: ${patient.first_name} ${patient.last_name}`);
             return null;
         }
     };
@@ -386,6 +319,19 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         if (!visitType) return appointmentTypeColors.default;
         return appointmentTypeColors[visitType] || appointmentTypeColors.default;
     };
+    
+    // Get color for employee type
+    const getColorForEmployeeType = (employeeType?: string): string => {
+        if (!employeeType) return employeeTypeColors.default;
+        
+        if (employeeType.includes('Arzt') && !employeeType.includes('Honorar')) {
+            return employeeTypeColors['Arzt'];
+        } else if (employeeType.includes('Honorararzt')) {
+            return employeeTypeColors['Honorararzt'];
+        }
+        
+        return employeeTypeColors.default;
+    };
 
     if (!isLoaded) {
         return (
@@ -401,27 +347,74 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     }
 
     return (
-        <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
-            {/* Status indicators */}
-            {(loading || mapError || geocodingStatus) && (
-                <Box sx={{ 
-                    position: 'absolute', 
-                    top: 16,
-                    left: '50%', 
-                    transform: 'translateX(-50%)',
+        <Box sx={{ 
+            height: '100%', 
+            width: '100%', 
+            display: 'flex', 
+            flexDirection: 'column',
+            position: 'relative',
+        }}>
+            {/* Map Controls */}
+            <Box sx={{ 
+                position: 'absolute', 
+                top: 10, 
+                right: 10, 
+                zIndex: 10, 
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                borderRadius: 1,
+                padding: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end'
+            }}>
+                <Tooltip title="Daten aktualisieren">
+                    <IconButton 
+                        onClick={handleRefresh} 
+                        disabled={isRefreshing}
+                        size="small"
+                        sx={{ mb: 1 }}
+                    >
+                        {isRefreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+                    </IconButton>
+                </Tooltip>
+                <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
+                    Letztes Update: {lastRefreshed.toLocaleTimeString()}
+                </Typography>
+            </Box>
+            
+            {/* Loading indicator */}
+            {loading && (
+                <Box sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(255,255,255,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     zIndex: 10,
-                    maxWidth: '80%'
                 }}>
-                    {loading && <CircularProgress size={24} sx={{ mr: 2 }} />}
-                    {geocodingStatus && (
-                        <Alert severity="info" variant="filled" sx={{ mb: 2 }}>
-                            {geocodingStatus}
-                        </Alert>
-                    )}
-                    {mapError && <Alert severity="error" variant="filled">{mapError}</Alert>}
+                    <CircularProgress />
                 </Box>
             )}
             
+            {/* Error display */}
+            {mapError && (
+                <Box sx={{ p: 2 }}>
+                    <Typography color="error">{mapError}</Typography>
+                    <Button 
+                        variant="contained" 
+                        sx={{ mt: 1 }} 
+                        onClick={() => fetchData(true)}
+                    >
+                        Erneut versuchen
+                    </Button>
+                </Box>
+            )}
+            
+            {/* Google Map */}
             <GoogleMap
                 mapContainerStyle={containerStyle}
                 center={defaultCenter}
@@ -439,7 +432,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                         label={marker.type === 'employee' ? undefined : marker.label}
                         icon={marker.type === 'employee' ? {
                             path: google.maps.SymbolPath.CIRCLE,
-                            fillColor: '#9c27b0',
+                            fillColor: getColorForEmployeeType(marker.employeeType),
                             fillOpacity: 1,
                             strokeColor: '#ffffff',
                             strokeWeight: 2,

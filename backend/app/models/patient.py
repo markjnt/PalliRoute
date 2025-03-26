@@ -10,6 +10,8 @@ class Patient(db.Model):
     street = db.Column(db.String(200), nullable=False)
     zip_code = db.Column(db.String(20), nullable=False)
     city = db.Column(db.String(100), nullable=False)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
     phone1 = db.Column(db.String(50))
     phone2 = db.Column(db.String(50))
     calendar_week = db.Column(db.Integer)
@@ -30,6 +32,8 @@ class Patient(db.Model):
             'zip_code': self.zip_code,
             'city': self.city,
             'address': f"{self.street}, {self.zip_code} {self.city}",
+            'latitude': self.latitude,
+            'longitude': self.longitude,
             'phone1': self.phone1,
             'phone2': self.phone2,
             'calendar_week': self.calendar_week,
@@ -48,6 +52,8 @@ class Patient(db.Model):
             street=data.get('street'),
             zip_code=data.get('zip_code'),
             city=data.get('city'),
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
             phone1=data.get('phone1'),
             phone2=data.get('phone2'),
             calendar_week=data.get('calendar_week'),
