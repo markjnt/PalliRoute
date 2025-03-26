@@ -141,6 +141,9 @@ def update_route(route_id):
         if 'total_duration' in data:
             route.total_duration = data['total_duration']
 
+        if 'total_distance' in data:
+            route.total_distance = data['total_distance']
+
         route.updated_at = datetime.utcnow()
         db.session.commit()
 

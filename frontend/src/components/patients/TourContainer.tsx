@@ -26,6 +26,7 @@ import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useDrag } from '../../contexts/DragContext';
 import { appointmentsApi } from '../../services/api/appointments';
+import { getColorForTour } from '../../utils/colors';
 
 interface TourContainerProps {
     employee: Employee;
@@ -53,6 +54,41 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     });
     const dropRef = useRef<HTMLDivElement>(null);
     const { updatePatientTour, updateAppointmentEmployee, error } = useDrag();
+    
+    // Finde die Route für diesen Mitarbeiter und diesen Tag
+    const employeeRoute = routes.find(r => 
+        r.employee_id === employee.id && 
+        r.weekday === selectedDay.toLowerCase()
+    );
+    
+    // Formatiere Distanz und Zeit für die Anzeige
+    const getFormattedRouteData = () => {
+        if (!employeeRoute) return null;
+        
+        let formattedDistance = null;
+        let formattedTotalTime = null;
+        
+        // Formatiere die Distanz, falls vorhanden
+        if (employeeRoute.total_distance) {
+            formattedDistance = `${employeeRoute.total_distance.toFixed(1)} km`;
+        }
+        
+        // Formatiere die Gesamtzeit, falls vorhanden
+        if (employeeRoute.total_duration) {
+            const totalMinutes = employeeRoute.total_duration;
+            formattedTotalTime = totalMinutes >= 60
+                ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}min`
+                : `${totalMinutes}min`;
+        }
+        
+        return {
+            totalDistance: formattedDistance,
+            totalTime: formattedTotalTime
+        };
+    };
+    
+    // Hole die formatierte Routendaten
+    const routeData = getFormattedRouteData();
 
     // Toggle für expanded state
     const toggleExpand = () => {
@@ -299,7 +335,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         }
         return {
             borderLeft: employee.tour_number ? 5 : 2,
-            borderColor: employee.tour_number ? 'primary.main' : 'grey.400',
+            borderColor: employee.tour_number ? getColorForTour(employee.tour_number) : 'grey.400',
         };
     };
     
@@ -336,11 +372,34 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                         component="h3" 
                         sx={{ 
                             fontWeight: 'bold',
-                            color: employee.tour_number ? 'primary.main' : 'text.primary'
+                            color: employee.tour_number ? getColorForTour(employee.tour_number) : 'text.primary'
                         }}
                     >
                         {getTourTitle()}
                     </Typography>
+                    
+                    {/* Anzeige der Strecke und Gesamtzeit */}
+                    {routeData && (routeData.totalDistance || routeData.totalTime) && (
+                        <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            gap: 1,
+                            mr: 1,
+                            flexShrink: 0
+                        }}>
+                            {routeData.totalDistance && (
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                                    {routeData.totalDistance}
+                                </Typography>
+                            )}
+                            {routeData.totalTime && (
+                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap', fontWeight: 'bold' }}>
+                                    {routeData.totalTime}
+                                </Typography>
+                            )}
+                        </Box>
+                    )}
+                    
                     <IconButton 
                         onClick={toggleExpand} 
                         size="small"
