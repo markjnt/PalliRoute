@@ -21,6 +21,7 @@ import { Patient, Appointment, Weekday, Employee } from '../../types/models';
 import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientExcelImport';
 import { patientsApi, employeesApi, appointmentsApi } from '../../services/api';
+import { useWeekday } from '../../contexts/WeekdayContext';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -29,7 +30,7 @@ interface TourPlanSidebarProps {
 export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     width = 400
 }) => {
-    const [selectedDay, setSelectedDay] = useState<Weekday>('monday');
+    const { selectedWeekday, setSelectedWeekday } = useWeekday();
     const [patients, setPatients] = useState<Patient[]>([]);
     const [dayAppointments, setDayAppointments] = useState<Appointment[]>([]);
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
@@ -64,14 +65,14 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             setCalendarWeek(extractedCalendarWeek);
             
             // Initial loading of appointments for the selected day
-            fetchAppointmentsByWeekday(selectedDay);
+            fetchAppointmentsByWeekday(selectedWeekday);
         } catch (error) {
             console.error('Error fetching patients:', error);
             setError('Fehler beim Laden der Patienten.');
         } finally {
             setLoading(false);
         }
-    }, [selectedDay]);
+    }, [selectedWeekday]);
 
     useEffect(() => {
         fetchPatients();
@@ -80,8 +81,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
     // Fetch appointments for the selected day when the day changes
     useEffect(() => {
-        fetchAppointmentsByWeekday(selectedDay);
-    }, [selectedDay, fetchPatients]);
+        fetchAppointmentsByWeekday(selectedWeekday);
+    }, [selectedWeekday, fetchPatients]);
 
     const fetchAppointmentsByWeekday = async (day: Weekday) => {
         setLoadingDayAppointments(true);
@@ -134,7 +135,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     };
 
     const handleDayChange = (event: SelectChangeEvent) => {
-        setSelectedDay(event.target.value as Weekday);
+        setSelectedWeekday(event.target.value as Weekday);
     };
 
     const handleImportDialogOpen = () => {
@@ -159,7 +160,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         fetchEmployees();
         
         // Refresh appointments for the selected day which will also update routes
-        fetchAppointmentsByWeekday(selectedDay);
+        fetchAppointmentsByWeekday(selectedWeekday);
         
         // Show success notification
         setSuccessMessage(`Import erfolgreich abgeschlossen.`);
@@ -217,7 +218,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     )}
                     <FormControl sx={{ width: 145 }}>
                         <Select
-                            value={selectedDay}
+                            value={selectedWeekday}
                             onChange={handleDayChange}
                             size="small"
                             displayEmpty
@@ -256,7 +257,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     employees={employees}
                     patients={patients}
                     appointments={dayAppointments}
-                    selectedDay={selectedDay}
+                    selectedDay={selectedWeekday}
                     loading={loading || loadingEmployees || loadingDayAppointments}
                     error={error}
                 />
