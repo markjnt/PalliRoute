@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CircularProgress, Alert, Button, Typography, IconButton, Tooltip, Card, CardContent } from '@mui/material';
-import { GoogleMap, useJsApiLoader, Marker, DirectionsService, DirectionsRenderer } from '@react-google-maps/api';
+import { Box, CircularProgress, Alert, Button, Typography, IconButton, Tooltip, Card, CardContent, Chip } from '@mui/material';
+import { GoogleMap, useJsApiLoader, Marker, DirectionsService, DirectionsRenderer, InfoWindow, GroundOverlay } from '@react-google-maps/api';
 import { configApi } from '../../services/api/config';
 import { routesApi } from '../../services/api/routes';
 import { appointmentsApi } from '../../services/api/appointments';
@@ -10,7 +10,7 @@ import { Route, Patient, Appointment, Employee } from '../../types/models';
 import { useWeekday } from '../../contexts/WeekdayContext';
 import { useTheme } from '@mui/material/styles';
 import { RefreshOutlined as RefreshIcon } from '@mui/icons-material';
-import { appointmentTypeColors, employeeTypeColors, routeLineColors } from '../../utils/colors';
+import { appointmentTypeColors, employeeTypeColors, routeLineColors, getColorForTour } from '../../utils/colors';
 
 const containerStyle = {
     width: '100%',
@@ -117,6 +117,8 @@ interface MarkerData {
     patientId?: number; // Added patient ID for identifying patients
     appointmentId?: number; // Added appointment ID for matching route_order
     employeeId?: number; // Added employee ID for identifying employees
+    routePosition?: number; // Position in the route (1-based index)
+    displayPosition?: google.maps.LatLng; // Position to show InfoWindow at (for expanded markers)
 }
 
 interface RoutePathData {
@@ -160,6 +162,41 @@ const isValidRoute = (route: Route): boolean => {
     return routeOrder.length > 0;
 };
 
+// Add this new interface for marker grouping
+interface MarkerGroup {
+    markers: MarkerData[];
+    position: google.maps.LatLng;
+    count: number;
+}
+
+// Replace the adjustOverlappingMarkers function with this new approach
+const groupMarkersByPosition = (markers: MarkerData[]): MarkerGroup[] => {
+    // Create a map to track positions and markers at each position
+    const positionGroups = new Map<string, MarkerGroup>();
+    
+    // Group markers by exact position
+    markers.forEach(marker => {
+        const posKey = `${marker.position.lat()},${marker.position.lng()}`;
+        
+        if (positionGroups.has(posKey)) {
+            // Add marker to existing group
+            const group = positionGroups.get(posKey)!;
+            group.markers.push(marker);
+            group.count += 1;
+        } else {
+            // Create new group for this position
+            positionGroups.set(posKey, {
+                markers: [marker],
+                position: marker.position,
+                count: 1
+            });
+        }
+    });
+    
+    // Convert map to array of groups
+    return Array.from(positionGroups.values());
+};
+
 const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     const { isLoaded } = useJsApiLoader({
         id: 'google-map-script',
@@ -178,6 +215,9 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     const [mapError, setMapError] = React.useState<string | null>(null);
     const [loading, setLoading] = React.useState<boolean>(false);
     
+    // State for tracking open popup
+    const [selectedMarker, setSelectedMarker] = React.useState<MarkerData | null>(null);
+    
     // State for actual data
     const [routes, setRoutes] = React.useState<Route[]>([]);
     const [allRoutes, setAllRoutes] = React.useState<Route[]>([]);
@@ -189,6 +229,10 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     const [isRefreshing, setIsRefreshing] = React.useState<boolean>(false);
     
     const [routePaths, setRoutePaths] = React.useState<RoutePathData[]>([]);
+    
+    // Add a state for tracking marker groups
+    const [markerGroups, setMarkerGroups] = React.useState<MarkerGroup[]>([]);
+    const [activeGroup, setActiveGroup] = React.useState<string | null>(null);
     
     // Fetch all necessary data
     const fetchData = React.useCallback(async (showLoading = true) => {
@@ -273,7 +317,14 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         }
     }, [selectedWeekday, allRoutes]);
     
-    // Create markers for all employees and appointments for the selected day
+    // Update the React.useEffect where you create markers to reset the activeGroup when selectedWeekday changes
+    React.useEffect(() => {
+        // Reset active group and selected marker when weekday changes
+        setActiveGroup(null);
+        setSelectedMarker(null);
+    }, [selectedWeekday]);
+
+    // Update the React.useEffect where you create markers to ensure proper dependency array
     React.useEffect(() => {
         const createMarkers = async () => {
             if (!window.google || !window.google.maps || !map) {
@@ -285,7 +336,6 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
             
             try {
                 // Create employee markers for all active employees
-                // This should work even if there are no patients or appointments
                 if (employees.length > 0) {
                     const activeEmployees = employees.filter(e => e.is_active);
                     for (const employee of activeEmployees) {
@@ -303,17 +353,32 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                         appointment.visit_type.trim() !== ''
                     );
                     
+                    // Get all routes for the selected day to determine patient positions
+                    const routesForDay = routes.filter(route => route.weekday === selectedWeekday);
+                    
+                    // Create a map of appointment IDs to their position in the route
+                    const appointmentPositions = new Map<number, number>();
+                    
+                    // Process all routes for the day to find positions of appointments
+                    routesForDay.forEach(route => {
+                        const routeOrder = parseRouteOrder(route.route_order);
+                        routeOrder.forEach((appointmentId, index) => {
+                            appointmentPositions.set(appointmentId, index + 1); // 1-based position
+                        });
+                    });
+                    
                     // Create patient markers for all appointments (HB, TK, and NA) on this day
                     for (const appointment of appointmentsForDay) {
                         const patient = patients.find(p => p.id === appointment.patient_id);
                         if (patient) {
-                            const patientMarkerData = createPatientMarkerData(patient, appointment);
+                            const position = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
+                            const patientMarkerData = createPatientMarkerData(patient, appointment, position);
                             if (patientMarkerData) newMarkers.push(patientMarkerData);
                         }
                     }
                 }
                 
-                // Update state with all new markers
+                // Instead of adjusting positions, just group markers by position
                 setMarkers(newMarkers);
                 
             } catch (err) {
@@ -325,7 +390,9 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         };
         
         createMarkers();
-    }, [selectedWeekday, employees, patients, appointments, map]);
+        
+        // Add routes to dependency array to ensure markers update when routes change
+    }, [selectedWeekday, employees, patients, appointments, map, routes]);
     
     // Create employee marker data using latitude and longitude from backend
     const createEmployeeMarkerData = (employee: Employee): MarkerData | null => {
@@ -348,20 +415,25 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         }
     };
     
-    // Create patient marker data with appointment type using latitude and longitude from backend
-    const createPatientMarkerData = (patient: Patient, appointment: Appointment): MarkerData | null => {
+    // Create patient marker data with appointment type and position using latitude and longitude from backend
+    const createPatientMarkerData = (patient: Patient, appointment: Appointment, position?: number): MarkerData | null => {
         // Check if we have latitude and longitude from the backend
         if (patient.latitude && patient.longitude) {
             // Create position using coordinates from backend
-            const position = new google.maps.LatLng(patient.latitude, patient.longitude);
+            const position_coords = new google.maps.LatLng(patient.latitude, patient.longitude);
+            
+            // If it's a HB (home visit) appointment and has a position, use it as the label
+            const label = appointment.visit_type === 'HB' && position ? position.toString() : undefined;
             
             return {
-                position,
+                position: position_coords,
                 title: `${patient.first_name} ${patient.last_name} - ${appointment.visit_type}`,
                 type: 'patient',
+                label,
                 visitType: appointment.visit_type,
                 patientId: patient.id, // Add patient ID to marker data
-                appointmentId: appointment.id // Add appointment ID to marker data
+                appointmentId: appointment.id, // Add appointment ID to marker data
+                routePosition: position // Add the position in the route
             };
         } else {
             // If no coordinates, log warning and skip
@@ -376,6 +448,20 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         // Komplett Routenpfade zurücksetzen beim Laden der Karte
         isCalculatingRoutes.current = false;
         setRoutePaths([]);
+        
+        // Create a custom style for the map markers with position numbers
+        const customLabelStyle = document.createElement('style');
+        customLabelStyle.textContent = `
+            .gm-style .gm-style-iw {
+                font-weight: bold;
+            }
+            .gm-style-mtvbg {
+                color: white !important;
+                font-weight: bold !important;
+                font-family: Arial, sans-serif !important;
+            }
+        `;
+        document.head.appendChild(customLabelStyle);
     }, []);
 
     const onUnmount = React.useCallback(() => {
@@ -549,7 +635,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                 console.log(`Route ${routeData.id} wurde bereits berechnet, überspringe.`);
                 return;
             }
-            
+
             // Markiere diese Route als berechnet
             if (routeData && routeData.id) {
                 calculatedRouteIds.add(routeData.id);
@@ -726,6 +812,15 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         
     }, [map, routes, markers, appointments, selectedWeekday]);
 
+    // Add useEffect to update marker groups when markers change
+    React.useEffect(() => {
+        if (markers.length > 0) {
+            setMarkerGroups(groupMarkersByPosition(markers));
+        } else {
+            setMarkerGroups([]);
+        }
+    }, [markers]);
+
     if (!isLoaded) {
         return (
             <Box sx={{ 
@@ -837,30 +932,336 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                     ) : null
                 ))}
                 
-                {/* Render markers */}
-                {markers.map((marker, index) => (
-                    <Marker
-                        key={`${marker.type}-${index}`}
-                        position={marker.position}
-                        title={marker.title}
-                        label={marker.type === 'employee' ? undefined : marker.label}
-                        icon={marker.type === 'employee' ? {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            fillColor: getColorForEmployeeType(marker.employeeType),
-                            fillOpacity: 1,
-                            strokeColor: '#ffffff',
-                            strokeWeight: 2,
-                            scale: 8,
-                        } : {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            fillColor: getColorForVisitType(marker.visitType),
-                            fillOpacity: 1,
-                            strokeColor: '#ffffff',
-                            strokeWeight: 2,
-                            scale: 8,
+                {/* Render marker groups */}
+                {markerGroups.map((group, groupIndex) => {
+                    // Generate a unique key for this group
+                    const groupKey = `${group.position.lat()},${group.position.lng()}`;
+                    const isGroupActive = activeGroup === groupKey;
+                    
+                    return (
+                        <React.Fragment key={`group-${groupIndex}`}>
+                            {/* Render either a single marker or expanded group */}
+                            {group.count === 1 || !isGroupActive ? (
+                                // For single markers or collapsed groups, show just one marker
+                                <Marker
+                                    key={`group-marker-${groupIndex}`}
+                                    position={group.position}
+                                    title={group.count > 1 ? `${group.count} Marker an dieser Position` : group.markers[0].title}
+                                    onClick={() => {
+                                        // If multiple markers at this position, expand the group
+                                        if (group.count > 1) {
+                                            setActiveGroup(groupKey);
+                                        } else {
+                                            // If only one marker, select it directly
+                                            setSelectedMarker(group.markers[0]);
+                                        }
+                                    }}
+                                    label={group.count > 1 ? {
+                                        text: group.count.toString(),
+                                        color: 'white',
+                                        fontWeight: 'bold',
+                                        fontSize: '12px'
+                                    } : group.markers[0].type === 'employee' ? undefined : 
+                                    // Only create a label object for HB appointments with position numbers
+                                    (group.markers[0].visitType === 'HB' && group.markers[0].label) ? {
+                                        text: group.markers[0].label || '',
+                                        color: 'white',
+                                        fontWeight: 'bold',
+                                        fontSize: '14px'
+                                    } : undefined}
+                                    icon={group.count > 1 ? {
+                                        // Use a different style for multi-marker groups
+                                        path: google.maps.SymbolPath.CIRCLE,
+                                        fillColor: '#4285F4', // Google Blue for multi-marker groups
+                                        fillOpacity: 1,
+                                        strokeColor: '#ffffff',
+                                        strokeWeight: 2,
+                                        scale: 15, // Slightly larger for groups
+                                    } : group.markers[0].type === 'employee' ? {
+                                        path: google.maps.SymbolPath.CIRCLE,
+                                        fillColor: getColorForEmployeeType(group.markers[0].employeeType),
+                                        fillOpacity: 1,
+                                        strokeColor: '#ffffff',
+                                        strokeWeight: 2,
+                                        scale: 12,
+                                    } : {
+                                        path: google.maps.SymbolPath.CIRCLE,
+                                        fillColor: getColorForVisitType(group.markers[0].visitType),
+                                        fillOpacity: 1,
+                                        strokeColor: '#ffffff',
+                                        strokeWeight: 2,
+                                        scale: 12,
+                                    }}
+                                />
+                            ) : (
+                                // When group is active, expand markers in a circle
+                                group.markers.map((marker, idx) => {
+                                    // Calculate position in a circle around the original point
+                                    const angle = (2 * Math.PI * idx) / group.markers.length;
+                                    const radius = 0.0001; // About 10 meters radius
+                                    const lat = group.position.lat() + Math.cos(angle) * radius;
+                                    const lng = group.position.lng() + Math.sin(angle) * radius;
+                                    const expandedPosition = new google.maps.LatLng(lat, lng);
+                                    
+                                    // Create a copy of the marker with the display position set
+                                    const markerWithDisplayPosition = {
+                                        ...marker,
+                                        displayPosition: expandedPosition
+                                    };
+                                    
+                                    return (
+                                        <Marker
+                                            key={`expanded-marker-${groupIndex}-${idx}`}
+                                            position={expandedPosition}
+                                            title={marker.title}
+                                            onClick={() => {
+                                                setSelectedMarker(markerWithDisplayPosition);
+                                            }}
+                                            label={marker.type === 'employee' ? undefined : 
+                                            // Only create a label object for HB appointments with position numbers
+                                            (marker.visitType === 'HB' && marker.label) ? {
+                                                text: marker.label || '',
+                                                color: 'white',
+                                                fontWeight: 'bold',
+                                                fontSize: '14px'
+                                            } : undefined}
+                                            icon={marker.type === 'employee' ? {
+                                                path: google.maps.SymbolPath.CIRCLE,
+                                                fillColor: getColorForEmployeeType(marker.employeeType),
+                                                fillOpacity: 1,
+                                                strokeColor: '#ffffff',
+                                                strokeWeight: 2,
+                                                scale: 12,
+                                            } : {
+                                                path: google.maps.SymbolPath.CIRCLE,
+                                                fillColor: getColorForVisitType(marker.visitType),
+                                                fillOpacity: 1,
+                                                strokeColor: '#ffffff',
+                                                strokeWeight: 2,
+                                                scale: 12,
+                                            }}
+                                        />
+                                    );
+                                })
+                            )}
+                        </React.Fragment>
+                    );
+                })}
+                
+                {/* Add a click handler on the map to collapse any expanded groups */}
+                {activeGroup && (
+                    <GroundOverlay
+                        key="map-overlay"
+                        url="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+                        bounds={{
+                            north: 85,
+                            south: -85,
+                            east: 180,
+                            west: -180
                         }}
+                        opacity={0.01}
+                        onClick={() => setActiveGroup(null)}
                     />
-                ))}
+                )}
+                
+                {/* InfoWindow for selected marker */}
+                {selectedMarker && (
+                    <InfoWindow
+                        position={selectedMarker.displayPosition || selectedMarker.position}
+                        onCloseClick={() => {
+                            setSelectedMarker(null);
+                            // Also collapse any expanded group
+                            setActiveGroup(null);
+                        }}
+                        options={{
+                            pixelOffset: new google.maps.Size(0, -10)
+                        }}
+                    >
+                        <Box sx={{ 
+                            padding: 1.5, 
+                            maxWidth: 280,
+                            borderRadius: 1,
+                            bgcolor: 'background.paper',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}>
+                            {selectedMarker.type === 'patient' ? (
+                                // Patient InfoWindow Content
+                                <>
+                                    <Typography variant="subtitle1" component="div" sx={{ 
+                                        fontWeight: 'bold',
+                                        borderBottom: 1,
+                                        borderColor: 'divider',
+                                        pb: 0.5,
+                                        mb: 1
+                                    }}>
+                                        {selectedMarker.title.split(' - ')[0]} {/* Just the name without visit type */}
+                                    </Typography>
+                                    
+                                    {selectedMarker.visitType && (
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            mb: 1,
+                                            p: 0.5,
+                                            bgcolor: `${getColorForVisitType(selectedMarker.visitType)}20`,
+                                            borderRadius: 1
+                                        }}>
+                                            <Box 
+                                                sx={{ 
+                                                    width: 12, 
+                                                    height: 12, 
+                                                    borderRadius: '50%',
+                                                    bgcolor: getColorForVisitType(selectedMarker.visitType),
+                                                    mr: 1
+                                                }} 
+                                            />
+                                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                {selectedMarker.visitType === 'HB' ? 'Hausbesuch' : 
+                                                 selectedMarker.visitType === 'TK' ? 'Telefonkontakt' :
+                                                 selectedMarker.visitType === 'NA' ? 'Neuaufnahme' : selectedMarker.visitType}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    
+                                    {/* Find patient and their appointments */}
+                                    {(() => {
+                                        const patient = patients.find(p => p.id === selectedMarker.patientId);
+                                        if (!patient) return null;
+                                        
+                                        // Get all appointments for this patient
+                                        const patientAppointments = appointments.filter(a => a.patient_id === patient.id);
+                                        
+                                        // Group appointments by weekday
+                                        const appointmentsByDay: Record<string, Appointment[]> = {};
+                                        patientAppointments.forEach(app => {
+                                            if (!appointmentsByDay[app.weekday]) {
+                                                appointmentsByDay[app.weekday] = [];
+                                            }
+                                            appointmentsByDay[app.weekday].push(app);
+                                        });
+                                        
+                                        return (
+                                            <>
+                                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
+                                                    Adresse:
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
+                                                    {patient.street}<br/>
+                                                    {patient.zip_code} {patient.city}
+                                                </Typography>
+                                                
+                                                {patient.tour !== undefined && patient.tour !== null && (
+                                                    <Box sx={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        mb: 1
+                                                    }}>
+                                                        <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 1 }}>
+                                                            Tour:
+                                                        </Typography>
+                                                        <Chip 
+                                                            label={`Tour ${patient.tour}`} 
+                                                            size="small"
+                                                            sx={{ 
+                                                                height: 24,
+                                                                bgcolor: getColorForTour(patient.tour),
+                                                                color: 'white'
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </>
+                            ) : (
+                                // Employee InfoWindow Content
+                                <>
+                                    <Typography variant="subtitle1" component="div" sx={{ 
+                                        fontWeight: 'bold',
+                                        borderBottom: 1,
+                                        borderColor: 'divider',
+                                        pb: 0.5,
+                                        mb: 1
+                                    }}>
+                                        {selectedMarker.title.split(' - ')[0]} {/* Just the name without function */}
+                                    </Typography>
+                                    
+                                    {/* Employee function/role */}
+                                    {selectedMarker.employeeType && (
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            mb: 1.5,
+                                            p: 0.5,
+                                            bgcolor: `${getColorForEmployeeType(selectedMarker.employeeType)}20`,
+                                            borderRadius: 1
+                                        }}>
+                                            <Box 
+                                                sx={{ 
+                                                    width: 12, 
+                                                    height: 12, 
+                                                    borderRadius: '50%',
+                                                    bgcolor: getColorForEmployeeType(selectedMarker.employeeType),
+                                                    mr: 1
+                                                }} 
+                                            />
+                                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                                {selectedMarker.employeeType}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    
+                                    {/* Find employee details */}
+                                    {(() => {
+                                        const employee = employees.find(e => e.id === selectedMarker.employeeId);
+                                        if (!employee) return null;
+                                        
+                                        // Get all routes for this employee
+                                        const employeeRoutes = routes.filter(r => r.employee_id === employee.id);
+                                        
+                                        return (
+                                            <>
+                                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
+                                                    Adresse:
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
+                                                    {employee.street}<br/>
+                                                    {employee.zip_code} {employee.city}
+                                                </Typography>
+                                                
+                                                {employee.tour_number && (
+                                                    <Box sx={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        mb: 1
+                                                    }}>
+                                                        <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 1 }}>
+                                                            Tour:
+                                                        </Typography>
+                                                        <Chip 
+                                                            label={`Tour ${employee.tour_number}`} 
+                                                            size="small"
+                                                            sx={{ 
+                                                                height: 24,
+                                                                bgcolor: getColorForTour(employee.tour_number),
+                                                                color: 'white'
+                                                            }}
+                                                        />
+                                                    </Box>
+                                                )}
+                                                
+                                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
+                                                    Arbeitszeit: {employee.work_hours}%
+                                                </Typography>
+                                            </>
+                                        );
+                                    })()}
+                                </>
+                            )}
+                        </Box>
+                    </InfoWindow>
+                )}
             </GoogleMap>
         </Box>
     );
