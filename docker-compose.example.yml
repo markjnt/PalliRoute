@@ -2,6 +2,7 @@ services:
   backend:
     image: markjnt/palliroute-backend
     container_name: palliroute-backend
+    pull_policy: always
     volumes:
       - ./backend/data:/backend/data
     environment:
@@ -17,6 +18,7 @@ services:
   frontend:
     image: markjnt/palliroute-frontend
     container_name: palliroute-frontend
+    pull_policy: always
     ports:
       - "3000:3000"
     depends_on:
