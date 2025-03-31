@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
 import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
 import { TourContainer } from './TourContainer';
@@ -43,8 +43,8 @@ export const ToursView: React.FC<ToursViewProps> = ({
         setAppointments(initialAppointments);
     }, [initialAppointments]);
     
-    // Methode zum Neuladen der Routes
-    const fetchRoutes = async (weekday: Weekday) => {
+    // Methode zum Neuladen der Routes - mit useCallback memoized
+    const fetchRoutes = useCallback(async (weekday: Weekday) => {
         setRoutesLoading(true);
         setRoutesError(null);
         try {
@@ -59,7 +59,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
         } finally {
             setRoutesLoading(false);
         }
-    };
+    }, []);
     
     // Load routes when selectedDay changes
     useEffect(() => {
@@ -72,6 +72,50 @@ export const ToursView: React.FC<ToursViewProps> = ({
             fetchRoutes(selectedDay);
         }
     }, [employees, selectedDay]);
+    
+    // Listen for global data refresh events from MapView
+    useEffect(() => {
+        // Handler for global data refresh
+        const handleDataRefreshed = () => {
+            console.log('Received global data refresh event, updating routes...');
+            fetchRoutes(selectedDay);
+        };
+        
+        // Handler for specific route updates
+        const handleRouteUpdated = (event: CustomEvent<{
+            routeId: number;
+            employeeId: number;
+            weekday: string;
+            totalDistance: number;
+            totalDuration: number;
+        }>) => {
+            const { routeId, totalDistance, totalDuration, weekday } = event.detail;
+            
+            // Only update if it's for the current weekday
+            if (weekday.toLowerCase() === selectedDay.toLowerCase()) {
+                console.log(`Received route update for route ${routeId}: ${totalDistance}km, ${totalDuration}min`);
+                
+                // Update the route in local state
+                setRoutes(prevRoutes => 
+                    prevRoutes.map(route => 
+                        route.id === routeId
+                            ? { ...route, total_distance: totalDistance, total_duration: totalDuration }
+                            : route
+                    )
+                );
+            }
+        };
+        
+        // Add event listeners
+        window.addEventListener('palliRoute:dataRefreshed', handleDataRefreshed as EventListener);
+        window.addEventListener('palliRoute:routeUpdated', handleRouteUpdated as EventListener);
+        
+        // Cleanup
+        return () => {
+            window.removeEventListener('palliRoute:dataRefreshed', handleDataRefreshed as EventListener);
+            window.removeEventListener('palliRoute:routeUpdated', handleRouteUpdated as EventListener);
+        };
+    }, [selectedDay, fetchRoutes]);
     
     // Get employees with tour numbers
     const employeesWithTours = [...employees]

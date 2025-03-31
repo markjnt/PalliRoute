@@ -219,6 +219,12 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
             // Update last refreshed timestamp
             setLastRefreshed(new Date());
             
+            // Dispatch a custom event to notify other components that data was refreshed
+            const refreshEvent = new CustomEvent('palliRoute:dataRefreshed', {
+                detail: { timestamp: new Date() }
+            });
+            window.dispatchEvent(refreshEvent);
+            
         } catch (err) {
             console.error('Error fetching data:', err);
             setMapError('Fehler beim Laden der Daten');
@@ -439,20 +445,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         // Finde Routen mit leerer route_order und setze total_duration auf 0
         const emptyRoutes = routes.filter(route => !hasValidRouteOrder(route));
         if (emptyRoutes.length > 0) {
-            console.log(`${emptyRoutes.length} Routen mit leerer route_order gefunden, setze total_duration auf 0`);
-            
-            // Für jede leere Route: Setze total_duration und total_distance auf 0
-            emptyRoutes.forEach(async (route) => {
-                try {
-                    await routesApi.updateRoute(route.id, {
-                        total_distance: 0,
-                        total_duration: 0
-                    });
-                    console.log(`Route ${route.id} zurückgesetzt: 0km, 0min`);
-                } catch (error) {
-                    console.error(`Fehler beim Zurücksetzen der Route ${route.id}:`, error);
-                }
-            });
+            console.log(`${emptyRoutes.length} Routen mit leerer route_order gefunden`);
         }
         
         // Filtere Routen erneut, um sicherzustellen, dass nur gültige Routen verwendet werden
@@ -696,6 +689,19 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                             });
                             
                             console.log(`Route ${routeData.id} aktualisiert: ${distanceKm}km, ${totalTimeMinutes}min`);
+                            
+                            // Dispatch a custom event to notify other components that a route was updated
+                            const routeUpdateEvent = new CustomEvent('palliRoute:routeUpdated', {
+                                detail: { 
+                                    routeId: routeData.id,
+                                    employeeId: routeData.employee_id,
+                                    weekday: selectedWeekday,
+                                    totalDistance: distanceKm,
+                                    totalDuration: totalTimeMinutes
+                                }
+                            });
+                            window.dispatchEvent(routeUpdateEvent);
+                            
                         } catch (error) {
                             console.error(`Fehler beim Speichern der Route ${routeData.id}:`, error);
                         }

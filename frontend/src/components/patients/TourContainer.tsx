@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { 
     Box, 
     Typography, 
@@ -55,6 +55,13 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const dropRef = useRef<HTMLDivElement>(null);
     const { updatePatientTour, updateAppointmentEmployee, error } = useDrag();
     
+    // Berechne die maximale Arbeitszeit basierend auf dem Stellenumfang
+    const getMaxWorkingMinutes = useCallback(() => {
+        // 100% Stellenumfang entspricht 7 Stunden (420 Minuten)
+        const FULL_TIME_MINUTES = 7 * 60; // 7 Stunden = 420 Minuten
+        return (employee.work_hours / 100) * FULL_TIME_MINUTES;
+    }, [employee.work_hours]);
+    
     // Finde die Route für diesen Mitarbeiter und diesen Tag
     const employeeRoute = routes.find(r => 
         r.employee_id === employee.id && 
@@ -62,11 +69,29 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     );
     
     // Formatiere Distanz und Zeit für die Anzeige
-    const getFormattedRouteData = () => {
-        if (!employeeRoute) return null;
+    const getFormattedRouteData = useCallback(() => {
+        // Berechne immer die maximale Arbeitszeit, auch wenn keine Route existiert
+        const maxWorkingMinutes = getMaxWorkingMinutes();
         
-        let formattedDistance = null;
+        // Formatiere die Maximalzeit im HH:MM Format
+        const maxHours = Math.floor(maxWorkingMinutes / 60);
+        const maxMinutes = maxWorkingMinutes % 60;
+        const maxTimeFormatted = `${maxHours}:${maxMinutes.toString().padStart(2, '0')}`;
+            
+        if (!employeeRoute) {
+            // Wenn keine Route existiert, zeige "0 km" und "0:00 / max time"
+            return {
+                totalDistance: "0.0 km",
+                totalTime: "0:00",
+                isWithinWorkHours: true,
+                timeRatio: `0:00 / ${maxTimeFormatted}`
+            };
+        }
+        
+        let formattedDistance = "0.0 km"; // Standard auf 0 km setzen
         let formattedTotalTime = null;
+        let isWithinWorkHours = true;
+        let timeRatio = '';
         
         // Formatiere die Distanz, falls vorhanden
         if (employeeRoute.total_distance) {
@@ -76,19 +101,38 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         // Formatiere die Gesamtzeit, falls vorhanden
         if (employeeRoute.total_duration) {
             const totalMinutes = employeeRoute.total_duration;
-            formattedTotalTime = totalMinutes >= 60
-                ? `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}min`
-                : `${totalMinutes}min`;
+            
+            // Formatiere im HH:MM Format
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            formattedTotalTime = `${hours}:${minutes.toString().padStart(2, '0')}`;
+                
+            // Prüfe, ob die Zeit innerhalb der Arbeitszeit liegt
+            isWithinWorkHours = totalMinutes <= maxWorkingMinutes;
+            
+            // Erstelle das Verhältnis "aktuelle Zeit / maximale Zeit"
+            timeRatio = `${formattedTotalTime} / ${maxTimeFormatted}`;
+        } else {
+            // Wenn keine Dauer vorhanden ist, zeige "0:00 / max time"
+            formattedTotalTime = "0:00";
+            timeRatio = `0:00 / ${maxTimeFormatted}`;
         }
         
         return {
             totalDistance: formattedDistance,
-            totalTime: formattedTotalTime
+            totalTime: formattedTotalTime,
+            isWithinWorkHours,
+            timeRatio
         };
-    };
+    }, [employeeRoute, getMaxWorkingMinutes]);
     
     // Hole die formatierte Routendaten
-    const routeData = getFormattedRouteData();
+    const [routeData, setRouteData] = useState(getFormattedRouteData());
+    
+    // Update route data whenever employeeRoute changes
+    useEffect(() => {
+        setRouteData(getFormattedRouteData());
+    }, [employeeRoute, getFormattedRouteData]);
 
     // Toggle für expanded state
     const toggleExpand = () => {
@@ -313,9 +357,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     // Check if there are any patients with appointments for the selected day
     const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0 || emptyTypePatients.length > 0;
     
-    // Summary for collapsed state
-    const patientSummary = `${tourPatients.length} Patienten${hasAppointmentsForDay ? `: ${hbPatients.length} Hausbesuche, ${tkPatients.length} Telefonkontakte, ${naPatients.length} Neuaufnahmen${emptyTypePatients.length > 0 ? `, ${emptyTypePatients.length} ohne Besuch` : ''}` : ', keine Termine heute'}`;
-    
     // Define the border style based on drag and drop state
     const getBorderStyle = () => {
         if (isOver && canDrop) {
@@ -365,40 +406,46 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 <Box sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
-                    alignItems: 'center' 
+                    alignItems: 'flex-start' 
                 }}>
-                    <Typography 
-                        variant="h6" 
-                        component="h3" 
-                        sx={{ 
-                            fontWeight: 'bold',
-                            color: employee.tour_number ? getColorForTour(employee.tour_number) : 'text.primary'
-                        }}
-                    >
-                        {getTourTitle()}
-                    </Typography>
-                    
-                    {/* Anzeige der Strecke und Gesamtzeit */}
-                    {routeData && (routeData.totalDistance || routeData.totalTime) && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                        <Typography 
+                            variant="h6" 
+                            component="h3" 
+                            sx={{ 
+                                fontWeight: 'bold',
+                                color: employee.tour_number ? getColorForTour(employee.tour_number) : 'text.primary'
+                            }}
+                        >
+                            {getTourTitle()}
+                        </Typography>
+                        
+                        {/* Anzeige der Strecke und Gesamtzeit - jetzt unter dem Namen */}
                         <Box sx={{ 
                             display: 'flex', 
                             alignItems: 'center',
                             gap: 1,
-                            mr: 1,
-                            flexShrink: 0
+                            mt: 0.5
                         }}>
-                            {routeData.totalDistance && (
+                            {routeData && (
                                 <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                                     {routeData.totalDistance}
                                 </Typography>
                             )}
-                            {routeData.totalTime && (
-                                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap', fontWeight: 'bold' }}>
-                                    {routeData.totalTime}
+                            {routeData && routeData.timeRatio && (
+                                <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                        whiteSpace: 'nowrap', 
+                                        fontWeight: 'bold',
+                                        color: routeData.isWithinWorkHours ? 'success.main' : 'error.main'
+                                    }}
+                                >
+                                    {routeData.timeRatio}
                                 </Typography>
                             )}
                         </Box>
-                    )}
+                    </Box>
                     
                     <IconButton 
                         onClick={toggleExpand} 
@@ -413,25 +460,26 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 
                 {!expanded && (
                     <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            {patientSummary}
+                        {/* Text für Gesamtanzahl der Patienten */}
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
+                            {tourPatients.length} Patienten
                         </Typography>
-                        {hasAppointmentsForDay && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', ml: 1, gap: 1 }}>
-                                {hbPatients.length > 0 && (
-                                    <Chip size="small" icon={<HomeIcon fontSize="small" />} label={hbPatients.length} color="primary" variant="outlined" />
-                                )}
-                                {tkPatients.length > 0 && (
-                                    <Chip size="small" icon={<PhoneIcon fontSize="small" />} label={tkPatients.length} color="success" variant="outlined" />
-                                )}
-                                {naPatients.length > 0 && (
-                                    <Chip size="small" icon={<AddCircleIcon fontSize="small" />} label={naPatients.length} color="secondary" variant="outlined" />
-                                )}
-                                {emptyTypePatients.length > 0 && (
-                                    <Chip size="small" icon={<PersonIcon fontSize="small" />} label={emptyTypePatients.length} color="default" variant="outlined" />
-                                )}
-                            </Box>
-                        )}
+                        
+                        {/* Icons für die verschiedenen Besuchstypen */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
+                            {hbPatients.length > 0 && (
+                                <Chip size="small" icon={<HomeIcon fontSize="small" />} label={hbPatients.length} color="primary" variant="outlined" />
+                            )}
+                            {tkPatients.length > 0 && (
+                                <Chip size="small" icon={<PhoneIcon fontSize="small" />} label={tkPatients.length} color="success" variant="outlined" />
+                            )}
+                            {naPatients.length > 0 && (
+                                <Chip size="small" icon={<AddCircleIcon fontSize="small" />} label={naPatients.length} color="secondary" variant="outlined" />
+                            )}
+                            {emptyTypePatients.length > 0 && (
+                                <Chip size="small" icon={<PersonIcon fontSize="small" />} label={emptyTypePatients.length} color="default" variant="outlined" />
+                            )}
+                        </Box>
                     </Box>
                 )}
                 

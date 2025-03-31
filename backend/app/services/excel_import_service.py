@@ -418,7 +418,7 @@ class ExcelImportService:
                     weekday=weekday,
                     route_order=json.dumps(appointment_ids),
                     total_duration=0,  # Wird später aktualisiert
-                    total_distance=None  # Wird später aktualisiert
+                    total_distance=0  # Wird später aktualisiert
                 )
                 db.session.add(new_route)
                 routes.append(new_route)
@@ -459,7 +459,7 @@ class ExcelImportService:
                             weekday=weekday,
                             route_order=json.dumps([]),  # Leere Route
                             total_duration=0,
-                            total_distance=None
+                            total_distance=0
                         )
                         db.session.add(new_route)
                         empty_routes.append(new_route)
