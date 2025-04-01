@@ -124,15 +124,31 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const fetchEmployees = async () => {
         setLoadingEmployees(true);
         try {
-            const activeEmployees = await employeesApi.getAll();
-            // Filter to only include active employees
-            setEmployees(activeEmployees.filter(emp => emp.is_active));
+            const allEmployees = await employeesApi.getAll();
+            // Zeige alle Mitarbeiter an, nicht nur aktive
+            setEmployees(allEmployees);
         } catch (error) {
             console.error('Error fetching employees:', error);
         } finally {
             setLoadingEmployees(false);
         }
     };
+
+    // Listen for employee status changes and refresh data
+    useEffect(() => {
+        const handleEmployeeUpdated = () => {
+            console.log('Employee data updated, refreshing employees...');
+            fetchEmployees();
+        };
+        
+        // Add event listener for employee updates
+        window.addEventListener('palliRoute:employeeUpdated', handleEmployeeUpdated);
+        
+        // Cleanup
+        return () => {
+            window.removeEventListener('palliRoute:employeeUpdated', handleEmployeeUpdated);
+        };
+    }, []);
 
     const handleDayChange = (event: SelectChangeEvent) => {
         setSelectedWeekday(event.target.value as Weekday);

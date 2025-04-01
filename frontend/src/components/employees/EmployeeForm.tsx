@@ -23,7 +23,7 @@ import { employeesApi } from '../../services/api/employees';
 
 interface EmployeeFormProps {
     open: boolean;
-    onClose: () => void;
+    onClose: (updated?: boolean) => void;
     onSave: () => void;
     employee: Employee | null;
 }
@@ -74,7 +74,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     await employeesApi.create(values);
                 }
                 onSave();
-                onClose();
+                onClose(true);
             } catch (error: any) {
                 // Don't log expected errors (like duplicate employee)
                 if (error.response?.status !== 400) {
@@ -89,7 +89,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     });
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+        <Dialog open={open} onClose={() => onClose(false)} maxWidth="md" fullWidth>
             <DialogTitle>
                 {employee ? 'Mitarbeiter bearbeiten' : 'Neuer Mitarbeiter'}
             </DialogTitle>
@@ -226,7 +226,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     </Grid>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={onClose} disabled={loading}>
+                    <Button onClick={() => onClose(false)} disabled={loading}>
                         Abbrechen
                     </Button>
                     <Button 

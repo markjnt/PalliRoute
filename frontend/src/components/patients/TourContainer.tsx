@@ -10,7 +10,8 @@ import {
     Collapse,
     Chip,
     Alert,
-    Snackbar
+    Snackbar,
+    Tooltip
 } from '@mui/material';
 import { 
     Home as HomeIcon,
@@ -18,7 +19,10 @@ import {
     Person as PersonIcon,
     ExpandMore as ExpandMoreIcon,
     ExpandLess as ExpandLessIcon,
-    AddCircle as AddCircleIcon
+    AddCircle as AddCircleIcon,
+    CheckCircle,
+    Cancel,
+    Warning as WarningIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
@@ -26,7 +30,33 @@ import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useDrag } from '../../contexts/DragContext';
 import { appointmentsApi } from '../../services/api/appointments';
-import { getColorForTour } from '../../utils/colors';
+import { getColorForTour, employeeTypeColors } from '../../utils/colors';
+
+// Helper component for section titles
+const SectionTitle = ({ 
+    icon, 
+    title, 
+    count, 
+    color 
+}: { 
+    icon: React.ReactNode, 
+    title: string, 
+    count: number,
+    color: string
+}) => (
+    <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1, 
+        mb: 1,
+        color
+    }}>
+        {icon}
+        <Typography variant="subtitle1" component="h4" fontWeight="bold">
+            {title} ({count})
+        </Typography>
+    </Box>
+);
 
 interface TourContainerProps {
     employee: Employee;
@@ -61,6 +91,9 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         const FULL_TIME_MINUTES = 7 * 60; // 7 Stunden = 420 Minuten
         return (employee.work_hours / 100) * FULL_TIME_MINUTES;
     }, [employee.work_hours]);
+    
+    // Check if employee is inactive but has a tour
+    const showInactiveWarning = !employee.is_active && employee.tour_number !== null && employee.tour_number !== undefined;
     
     // Finde die Route für diesen Mitarbeiter und diesen Tag
     const employeeRoute = routes.find(r => 
@@ -153,6 +186,16 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 return;
             }
             
+            // Prevent dropping onto a deactivated employee's tour
+            if (!employee.is_active) {
+                setNotification({
+                    open: true,
+                    message: 'Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter für diese Tour.',
+                    severity: 'error'
+                });
+                return;
+            }
+            
             try {
                 const patientId = item.patientId;
                 const patient = patients.find(p => p.id === patientId);
@@ -207,7 +250,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 });
             }
         },
-        canDrop: (item) => item.sourceTourNumber !== employee.tour_number, // Nur das Ablegen in einer anderen Tour erlauben
+        canDrop: (item) => item.sourceTourNumber !== employee.tour_number && employee.is_active, // Only allow dropping on active employees 
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
             canDrop: !!monitor.canDrop()
@@ -321,39 +364,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         return orderedPatients;
     }, [employee.id, selectedDay, hbPatients, routes, getPatientAppointments]);
     
-    // Get the title for the tour container
-    const getTourTitle = () => {
-        if (employee.tour_number) {
-            return `Tour ${employee.tour_number}: ${employee.first_name} ${employee.last_name}`;
-        }
-        return `${employee.first_name} ${employee.last_name} (Keine Tour)`;
-    };
-    
-    const SectionTitle = ({ 
-        icon, 
-        title, 
-        count, 
-        color 
-    }: { 
-        icon: React.ReactNode, 
-        title: string, 
-        count: number,
-        color: string
-    }) => (
-        <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 1, 
-            mb: 1,
-            color
-        }}>
-            {icon}
-            <Typography variant="subtitle1" component="h4" fontWeight="bold">
-                {title} ({count})
-            </Typography>
-        </Box>
-    );
-    
     // Check if there are any patients with appointments for the selected day
     const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0 || emptyTypePatients.length > 0;
     
@@ -403,22 +413,69 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     backgroundColor: isOver && canDrop ? 'rgba(76, 175, 80, 0.08)' : 'background.paper'
                 }}
             >
+                {showInactiveWarning && (
+                    <Alert 
+                        severity="warning" 
+                        icon={<WarningIcon />}
+                        sx={{ mb: 2 }}
+                    >
+                        Dieser Mitarbeiter ist deaktiviert. Bitte Patienten neu zuweisen.
+                    </Alert>
+                )}
+                
                 <Box sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'flex-start' 
                 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <Typography 
-                            variant="h6" 
-                            component="h3" 
-                            sx={{ 
-                                fontWeight: 'bold',
-                                color: employee.tour_number ? getColorForTour(employee.tour_number) : 'text.primary'
-                            }}
-                        >
-                            {getTourTitle()}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography 
+                                variant="h6" 
+                                component="h3" 
+                                sx={{ 
+                                    fontWeight: 'bold',
+                                    color: employee.tour_number ? getColorForTour(employee.tour_number) : 'text.primary'
+                                }}
+                            >
+                                {employee.tour_number ? `Tour ${employee.tour_number}:` : ''}
+                            </Typography>
+                            
+                            <Tooltip title={`Funktion: ${employee.function} - ${employee.is_active ? 'Aktiv' : 'Inaktiv'}`}>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <Typography 
+                                        variant="h6" 
+                                        component="h3" 
+                                        sx={{ 
+                                            fontWeight: 'medium',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1
+                                        }}
+                                    >
+                                        {employee.first_name} {employee.last_name}
+                                        {employee.is_active ? 
+                                            <CheckCircle color="success" fontSize="small" /> : 
+                                            <Cancel color="error" fontSize="small" />
+                                        }
+                                    </Typography>
+                                    
+                                    {/* Employee function chip */}
+                                    <Chip 
+                                        label={employee.function}
+                                        size="small"
+                                        sx={{ 
+                                            ml: 1,
+                                            height: '20px',
+                                            fontSize: '0.7rem',
+                                            backgroundColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
+                                            color: 'white',
+                                            opacity: employee.is_active ? 1 : 0.7,
+                                        }}
+                                    />
+                                </Box>
+                            </Tooltip>
+                        </Box>
                         
                         {/* Anzeige der Strecke und Gesamtzeit - jetzt unter dem Namen */}
                         <Box sx={{ 

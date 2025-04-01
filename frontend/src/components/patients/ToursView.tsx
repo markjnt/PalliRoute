@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Alert, CircularProgress, Button } from '@mui/material';
+import { Box, Typography, Alert, CircularProgress, Button, Chip, Tooltip } from '@mui/material';
 import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
 import { TourContainer } from './TourContainer';
-import { Person as PersonIcon } from '@mui/icons-material';
+import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon } from '@mui/icons-material';
 import { routesApi } from '../../services/api';
 import { useDrag } from '../../contexts/DragContext';
+import { employeeTypeColors } from '../../utils/colors';
 
 interface ToursViewProps {
     employees: Employee[];
@@ -127,6 +128,27 @@ export const ToursView: React.FC<ToursViewProps> = ({
     
     // Get employees without tour numbers
     const employeesWithoutTours = employees.filter(e => !e.tour_number);
+    
+    // Separate employees with tours but without patients
+    const hasPatientInTour = (tourNumber: number) => {
+        return patients.some(p => p.tour === tourNumber);
+    };
+    
+    // Filter employees with empty tours (have tour number but no patients)
+    const employeesWithEmptyTours = employeesWithTours.filter(
+        e => e.tour_number && !hasPatientInTour(e.tour_number)
+    );
+    
+    // Filter inactive employees with empty tours for additional warning
+    const inactiveEmployeesWithEmptyTours = employeesWithEmptyTours.filter(e => !e.is_active);
+    
+    // Filter employees with tours and patients
+    const employeesWithPatientsInTours = employeesWithTours.filter(
+        e => e.tour_number && hasPatientInTour(e.tour_number)
+    );
+    
+    // Filter inactive employees with tours and patients 
+    const inactiveEmployeesWithPatientsInTours = employeesWithPatientsInTours.filter(e => !e.is_active);
     
     /**
      * Handler für den Fall, dass ein Patient in eine andere Tour verschoben wird
@@ -356,8 +378,38 @@ export const ToursView: React.FC<ToursViewProps> = ({
                 </Alert>
             )}
 
-            {/* Display tour containers for employees with tour numbers */}
-            {employeesWithTours.length > 0 ? (
+            {/* Display warning at the top of the page if there are inactive employees with tours */}
+            {(inactiveEmployeesWithPatientsInTours.length > 0 || inactiveEmployeesWithEmptyTours.length > 0) && (
+                <Alert 
+                    severity="warning" 
+                    icon={<WarningIcon />}
+                    sx={{ mb: 3 }}
+                >
+                    <Typography variant="body1" fontWeight="medium">
+                        Es gibt inaktive Mitarbeiter mit zugewiesenen Touren
+                    </Typography>
+                    <Typography variant="body2">
+                        {inactiveEmployeesWithPatientsInTours.length > 0 && (
+                            <>
+                                {inactiveEmployeesWithPatientsInTours.length === 1
+                                    ? '1 inaktiver Mitarbeiter mit Patienten'
+                                    : `${inactiveEmployeesWithPatientsInTours.length} inaktive Mitarbeiter mit Patienten`}
+                                {inactiveEmployeesWithEmptyTours.length > 0 ? ' und ' : ''}
+                            </>
+                        )}
+                        {inactiveEmployeesWithEmptyTours.length > 0 && (
+                            <>
+                                {inactiveEmployeesWithEmptyTours.length === 1
+                                    ? '1 inaktiver Mitarbeiter mit leerer Tour'
+                                    : `${inactiveEmployeesWithEmptyTours.length} inaktive Mitarbeiter mit leeren Touren`}
+                            </>
+                        )}
+                    </Typography>
+                </Alert>
+            )}
+
+            {/* Display tour containers for employees with tour numbers and patients */}
+            {employeesWithPatientsInTours.length > 0 ? (
                 <Box sx={{ 
                     display: 'flex', 
                     flexWrap: 'wrap', 
@@ -386,7 +438,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                         }
                     }
                 }}>
-                    {employeesWithTours.map(employee => (
+                    {employeesWithPatientsInTours.map(employee => (
                         <TourContainer
                             key={employee.id}
                             employee={employee}
@@ -400,8 +452,60 @@ export const ToursView: React.FC<ToursViewProps> = ({
                 </Box>
             ) : (
                 <Alert severity="info" sx={{ my: 2 }}>
-                    Keine Touren gefunden. Bitte weisen Sie den Mitarbeitern Tournummern zu.
+                    Keine Touren mit Patienten gefunden. Bitte weisen Sie den Patienten Tournummern zu.
                 </Alert>
+            )}
+            
+            {/* Display employees with tours but no patients */}
+            {employeesWithEmptyTours.length > 0 && (
+                <Box sx={{ mt: employeesWithPatientsInTours.length > 0 ? 4 : 2, pt: 2, borderTop: employeesWithPatientsInTours.length > 0 ? 1 : 0, borderColor: 'divider' }}>
+                    <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        mb: 2,
+                        justifyContent: 'space-between' 
+                    }}>
+                        <Typography variant="h6" component="h3">
+                            Leere Touren
+                        </Typography>
+                        
+                        {inactiveEmployeesWithEmptyTours.length > 0 && (
+                            <Alert 
+                                severity="warning" 
+                                icon={<WarningIcon />}
+                                sx={{ 
+                                    py: 0,
+                                    '& .MuiAlert-message': { py: 0.5 }
+                                }}
+                            >
+                                {inactiveEmployeesWithEmptyTours.length === 1 
+                                    ? '1 inaktiver Mitarbeiter mit leerer Tour' 
+                                    : `${inactiveEmployeesWithEmptyTours.length} inaktive Mitarbeiter mit leeren Touren`}. Bitte aktive Mitarbeiter zuweisen.
+                            </Alert>
+                        )}
+                    </Box>
+                    
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'repeat(auto-fill, minmax(300px, 1fr))',
+                        },
+                        gap: 2
+                    }}>
+                        {employeesWithEmptyTours.map(employee => (
+                            <TourContainer
+                                key={`empty-${employee.id}`}
+                                employee={employee}
+                                patients={patients}
+                                appointments={appointments}
+                                selectedDay={selectedDay}
+                                routes={routes}
+                                onPatientMoved={handlePatientMoved}
+                            />
+                        ))}
+                    </Box>
+                </Box>
             )}
             
             {/* Display employees without tour numbers */}
@@ -413,17 +517,52 @@ export const ToursView: React.FC<ToursViewProps> = ({
                     </Typography>
                     
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {employeesWithoutTours.map(employee => (
-                            <Button
-                                key={employee.id}
-                                variant="outlined"
-                                size="small"
-                                startIcon={<PersonIcon />}
-                                sx={{ mr: 1, mb: 1 }}
-                            >
-                                {employee.first_name} {employee.last_name}
-                            </Button>
-                        ))}
+                        {employeesWithoutTours.map(employee => {
+                            // Get appropriate color for employee function
+                            const functionColor = employeeTypeColors[employee.function] || employeeTypeColors.default;
+                            
+                            return (
+                                <Tooltip 
+                                    key={employee.id} 
+                                    title={`Funktion: ${employee.function} - ${employee.is_active ? 'Aktiv' : 'Inaktiv'}`}
+                                >
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<PersonIcon />}
+                                        endIcon={employee.is_active ? 
+                                            <CheckCircle color="success" fontSize="small" /> : 
+                                            <Cancel color="error" fontSize="small" />
+                                        }
+                                        sx={{ 
+                                            mr: 1, 
+                                            mb: 1,
+                                            borderColor: functionColor,
+                                            color: 'text.primary',
+                                            '&:hover': {
+                                                borderColor: functionColor,
+                                                backgroundColor: `${functionColor}10`,
+                                            },
+                                            backgroundColor: `${functionColor}08`,
+                                            opacity: employee.is_active ? 1 : 0.7,
+                                        }}
+                                    >
+                                        {employee.first_name} {employee.last_name}
+                                        <Chip 
+                                            label={employee.function}
+                                            size="small"
+                                            sx={{ 
+                                                ml: 1,
+                                                height: '18px',
+                                                fontSize: '0.7rem',
+                                                backgroundColor: functionColor,
+                                                color: 'white',
+                                            }}
+                                        />
+                                    </Button>
+                                </Tooltip>
+                            );
+                        })}
                     </Box>
                 </Box>
             )}

@@ -135,6 +135,12 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             await fetchEmployees();
             setDeleteDialogOpen(false);
             setEmployeeToDelete(null);
+            
+            // Sende ein Event, dass ein Mitarbeiter gelöscht wurde
+            const event = new CustomEvent('palliRoute:employeeUpdated', {
+                detail: { employeeId: employeeToDelete.id, action: 'deleted' }
+            });
+            window.dispatchEvent(event);
         } catch (error) {
             console.error('Error deleting employee:', error);
         }
@@ -144,8 +150,29 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         try {
             await employeesApi.toggleActive(id, !currentStatus);
             await fetchEmployees();
+            
+            // Sende ein Event, dass ein Mitarbeiter aktualisiert wurde
+            const event = new CustomEvent('palliRoute:employeeUpdated', {
+                detail: { employeeId: id, is_active: !currentStatus }
+            });
+            window.dispatchEvent(event);
         } catch (error) {
             console.error('Error toggling employee status:', error);
+        }
+    };
+
+    const handleFormClose = async (updated?: boolean) => {
+        setOpenForm(false);
+        setSelectedEmployee(null);
+        
+        if (updated) {
+            await fetchEmployees();
+            
+            // Sende ein Event, dass ein Mitarbeiter aktualisiert wurde
+            const event = new CustomEvent('palliRoute:employeeUpdated', {
+                detail: { action: 'updated' }
+            });
+            window.dispatchEvent(event);
         }
     };
 
@@ -380,10 +407,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             {openForm && (
                 <EmployeeForm
                     open={openForm}
-                    onClose={() => {
-                        setOpenForm(false);
-                        setSelectedEmployee(null);
-                    }}
+                    onClose={handleFormClose}
                     onSave={fetchEmployees}
                     employee={selectedEmployee}
                 />

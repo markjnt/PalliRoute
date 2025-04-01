@@ -11,7 +11,8 @@ import {
 } from '@mui/material';
 import { 
     Phone as PhoneIcon,
-    Home as HomeIcon
+    Home as HomeIcon,
+    Info as InfoIcon
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 import { Patient, Appointment, Weekday } from '../../types/models';
@@ -89,6 +90,12 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     const getVisitTypeForWeekday = (weekday: Weekday): string | null => {
         const appt = patientAppointments.find(a => a.weekday === weekday);
         return appt?.visit_type || null;
+    };
+    
+    // Funktion zum Abrufen der Info für einen bestimmten Wochentag
+    const getInfoForWeekday = (weekday: Weekday): string | null => {
+        const appt = patientAppointments.find(a => a.weekday === weekday);
+        return appt?.info || null;
     };
     
     // Funktion zum Übersetzen des englischen Wochentags in Deutsch
@@ -250,6 +257,16 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                 <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
                                 <Typography variant="body2" color="text.secondary">
                                     {patient.phone1}
+                                </Typography>
+                            </Box>
+                        )}
+                        
+                        {/* Info für den ausgewählten Tag anzeigen */}
+                        {getInfoForWeekday(selectedDay) && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                <InfoIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                                <Typography variant="body2" color="text.secondary">
+                                    {getInfoForWeekday(selectedDay)}
                                 </Typography>
                             </Box>
                         )}
