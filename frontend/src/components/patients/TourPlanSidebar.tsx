@@ -21,7 +21,7 @@ import { Patient, Appointment, Weekday, Employee } from '../../types/models';
 import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientExcelImport';
 import { patientsApi, employeesApi, appointmentsApi } from '../../services/api';
-import { useWeekday } from '../../contexts/WeekdayContext';
+import { useWeekdayStore } from '../../stores';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -30,7 +30,7 @@ interface TourPlanSidebarProps {
 export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     width = 400
 }) => {
-    const { selectedWeekday, setSelectedWeekday } = useWeekday();
+    const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [patients, setPatients] = useState<Patient[]>([]);
     const [dayAppointments, setDayAppointments] = useState<Appointment[]>([]);
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);

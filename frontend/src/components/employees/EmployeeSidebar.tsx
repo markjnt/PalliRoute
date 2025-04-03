@@ -32,7 +32,7 @@ import { Employee } from '../../types/models';
 import { employeesApi } from '../../services/api/employees';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeImport } from './EmployeeImport';
-import { useUser } from '../../contexts/UserContext';
+import { useUserStore } from '../../stores/userStore';
 import { useNavigate } from 'react-router-dom';
 
 // Function to generate a random color based on the user's name
@@ -84,7 +84,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const [openImport, setOpenImport] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
-    const { currentUser, setCurrentUser } = useUser();
+    const { currentUser, setCurrentUser } = useUserStore();
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 

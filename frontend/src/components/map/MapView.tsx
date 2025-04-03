@@ -7,7 +7,7 @@ import { appointmentsApi } from '../../services/api/appointments';
 import { patientsApi } from '../../services/api/patients';
 import { employeesApi } from '../../services/api/employees';
 import { Route, Patient, Appointment, Employee } from '../../types/models';
-import { useWeekday } from '../../contexts/WeekdayContext';
+import { useWeekdayStore } from '../../stores';
 import { useTheme } from '@mui/material/styles';
 import { RefreshOutlined as RefreshIcon } from '@mui/icons-material';
 import { appointmentTypeColors, employeeTypeColors, routeLineColors, getColorForTour } from '../../utils/colors';
@@ -58,7 +58,7 @@ const getCurrentWeekday = (): string => {
 export const MapView: React.FC = () => {
     const [apiKey, setApiKey] = useState<string | null>(null);
     const [error, setError] = useState<string>('');
-    const { selectedWeekday } = useWeekday(); // Holen des Wochentags aus dem Context
+    const { selectedWeekday } = useWeekdayStore();
     const theme = useTheme();
 
     useEffect(() => {

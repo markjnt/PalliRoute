@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, IconButton, Drawer, useTheme, useMediaQuery } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
-import { useUser } from '../../contexts/UserContext';
+import { useUserStore } from '../../stores/userStore';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
 import { TourPlanSidebar } from '../patients/TourPlanSidebar';
@@ -35,7 +35,7 @@ export const MainLayout: React.FC = () => {
     
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-    const { currentUser } = useUser();
+    const { currentUser } = useUserStore();
     const navigate = useNavigate();
 
     // Redirect to user selection if no user is selected

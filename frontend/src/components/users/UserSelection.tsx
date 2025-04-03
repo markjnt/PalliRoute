@@ -27,9 +27,8 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { User, UserFormData, Area } from '../../types/models';
-import { useUser } from '../../contexts/UserContext';
+import { useUserStore } from '../../stores/userStore';
 import { useNavigate } from 'react-router-dom';
-import { usersApi } from '../../services/api/users';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -64,34 +63,29 @@ const stringAvatar = (name: string) => {
 };
 
 const UserSelection: React.FC = () => {
-    const [users, setUsers] = useState<User[]>([]);
     const [openDialog, setOpenDialog] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
     const [formData, setFormData] = useState<UserFormData>({ name: '', area: 'Nordkreis' });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const { currentUser, setCurrentUser } = useUser();
+    
+    const { 
+        users, 
+        isLoading, 
+        error, 
+        setCurrentUser,
+        fetchUsers,
+        createUser,
+        updateUser,
+        deleteUser
+    } = useUserStore();
+    
     const navigate = useNavigate();
-
-    const fetchUsers = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const fetchedUsers = await usersApi.getUsers();
-            setUsers(fetchedUsers);
-        } catch (err) {
-            setError('Fehler beim Laden der Benutzer');
-            console.error('Error fetching users:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     useEffect(() => {
         fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleUserSelect = (user: User) => {
@@ -106,7 +100,6 @@ const UserSelection: React.FC = () => {
     const handleCloseDialog = () => {
         setOpenDialog(false);
         setFormData({ name: '', area: 'Nordkreis' });
-        setError(null);
     };
 
     const handleEditClick = (event: React.MouseEvent, user: User) => {
@@ -120,31 +113,16 @@ const UserSelection: React.FC = () => {
         setEditDialogOpen(false);
         setUserToEdit(null);
         setFormData({ name: '', area: 'Nordkreis' });
-        setError(null);
     };
 
     const handleEditSubmit = async () => {
         if (!userToEdit) return;
 
         try {
-            setLoading(true);
-            setError(null);
-            const updatedUser = await usersApi.updateUser(userToEdit.id, formData);
-            
-            // Aktualisiere die User-Liste
-            setUsers(users.map(u => u.id === userToEdit.id ? updatedUser : u));
-            
-            // Aktualisiere auch den currentUser, falls dieser bearbeitet wurde
-            if (currentUser?.id === userToEdit.id) {
-                setCurrentUser(updatedUser);
-            }
-            
+            await updateUser(userToEdit.id, formData);
             handleEditClose();
         } catch (err) {
-            setError('Fehler beim Aktualisieren des Benutzers');
             console.error('Error updating user:', err);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -158,43 +136,25 @@ const UserSelection: React.FC = () => {
         if (!userToDelete) return;
 
         try {
-            setLoading(true);
-            setError(null);
-            await usersApi.deleteUser(userToDelete.id);
-            
-            setUsers(users.filter(u => u.id !== userToDelete.id));
-            
-            if (currentUser?.id === userToDelete.id) {
-                setCurrentUser(null);
-            }
-            
+            await deleteUser(userToDelete.id);
             setDeleteDialogOpen(false);
             setUserToDelete(null);
         } catch (err) {
-            setError('Fehler beim Löschen des Benutzers');
             console.error('Error deleting user:', err);
-        } finally {
-            setLoading(false);
         }
     };
 
     const handleSubmit = async () => {
         try {
-            setLoading(true);
-            setError(null);
-            const newUser = await usersApi.createUser(formData);
-            setUsers([...users, newUser]);
+            const newUser = await createUser(formData);
             handleCloseDialog();
             handleUserSelect(newUser);
         } catch (err) {
-            setError('Fehler beim Erstellen des Benutzers');
             console.error('Error creating user:', err);
-        } finally {
-            setLoading(false);
         }
     };
 
-    if (loading && users.length === 0) {
+    if (isLoading && users.length === 0) {
         return (
             <Box sx={{ 
                 display: 'flex', 
@@ -247,7 +207,7 @@ const UserSelection: React.FC = () => {
                                         edge="end" 
                                         aria-label="edit"
                                         onClick={(e) => handleEditClick(e, user)}
-                                        disabled={loading}
+                                        disabled={isLoading}
                                     >
                                         <EditIcon />
                                     </IconButton>
@@ -255,7 +215,7 @@ const UserSelection: React.FC = () => {
                                         edge="end" 
                                         aria-label="delete"
                                         onClick={(e) => handleDeleteClick(e, user)}
-                                        disabled={loading}
+                                        disabled={isLoading}
                                     >
                                         <DeleteIcon />
                                     </IconButton>
@@ -264,61 +224,61 @@ const UserSelection: React.FC = () => {
                         </ListItem>
                     ))}
                 </List>
-                <Box sx={{ mt: 2 }}>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        fullWidth
-                        onClick={handleAddUser}
-                        disabled={loading}
-                    >
-                        Neuen Benutzer hinzufügen
-                    </Button>
-                </Box>
+                <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={handleAddUser}
+                    disabled={isLoading}
+                    sx={{ mt: 2 }}
+                >
+                    Neuen Benutzer erstellen
+                </Button>
             </Paper>
 
             <Dialog open={openDialog} onClose={handleCloseDialog}>
                 <DialogTitle>Neuen Benutzer erstellen</DialogTitle>
                 <DialogContent>
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
-                            {error}
-                        </Alert>
-                    )}
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Name"
-                        fullWidth
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        disabled={loading}
-                    />
-                    <FormControl fullWidth margin="dense">
-                        <InputLabel>Bereich</InputLabel>
-                        <Select
-                            value={formData.area}
-                            label="Bereich"
-                            onChange={(e) => setFormData({ ...formData, area: e.target.value as Area })}
-                            disabled={loading}
-                        >
-                            <MenuItem value="Nordkreis">Nordkreis</MenuItem>
-                            <MenuItem value="Südkreis">Südkreis</MenuItem>
-                            <MenuItem value="Nord- und Südkreis">Nord- und Südkreis</MenuItem>
-                        </Select>
-                    </FormControl>
+                    <Box component="form" sx={{ mt: 1 }}>
+                        <TextField
+                            margin="normal"
+                            required
+                            fullWidth
+                            id="name"
+                            label="Name"
+                            name="name"
+                            autoComplete="name"
+                            autoFocus
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            disabled={isLoading}
+                        />
+                        <FormControl fullWidth margin="normal">
+                            <InputLabel id="area-label">Bereich</InputLabel>
+                            <Select
+                                labelId="area-label"
+                                id="area"
+                                value={formData.area}
+                                label="Bereich"
+                                onChange={(e) => setFormData({ ...formData, area: e.target.value as Area })}
+                                disabled={isLoading}
+                            >
+                                <MenuItem value="Nordkreis">Nordkreis</MenuItem>
+                                <MenuItem value="Südkreis">Südkreis</MenuItem>
+                                <MenuItem value="Nord- und Südkreis">Nord- und Südkreis</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} disabled={loading}>
+                    <Button onClick={handleCloseDialog} disabled={isLoading}>
                         Abbrechen
                     </Button>
                     <Button 
                         onClick={handleSubmit} 
                         variant="contained" 
-                        color="primary"
-                        disabled={loading || !formData.name.trim()}
+                        disabled={isLoading || !formData.name.trim()}
                     >
-                        {loading ? <CircularProgress size={24} /> : 'Erstellen'}
+                        {isLoading ? <CircularProgress size={24} /> : 'Erstellen'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -326,70 +286,75 @@ const UserSelection: React.FC = () => {
             <Dialog open={editDialogOpen} onClose={handleEditClose}>
                 <DialogTitle>Benutzer bearbeiten</DialogTitle>
                 <DialogContent>
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
-                            {error}
-                        </Alert>
-                    )}
-                    <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Name"
-                        fullWidth
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        disabled={loading}
-                    />
-                    <FormControl fullWidth margin="dense">
-                        <InputLabel>Bereich</InputLabel>
-                        <Select
-                            value={formData.area}
-                            label="Bereich"
-                            onChange={(e) => setFormData({ ...formData, area: e.target.value as Area })}
-                            disabled={loading}
-                        >
-                            <MenuItem value="Nordkreis">Nordkreis</MenuItem>
-                            <MenuItem value="Südkreis">Südkreis</MenuItem>
-                            <MenuItem value="Nord- und Südkreis">Nord- und Südkreis</MenuItem>
-                        </Select>
-                    </FormControl>
+                    <Box component="form" sx={{ mt: 1 }}>
+                        <TextField
+                            margin="normal"
+                            required
+                            fullWidth
+                            id="edit-name"
+                            label="Name"
+                            name="name"
+                            autoComplete="name"
+                            autoFocus
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            disabled={isLoading}
+                        />
+                        <FormControl fullWidth margin="normal">
+                            <InputLabel id="edit-area-label">Bereich</InputLabel>
+                            <Select
+                                labelId="edit-area-label"
+                                id="edit-area"
+                                value={formData.area}
+                                label="Bereich"
+                                onChange={(e) => setFormData({ ...formData, area: e.target.value as Area })}
+                                disabled={isLoading}
+                            >
+                                <MenuItem value="Nordkreis">Nordkreis</MenuItem>
+                                <MenuItem value="Südkreis">Südkreis</MenuItem>
+                                <MenuItem value="Nord- und Südkreis">Nord- und Südkreis</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleEditClose} disabled={loading}>
+                    <Button onClick={handleEditClose} disabled={isLoading}>
                         Abbrechen
                     </Button>
                     <Button 
                         onClick={handleEditSubmit} 
                         variant="contained" 
-                        color="primary"
-                        disabled={loading || !formData.name.trim()}
+                        disabled={isLoading || !formData.name.trim()}
                     >
-                        {loading ? <CircularProgress size={24} /> : 'Speichern'}
+                        {isLoading ? <CircularProgress size={24} /> : 'Speichern'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={() => setDeleteDialogOpen(false)}
+            >
                 <DialogTitle>Benutzer löschen</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Sind Sie sicher, dass Sie den Benutzer "{userToDelete?.name}" löschen möchten?
+                        Möchten Sie den Benutzer "{userToDelete?.name}" wirklich löschen?
                     </Typography>
                 </DialogContent>
                 <DialogActions>
                     <Button 
                         onClick={() => setDeleteDialogOpen(false)} 
-                        disabled={loading}
+                        disabled={isLoading}
                     >
                         Abbrechen
                     </Button>
                     <Button 
-                        onClick={handleDeleteConfirm}
-                        color="error"
+                        onClick={handleDeleteConfirm} 
+                        color="error" 
                         variant="contained"
-                        disabled={loading}
+                        disabled={isLoading}
                     >
-                        {loading ? <CircularProgress size={24} /> : 'Löschen'}
+                        {isLoading ? <CircularProgress size={24} /> : 'Löschen'}
                     </Button>
                 </DialogActions>
             </Dialog>
