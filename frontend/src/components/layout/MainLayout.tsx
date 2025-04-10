@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, IconButton, Drawer, useTheme, useMediaQuery } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
-import { useUserStore } from '../../stores/userStore';
+import { useUserStore } from '../../stores/useUserStore';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
 import { TourPlanSidebar } from '../patients/TourPlanSidebar';

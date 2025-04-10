@@ -1,3 +1,3 @@
 // Export all stores
-export * from './userStore';
-export * from './weekdayStore'; 
+export * from './useUserStore';
+export * from './useWeekdayStore'; 

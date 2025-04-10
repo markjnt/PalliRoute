@@ -4,7 +4,6 @@ import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DragProvider } from './contexts/DragContext';
-import { WeekdayProvider } from './contexts/WeekdayContext';
 import UserSelection from './components/users/UserSelection';
 import { MainLayout } from './components/layout/MainLayout';
 import { MapView } from './components/map/MapView';
@@ -31,17 +30,15 @@ const App: React.FC = () => {
       <CssBaseline />
       <DndProvider backend={HTML5Backend}>
         <DragProvider>
-          <WeekdayProvider>
-            <Router>
-              <Routes>
-                <Route path="/select-user" element={<UserSelection />} />
-                <Route path="/" element={<MainLayout />}>
-                  <Route index element={<MapView />} />
-                  {/* Additional routes will be nested here */}
-                </Route>
-              </Routes>
-            </Router>
-          </WeekdayProvider>
+          <Router>
+            <Routes>
+              <Route path="/select-user" element={<UserSelection />} />
+              <Route path="/" element={<MainLayout />}>
+                <Route index element={<MapView />} />
+                {/* Additional routes will be nested here */}
+              </Route>
+            </Routes>
+          </Router>
         </DragProvider>
       </DndProvider>
     </ThemeProvider>

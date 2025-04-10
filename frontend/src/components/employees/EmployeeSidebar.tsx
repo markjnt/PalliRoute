@@ -32,7 +32,7 @@ import { Employee } from '../../types/models';
 import { employeesApi } from '../../services/api/employees';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeImport } from './EmployeeImport';
-import { useUserStore } from '../../stores/userStore';
+import { useUserStore } from '../../stores/useUserStore';
 import { useNavigate } from 'react-router-dom';
 
 // Function to generate a random color based on the user's name

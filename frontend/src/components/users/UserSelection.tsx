@@ -27,7 +27,7 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { User, UserFormData, Area } from '../../types/models';
-import { useUserStore } from '../../stores/userStore';
+import { useUserStore } from '../../stores/useUserStore';
 import { useNavigate } from 'react-router-dom';
 
 // Function to generate a random color based on the user's name
