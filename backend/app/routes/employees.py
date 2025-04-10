@@ -122,16 +122,21 @@ def import_employees():
     
     try:
         result = ExcelImportService.import_employees(file)
-        imported_employees = result['imported']
-        skipped_employees = result['skipped']
+        added_employees = result['added']
+        updated_employees = result['updated']
         
-        message = f"Successfully imported {len(imported_employees)} employees"
-        if skipped_employees:
-            message += f" ({len(skipped_employees)} übersprungen: {', '.join(skipped_employees)})"
+        message = f"Successfully processed {len(added_employees) + len(updated_employees)} employees"
+        if added_employees and updated_employees:
+            message += f" ({len(added_employees)} neu hinzugefügt, {len(updated_employees)} aktualisiert)"
+        elif added_employees:
+            message += f" ({len(added_employees)} neu hinzugefügt)"
+        elif updated_employees:
+            message += f" ({len(updated_employees)} aktualisiert)"
             
         return jsonify({
             "message": message,
-            "employees": [emp.to_dict() for emp in imported_employees]
+            "added_employees": [emp.to_dict() for emp in added_employees],
+            "updated_employees": [emp.to_dict() for emp in updated_employees]
         }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400

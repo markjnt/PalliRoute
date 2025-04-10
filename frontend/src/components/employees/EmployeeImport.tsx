@@ -56,8 +56,17 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             const result = await employeesApi.import(selectedFile);
             onImportSuccess();
             onClose();
-            if (result.message.includes('übersprungen')) {
-                console.log(result.message);
+            
+            // Log zusätzliche Informationen über importierte Mitarbeiter
+            const totalEmployees = result.added_employees.length + result.updated_employees.length;
+            console.log(`Import erfolgreich: ${totalEmployees} Mitarbeiter verarbeitet`);
+            
+            if (result.added_employees.length > 0) {
+                console.log(`  ${result.added_employees.length} neue Mitarbeiter hinzugefügt`);
+            }
+            
+            if (result.updated_employees.length > 0) {
+                console.log(`  ${result.updated_employees.length} bestehende Mitarbeiter aktualisiert`);
             }
         } catch (error: any) {
             console.error('Error importing employees:', error);
