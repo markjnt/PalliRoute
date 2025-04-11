@@ -1,0 +1,50 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Docker Buildx Setup
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    # Login to Docker Hub
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    # Build Backend Docker Image with timestamp tag
+    - name: Build Backend Docker Image
+      run: |
+        TAG=$(date +%s)
+        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend:$TAG -f docker/backend.Dockerfile .
+
+    # Build Frontend Docker Image with timestamp tag
+    - name: Build Frontend Docker Image
+      run: |
+        TAG=$(date +%s)
+        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend:$TAG -f docker/frontend.Dockerfile .
+
+    # Push Backend Docker Image to Docker Hub with timestamp tag
+    - name: Push Backend Docker Image to Docker Hub
+      run: |
+        TAG=$(date +%s)
+        docker push markjnt/palliroute-backend:$TAG
+
+    # Push Frontend Docker Image to Docker Hub with timestamp tag
+    - name: Push Frontend Docker Image to Docker Hub
+      run: |
+        TAG=$(date +%s)
+        docker push markjnt/palliroute-frontend:$TAG
