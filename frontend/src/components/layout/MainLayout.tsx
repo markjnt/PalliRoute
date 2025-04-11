@@ -1,37 +1,46 @@
 import React from 'react';
 import { Box, IconButton, Drawer, useTheme, useMediaQuery } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
-import { useUserStore } from '../../stores/useUserStore';
+import { useUserStore, useLayoutStore } from '../../stores';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
 import { TourPlanSidebar } from '../patients/TourPlanSidebar';
 
-const DEFAULT_SIDEBAR_WIDTH = 425;
 const MIN_MAIN_CONTENT_WIDTH = 100;
 const COLLAPSED_WIDTH = 0;
+const DEFAULT_SIDEBAR_WIDTH = 425;
 
 export const MainLayout: React.FC = () => {
     const [mobileOpen, setMobileOpen] = React.useState(false);
-    const [isLeftFullscreen, setIsLeftFullscreen] = React.useState(false);
-    const [isRightFullscreen, setIsRightFullscreen] = React.useState(false);
-    const [sidebarWidth, setSidebarWidth] = React.useState(DEFAULT_SIDEBAR_WIDTH);
     const [isResizing, setIsResizing] = React.useState(false);
-    const [isLeftCollapsed, setIsLeftCollapsed] = React.useState(false);
+    const [isRightResizing, setIsRightResizing] = React.useState(false);
+    
+    // Sidebar refs for resize functionality
     const sidebarRef = React.useRef<HTMLDivElement>(null);
+    const rightSidebarRef = React.useRef<HTMLDivElement>(null);
+    
+    // Resize tracking refs
     const resizeRef = React.useRef<{
         startX: number;
         startWidth: number;
     }>({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
     
-    // Right sidebar state
-    const [rightSidebarWidth, setRightSidebarWidth] = React.useState(DEFAULT_SIDEBAR_WIDTH);
-    const [isRightResizing, setIsRightResizing] = React.useState(false);
-    const [isRightCollapsed, setIsRightCollapsed] = React.useState(false);
-    const rightSidebarRef = React.useRef<HTMLDivElement>(null);
     const rightResizeRef = React.useRef<{
         startX: number;
         startWidth: number;
     }>({ startX: 0, startWidth: DEFAULT_SIDEBAR_WIDTH });
+    
+    // Get layout state and actions from store
+    const {
+        leftSidebar,
+        rightSidebar,
+        setLeftSidebarFullscreen,
+        setRightSidebarFullscreen,
+        setLeftSidebarWidth,
+        setRightSidebarWidth,
+        setLeftSidebarCollapsed,
+        setRightSidebarCollapsed
+    } = useLayoutStore();
     
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -50,9 +59,9 @@ export const MainLayout: React.FC = () => {
         setIsResizing(true);
         resizeRef.current = {
             startX: e.clientX,
-            startWidth: sidebarWidth
+            startWidth: leftSidebar.width
         };
-    }, [sidebarWidth]);
+    }, [leftSidebar.width]);
 
     const stopResizing = React.useCallback(() => {
         setIsResizing(false);
@@ -65,17 +74,17 @@ export const MainLayout: React.FC = () => {
                 const delta = mouseMoveEvent.clientX - resizeRef.current.startX;
                 
                 // Berechne die verfügbare Breite für den Hauptinhalt
-                const availableWidth = window.innerWidth - rightSidebarWidth;
+                const availableWidth = window.innerWidth - rightSidebar.width;
                 const maxLeftSidebarWidth = availableWidth - MIN_MAIN_CONTENT_WIDTH;
                 
                 const newWidth = Math.min(
                     Math.max(DEFAULT_SIDEBAR_WIDTH, resizeRef.current.startWidth + delta),
                     maxLeftSidebarWidth
                 );
-                setSidebarWidth(newWidth);
+                setLeftSidebarWidth(newWidth);
             }
         },
-        [isResizing, rightSidebarWidth]
+        [isResizing, rightSidebar.width, setLeftSidebarWidth]
     );
 
     // Right sidebar resize handlers
@@ -83,9 +92,9 @@ export const MainLayout: React.FC = () => {
         setIsRightResizing(true);
         rightResizeRef.current = {
             startX: e.clientX,
-            startWidth: rightSidebarWidth
+            startWidth: rightSidebar.width
         };
-    }, [rightSidebarWidth]);
+    }, [rightSidebar.width]);
 
     const stopRightResizing = React.useCallback(() => {
         setIsRightResizing(false);
@@ -98,7 +107,7 @@ export const MainLayout: React.FC = () => {
                 const delta = mouseMoveEvent.clientX - rightResizeRef.current.startX;
                 
                 // Berechne die verfügbare Breite für den Hauptinhalt
-                const availableWidth = window.innerWidth - sidebarWidth;
+                const availableWidth = window.innerWidth - leftSidebar.width;
                 const maxRightSidebarWidth = availableWidth - MIN_MAIN_CONTENT_WIDTH;
                 
                 const newWidth = Math.min(
@@ -108,7 +117,7 @@ export const MainLayout: React.FC = () => {
                 setRightSidebarWidth(newWidth);
             }
         },
-        [isRightResizing, sidebarWidth]
+        [isRightResizing, leftSidebar.width, setRightSidebarWidth]
     );
 
     React.useEffect(() => {
@@ -138,31 +147,27 @@ export const MainLayout: React.FC = () => {
     };
 
     const handleLeftFullscreenToggle = () => {
-        if (isLeftCollapsed) {
-            setIsLeftCollapsed(false);
+        if (leftSidebar.isCollapsed) {
+            setLeftSidebarCollapsed(false);
             return;
         }
-        setIsLeftFullscreen(!isLeftFullscreen);
-        if (isRightFullscreen) setIsRightFullscreen(false);
+        setLeftSidebarFullscreen(!leftSidebar.isFullscreen);
     };
 
     const handleRightFullscreenToggle = () => {
-        if (isRightCollapsed) {
-            setIsRightCollapsed(false);
+        if (rightSidebar.isCollapsed) {
+            setRightSidebarCollapsed(false);
             return;
         }
-        setIsRightFullscreen(!isRightFullscreen);
-        if (isLeftFullscreen) setIsLeftFullscreen(false);
+        setRightSidebarFullscreen(!rightSidebar.isFullscreen);
     };
 
     const handleLeftCollapseToggle = () => {
-        setIsLeftCollapsed(!isLeftCollapsed);
-        if (isLeftFullscreen) setIsLeftFullscreen(false);
+        setLeftSidebarCollapsed(!leftSidebar.isCollapsed);
     };
 
     const handleRightCollapseToggle = () => {
-        setIsRightCollapsed(!isRightCollapsed);
-        if (isRightFullscreen) setIsRightFullscreen(false);
+        setRightSidebarCollapsed(!rightSidebar.isCollapsed);
     };
 
     return (
@@ -170,7 +175,7 @@ export const MainLayout: React.FC = () => {
             {/* Left Sidebar */}
             <Box sx={{ position: 'relative' }}>
                 {/* Collapse Toggle Button for collapsed state */}
-                {isLeftCollapsed && !isRightFullscreen && (
+                {leftSidebar.isCollapsed && !rightSidebar.isFullscreen && (
                     <IconButton 
                         onClick={handleLeftCollapseToggle}
                         size="small"
@@ -194,17 +199,17 @@ export const MainLayout: React.FC = () => {
                 )}
                 <Drawer
                     variant={isMobile ? 'temporary' : 'permanent'}
-                    open={isMobile ? mobileOpen : !isLeftCollapsed}
+                    open={isMobile ? mobileOpen : !leftSidebar.isCollapsed}
                     onClose={handleDrawerToggle}
                     sx={{
-                        width: isLeftFullscreen ? '100%' : (isLeftCollapsed ? COLLAPSED_WIDTH : sidebarWidth),
+                        width: leftSidebar.isFullscreen ? '100%' : (leftSidebar.isCollapsed ? COLLAPSED_WIDTH : leftSidebar.width),
                         flexShrink: 0,
-                        display: isRightFullscreen ? 'none' : 'block',
+                        display: rightSidebar.isFullscreen ? 'none' : 'block',
                         '& .MuiDrawer-paper': {
-                            width: isLeftFullscreen ? '100%' : (isLeftCollapsed ? COLLAPSED_WIDTH : sidebarWidth),
+                            width: leftSidebar.isFullscreen ? '100%' : (leftSidebar.isCollapsed ? COLLAPSED_WIDTH : leftSidebar.width),
                             boxSizing: 'border-box',
                             border: 'none',
-                            boxShadow: isLeftFullscreen ? 'none' : 1,
+                            boxShadow: leftSidebar.isFullscreen ? 'none' : 1,
                             transition: isResizing ? 'none' : theme.transitions.create(['width', 'margin', 'box-shadow'], {
                                 easing: theme.transitions.easing.sharp,
                                 duration: theme.transitions.duration.enteringScreen,
@@ -237,7 +242,7 @@ export const MainLayout: React.FC = () => {
                                     zIndex: 10
                                 }}
                             >
-                                {isLeftFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                                {leftSidebar.isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
                             </IconButton>
                             
                             {/* Collapse Toggle Button - middle right edge */}
@@ -249,7 +254,7 @@ export const MainLayout: React.FC = () => {
                                     right: -5,
                                     top: '50%',
                                     transform: 'translateY(-50%)',
-                                    zIndex: 10,
+                                    zIndex: 1299,
                                     bgcolor: 'background.paper',
                                     boxShadow: 2,
                                     width: 32,
@@ -261,58 +266,49 @@ export const MainLayout: React.FC = () => {
                             >
                                 <ChevronLeftIcon />
                             </IconButton>
-
-                            <EmployeeSidebar />
-                        </Box>
-
-                        {/* Resize Handle */}
-                        {!isLeftFullscreen && !isMobile && (
+                            
+                            {/* Resize Handle */}
                             <Box
-                                onMouseDown={startResizing}
                                 sx={{
                                     position: 'absolute',
-                                    right: -5,
+                                    right: 0,
                                     top: 0,
-                                    height: '100%',
-                                    width: '12px',
+                                    bottom: 0,
+                                    width: '5px',
                                     cursor: 'ew-resize',
-                                    backgroundColor: 'transparent',
+                                    zIndex: 1210,
                                     '&:hover': {
-                                        backgroundColor: 'rgba(0, 0, 0, 0.1)'
+                                        bgcolor: 'action.hover',
                                     },
-                                    '&:active': {
-                                        backgroundColor: 'rgba(0, 0, 0, 0.15)'
-                                    }
+                                    transition: 'background-color 0.2s',
                                 }}
+                                onMouseDown={startResizing}
                             />
-                        )}
+                            
+                            {/* Sidebar content */}
+                            <EmployeeSidebar />
+                        </Box>
                     </Box>
                 </Drawer>
             </Box>
-
+            
             {/* Main Content */}
-            <Box
-                component="main"
-                sx={{
-                    flexGrow: 1,
+            <Box 
+                component="main" 
+                sx={{ 
+                    flexGrow: 1, 
                     height: '100vh',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    display: (isLeftFullscreen || isRightFullscreen) ? 'none' : 'block',
-                    transition: (isResizing || isRightResizing) ? 'none' : theme.transitions.create(['width', 'margin'], {
-                        easing: theme.transitions.easing.sharp,
-                        duration: theme.transitions.duration.enteringScreen,
-                    }),
-                    pointerEvents: (isResizing || isRightResizing) ? 'none' : 'auto'
+                    overflow: 'auto',
+                    display: leftSidebar.isFullscreen || rightSidebar.isFullscreen ? 'none' : 'block',
                 }}
             >
                 <Outlet />
             </Box>
-
+            
             {/* Right Sidebar */}
             <Box sx={{ position: 'relative' }}>
                 {/* Collapse Toggle Button for collapsed state */}
-                {isRightCollapsed && !isLeftFullscreen && (
+                {rightSidebar.isCollapsed && !leftSidebar.isFullscreen && (
                     <IconButton 
                         onClick={handleRightCollapseToggle}
                         size="small"
@@ -335,18 +331,19 @@ export const MainLayout: React.FC = () => {
                     </IconButton>
                 )}
                 <Drawer
-                    variant="permanent"
+                    variant={isMobile ? 'temporary' : 'permanent'}
+                    open={isMobile ? mobileOpen : !rightSidebar.isCollapsed}
+                    onClose={handleDrawerToggle}
                     anchor="right"
-                    open={!isRightCollapsed}
                     sx={{
-                        width: isRightFullscreen ? '100%' : (isRightCollapsed ? COLLAPSED_WIDTH : rightSidebarWidth),
+                        width: rightSidebar.isFullscreen ? '100%' : (rightSidebar.isCollapsed ? COLLAPSED_WIDTH : rightSidebar.width),
                         flexShrink: 0,
-                        display: isLeftFullscreen ? 'none' : 'block',
+                        display: leftSidebar.isFullscreen ? 'none' : 'block',
                         '& .MuiDrawer-paper': {
-                            width: isRightFullscreen ? '100%' : (isRightCollapsed ? COLLAPSED_WIDTH : rightSidebarWidth),
+                            width: rightSidebar.isFullscreen ? '100%' : (rightSidebar.isCollapsed ? COLLAPSED_WIDTH : rightSidebar.width),
                             boxSizing: 'border-box',
                             border: 'none',
-                            boxShadow: isRightFullscreen ? 'none' : 1,
+                            boxShadow: rightSidebar.isFullscreen ? 'none' : 1,
                             transition: isRightResizing ? 'none' : theme.transitions.create(['width', 'margin', 'box-shadow'], {
                                 easing: theme.transitions.easing.sharp,
                                 duration: theme.transitions.duration.enteringScreen,
@@ -379,7 +376,7 @@ export const MainLayout: React.FC = () => {
                                     zIndex: 10
                                 }}
                             >
-                                {isRightFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                                {rightSidebar.isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
                             </IconButton>
                             
                             {/* Collapse Toggle Button - middle left edge */}
@@ -391,7 +388,7 @@ export const MainLayout: React.FC = () => {
                                     left: -5,
                                     top: '50%',
                                     transform: 'translateY(-50%)',
-                                    zIndex: 10,
+                                    zIndex: 1299,
                                     bgcolor: 'background.paper',
                                     boxShadow: 2,
                                     width: 32,
@@ -403,31 +400,28 @@ export const MainLayout: React.FC = () => {
                             >
                                 <ChevronRightIcon />
                             </IconButton>
-
-                            <TourPlanSidebar />
-                        </Box>
-
-                        {/* Resize Handle */}
-                        {!isRightFullscreen && !isMobile && (
+                            
+                            {/* Resize Handle */}
                             <Box
-                                onMouseDown={startRightResizing}
                                 sx={{
                                     position: 'absolute',
-                                    left: -5,
+                                    left: 0,
                                     top: 0,
-                                    height: '100%',
-                                    width: '12px',
+                                    bottom: 0,
+                                    width: '5px',
                                     cursor: 'ew-resize',
-                                    backgroundColor: 'transparent',
+                                    zIndex: 1210,
                                     '&:hover': {
-                                        backgroundColor: 'rgba(0, 0, 0, 0.1)'
+                                        bgcolor: 'action.hover',
                                     },
-                                    '&:active': {
-                                        backgroundColor: 'rgba(0, 0, 0, 0.15)'
-                                    }
+                                    transition: 'background-color 0.2s',
                                 }}
+                                onMouseDown={startRightResizing}
                             />
-                        )}
+                            
+                            {/* Sidebar content */}
+                            <TourPlanSidebar />
+                        </Box>
                     </Box>
                 </Drawer>
             </Box>
