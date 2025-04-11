@@ -9,11 +9,10 @@ import App from './App';
 const apiBaseURL = `${window.location.protocol}//${window.location.hostname}:9000/api`;
 axios.defaults.baseURL = apiBaseURL;
 
-const root = ReactDOM.createRoot(
+ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
-);
-root.render(
+).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
-);
+); 
