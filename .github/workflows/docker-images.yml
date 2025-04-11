@@ -28,11 +28,9 @@ jobs:
     # Build and Push Backend Docker Image in a single step
     - name: Build and Push Backend Docker Image
       run: |
-        TAG=$(date +%s)
-        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend:$TAG -f docker/backend.Dockerfile --push .
+        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend -f docker/backend.Dockerfile --push .
 
     # Build and Push Frontend Docker Image in a single step
     - name: Build and Push Frontend Docker Image
       run: |
-        TAG=$(date +%s)
-        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend:$TAG -f docker/frontend.Dockerfile --push .
+        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend -f docker/frontend.Dockerfile --push .
