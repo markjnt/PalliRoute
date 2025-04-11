@@ -1,46 +1,52 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import { create } from 'zustand';
 import { Route } from '../types/models';
 import { patientsApi } from '../services/api/patients';
 import { appointmentsApi } from '../services/api/appointments';
 import { routesApi } from '../services/api/routes';
 
-type DragContextType = {
-  updatePatientTour: (patientId: number, newTourNumber: number | undefined) => Promise<void>;
-  updateAppointmentEmployee: (appointmentId: number, newEmployeeId: number | undefined) => Promise<void>;
-  updateRouteOrder: (routeId: number, newRouteOrder: number[]) => Promise<Route>;
-  removeFromRouteOrder: (sourceRouteId: number, appointmentId: number) => Promise<Route>;
+interface DragState {
+  // State
   loadingPatients: boolean;
   loadingAppointments: boolean;
   loadingRoutes: boolean;
   error: string | null;
-};
+  
+  // Actions
+  updatePatientTour: (patientId: number, newTourNumber: number | undefined) => Promise<void>;
+  updateAppointmentEmployee: (appointmentId: number, newEmployeeId: number | undefined) => Promise<void>;
+  updateRouteOrder: (routeId: number, newRouteOrder: number[]) => Promise<Route>;
+  removeFromRouteOrder: (sourceRouteId: number, appointmentId: number) => Promise<Route>;
+  clearError: () => void;
+}
 
-const DragContext = createContext<DragContextType | undefined>(undefined);
-
-export const DragProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [loadingPatients, setLoadingPatients] = useState(false);
-  const [loadingAppointments, setLoadingAppointments] = useState(false);
-  const [loadingRoutes, setLoadingRoutes] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+export const useDragStore = create<DragState>((set, get) => ({
+  // Initial state
+  loadingPatients: false,
+  loadingAppointments: false,
+  loadingRoutes: false,
+  error: null,
+  
+  // Actions
+  clearError: () => set({ error: null }),
+  
   /**
    * Aktualisiert die Tour-Nummer eines Patienten
    * 
    * Schritt 1 im Prozess des Patientenverschiebens:
    * - Ändert die Tour-Nummer des Patienten in der Datenbank
    */
-  const updatePatientTour = async (patientId: number, newTourNumber: number | undefined) => {
-    setLoadingPatients(true);
-    setError(null);
+  updatePatientTour: async (patientId, newTourNumber) => {
+    set({ loadingPatients: true, error: null });
     try {
       await patientsApi.update(patientId, { tour: newTourNumber });
     } catch (err) {
-      setError('Fehler beim Aktualisieren der Patienten-Tour');
+      const errorMessage = err instanceof Error ? err.message : 'Fehler beim Aktualisieren der Patienten-Tour';
+      set({ error: errorMessage });
       console.error('Fehler beim Aktualisieren der Patienten-Tour:', err);
     } finally {
-      setLoadingPatients(false);
+      set({ loadingPatients: false });
     }
-  };
+  },
 
   /**
    * Aktualisiert den zuständigen Mitarbeiter für einen Termin
@@ -49,18 +55,18 @@ export const DragProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * - Weist den Termin einem neuen Mitarbeiter zu
    * - Wird für alle Termine des Patienten durchgeführt
    */
-  const updateAppointmentEmployee = async (appointmentId: number, newEmployeeId: number | undefined) => {
-    setLoadingAppointments(true);
-    setError(null);
+  updateAppointmentEmployee: async (appointmentId, newEmployeeId) => {
+    set({ loadingAppointments: true, error: null });
     try {
       await appointmentsApi.update(appointmentId, { employee_id: newEmployeeId });
     } catch (err) {
-      setError('Fehler beim Aktualisieren des Termin-Mitarbeiters');
+      const errorMessage = err instanceof Error ? err.message : 'Fehler beim Aktualisieren des Termin-Mitarbeiters';
+      set({ error: errorMessage });
       console.error('Fehler beim Aktualisieren des Termin-Mitarbeiters:', err);
     } finally {
-      setLoadingAppointments(false);
+      set({ loadingAppointments: false });
     }
-  };
+  },
 
   /**
    * Aktualisiert die Reihenfolge einer Route
@@ -69,9 +75,8 @@ export const DragProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * - Aktualisiert die Besuchsreihenfolge in der Zielroute
    * - Fügt neue Termine zur bestehenden Reihenfolge hinzu
    */
-  const updateRouteOrder = async (routeId: number, newRouteOrder: number[]) => {
-    setLoadingRoutes(true);
-    setError(null);
+  updateRouteOrder: async (routeId, newRouteOrder) => {
+    set({ loadingRoutes: true, error: null });
     try {
       console.log(`Aktualisiere Route-Reihenfolge für Route ID ${routeId}`, {
         routeId,
@@ -106,12 +111,12 @@ export const DragProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unbekannter Fehler';
       console.error('Fehler beim Aktualisieren der Route-Reihenfolge:', errorMessage, err);
-      setError(`Fehler beim Aktualisieren der Route-Reihenfolge: ${errorMessage}`);
+      set({ error: `Fehler beim Aktualisieren der Route-Reihenfolge: ${errorMessage}` });
       throw err;
     } finally {
-      setLoadingRoutes(false);
+      set({ loadingRoutes: false });
     }
-  };
+  },
 
   /**
    * Entfernt einen Termin aus der Route-Reihenfolge
@@ -120,9 +125,8 @@ export const DragProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * - Entfernt Termine aus der Quellroute
    * - Wird für jeden zu verschiebenden Termin aufgerufen
    */
-  const removeFromRouteOrder = async (routeId: number, appointmentId: number) => {
-    setLoadingRoutes(true);
-    setError(null);
+  removeFromRouteOrder: async (routeId, appointmentId) => {
+    set({ loadingRoutes: true, error: null });
     try {
       console.log(`Entferne Termin ${appointmentId} aus Route ${routeId}`);
       
@@ -156,35 +160,10 @@ export const DragProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unbekannter Fehler';
       console.error('Fehler beim Entfernen des Termins aus der Route:', errorMessage, err);
-      setError(`Fehler beim Entfernen des Termins aus der Route: ${errorMessage}`);
+      set({ error: `Fehler beim Entfernen des Termins aus der Route: ${errorMessage}` });
       throw err;
     } finally {
-      setLoadingRoutes(false);
+      set({ loadingRoutes: false });
     }
-  };
-
-  return (
-    <DragContext.Provider
-      value={{
-        updatePatientTour,
-        updateAppointmentEmployee,
-        updateRouteOrder,
-        removeFromRouteOrder,
-        loadingPatients,
-        loadingAppointments,
-        loadingRoutes,
-        error
-      }}
-    >
-      {children}
-    </DragContext.Provider>
-  );
-};
-
-export const useDrag = (): DragContextType => {
-  const context = useContext(DragContext);
-  if (context === undefined) {
-    throw new Error('useDrag must be used within a DragProvider');
   }
-  return context;
-}; 
+})); 

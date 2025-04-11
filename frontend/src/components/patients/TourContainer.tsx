@@ -28,7 +28,7 @@ import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
 import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
-import { useDrag } from '../../contexts/DragContext';
+import { useDragStore } from '../../stores';
 import { appointmentsApi } from '../../services/api/appointments';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 
@@ -83,7 +83,11 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         severity: 'success' 
     });
     const dropRef = useRef<HTMLDivElement>(null);
-    const { updatePatientTour, updateAppointmentEmployee, error } = useDrag();
+    
+    // Verwende den useDragStore anstelle des DragContext
+    const updatePatientTour = useDragStore(state => state.updatePatientTour);
+    const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
+    const error = useDragStore(state => state.error);
     
     // Berechne die maximale Arbeitszeit basierend auf dem Stellenumfang
     const getMaxWorkingMinutes = useCallback(() => {

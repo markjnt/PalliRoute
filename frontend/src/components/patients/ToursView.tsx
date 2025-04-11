@@ -4,7 +4,7 @@ import { Patient, Appointment, Employee, Weekday, Route } from '../../types/mode
 import { TourContainer } from './TourContainer';
 import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon } from '@mui/icons-material';
 import { routesApi } from '../../services/api';
-import { useDrag } from '../../contexts/DragContext';
+import { useDragStore } from '../../stores';
 import { employeeTypeColors } from '../../utils/colors';
 
 interface ToursViewProps {
@@ -31,9 +31,11 @@ export const ToursView: React.FC<ToursViewProps> = ({
     const [routesLoading, setRoutesLoading] = useState<boolean>(false);
     const [routesError, setRoutesError] = useState<string | null>(null);
     
-    // Get the drag context functions
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { updatePatientTour, updateAppointmentEmployee, updateRouteOrder, removeFromRouteOrder } = useDrag();
+    // Get drag store functions
+    const updatePatientTour = useDragStore(state => state.updatePatientTour);
+    const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
+    const updateRouteOrder = useDragStore(state => state.updateRouteOrder);
+    const removeFromRouteOrder = useDragStore(state => state.removeFromRouteOrder);
     
     // Update local state when props change
     useEffect(() => {
@@ -266,7 +268,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                                 removePromises.push(
                                     removeFromRouteOrder(sourceRoute.id, appId)
                                         .then(() => console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`))
-                                        .catch(error => console.error(`Fehler beim Entfernen von Termin ${appId} aus Route:`, error))
+                                        .catch((error: Error) => console.error(`Fehler beim Entfernen von Termin ${appId} aus Route:`, error))
                                 );
                             }
                         }
@@ -304,7 +306,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                             
                             addPromise = updateRouteOrder(targetRoute.id, updatedTargetRouteOrder)
                                 .then(() => console.log(`Zielroute (${weekday}) erfolgreich aktualisiert`))
-                                .catch(error => console.error(`Fehler beim Aktualisieren der Zielroute (${weekday}):`, error));
+                                .catch((error: Error) => console.error(`Fehler beim Aktualisieren der Zielroute (${weekday}):`, error));
                         }
                     }
                     
