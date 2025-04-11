@@ -18,7 +18,7 @@ FROM nginx:alpine
 RUN apk update && apk upgrade
 
 # Copy the build output from the previous stage
-COPY --from=build /frontend/build /usr/share/nginx/html
+COPY --from=build /frontend/dist /usr/share/nginx/html
 
 # Copy custom nginx config
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
