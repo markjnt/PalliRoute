@@ -101,7 +101,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                         </Alert>
                     )}
                     <Grid container spacing={2}>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                             <TextField
                                 fullWidth
                                 id="first_name"
@@ -113,7 +113,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.first_name && formik.errors.first_name}
                             />
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                             <TextField
                                 fullWidth
                                 id="last_name"
@@ -125,7 +125,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.last_name && formik.errors.last_name}
                             />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <TextField
                                 fullWidth
                                 id="street"
@@ -137,7 +137,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.street && formik.errors.street}
                             />
                         </Grid>
-                        <Grid item xs={4}>
+                        <Grid size={4}>
                             <TextField
                                 fullWidth
                                 id="zip_code"
@@ -149,7 +149,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.zip_code && formik.errors.zip_code}
                             />
                         </Grid>
-                        <Grid item xs={8}>
+                        <Grid size={8}>
                             <TextField
                                 fullWidth
                                 id="city"
@@ -161,7 +161,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.city && formik.errors.city}
                             />
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                             <FormControl fullWidth>
                                 <InputLabel id="function-label">Funktion</InputLabel>
                                 <Select
@@ -181,7 +181,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                             <TextField
                                 fullWidth
                                 id="work_hours"
@@ -197,7 +197,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 }}
                             />
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                             <TextField
                                 fullWidth
                                 id="tour_number"
@@ -211,7 +211,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 }}
                             />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={12}>
                             <FormControlLabel
                                 control={
                                     <Switch

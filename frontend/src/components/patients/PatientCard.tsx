@@ -138,7 +138,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                     const visit = getVisitTypeForWeekday(weekday);
                     const isSelectedDay = weekday === selectedDay;
                     return (
-                        <Grid item key={weekday} sx={{ width: 'calc(100% / 7)' }}>
+                        <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
                             <Tooltip title={`${getGermanWeekday(weekday)}: ${visit || 'Kein Besuch'}`}>
                                 <Box 
                                     sx={{ 
