@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Button,
@@ -14,6 +14,7 @@ import {
     Avatar,
     Menu,
     MenuItem,
+    Alert,
 } from '@mui/material';
 import {
     DataGrid,
@@ -29,11 +30,11 @@ import {
     ExitToApp as LogoutIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
-import { employeesApi } from '../../services/api/employees';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeImport } from './EmployeeImport';
 import { useUserStore } from '../../stores/useUserStore';
 import { useNavigate } from 'react-router-dom';
+import { useEmployees, useDeleteEmployee, useToggleEmployeeActive } from '../../services/queries/useEmployees';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -77,8 +78,6 @@ interface EmployeeSidebarProps {
 export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     width = 400,
 }) => {
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loading, setLoading] = useState(true);
     const [openForm, setOpenForm] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [openImport, setOpenImport] = useState(false);
@@ -88,6 +87,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
+    // React Query hooks
+    const { data: employees = [], isLoading, error } = useEmployees();
+    const deleteEmployeeMutation = useDeleteEmployee();
+    const toggleEmployeeActiveMutation = useToggleEmployeeActive();
+
     const handleUserChange = () => {
         setCurrentUser(null);
         navigate('/select-user');
@@ -96,21 +100,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const handleMenuClose = () => {
         setAnchorEl(null);
     };
-
-    const fetchEmployees = async () => {
-        try {
-            const data = await employeesApi.getAll();
-            setEmployees(data);
-        } catch (error) {
-            console.error('Error fetching employees:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchEmployees();
-    }, []);
 
     const handleEdit = (employee: Employee) => {
         setSelectedEmployee(employee);
@@ -131,8 +120,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         if (!employeeToDelete) return;
         
         try {
-            await employeesApi.delete(employeeToDelete.id);
-            await fetchEmployees();
+            await deleteEmployeeMutation.mutateAsync(employeeToDelete.id);
             setDeleteDialogOpen(false);
             setEmployeeToDelete(null);
             
@@ -148,8 +136,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 
     const handleToggleActive = async (id: number, currentStatus: boolean) => {
         try {
-            await employeesApi.toggleActive(id, !currentStatus);
-            await fetchEmployees();
+            await toggleEmployeeActiveMutation.mutateAsync({ id, isActive: !currentStatus });
             
             // Sende ein Event, dass ein Mitarbeiter aktualisiert wurde
             const event = new CustomEvent('palliRoute:employeeUpdated', {
@@ -161,13 +148,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         }
     };
 
-    const handleFormClose = async (updated?: boolean) => {
+    const handleFormClose = (updated?: boolean) => {
         setOpenForm(false);
         setSelectedEmployee(null);
         
         if (updated) {
-            await fetchEmployees();
-            
             // Sende ein Event, dass ein Mitarbeiter aktualisiert wurde
             const event = new CustomEvent('palliRoute:employeeUpdated', {
                 detail: { action: 'updated' }
@@ -187,6 +172,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         onClick={() => handleToggleActive(params.row.id, params.row.is_active)}
                         color={params.row.is_active ? 'success' : 'error'}
                         size="small"
+                        disabled={toggleEmployeeActiveMutation.isPending}
                     >
                         {params.row.is_active ? <ActiveIcon /> : <InactiveIcon />}
                     </IconButton>
@@ -248,12 +234,20 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             renderCell: (params: GridRenderCellParams) => (
                 <Box>
                     <Tooltip title="Bearbeiten">
-                        <IconButton onClick={() => handleEdit(params.row)} size="small">
+                        <IconButton 
+                            onClick={() => handleEdit(params.row)} 
+                            size="small"
+                        >
                             <EditIcon />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Löschen">
-                        <IconButton onClick={() => handleDeleteClick(params.row)} color="error" size="small">
+                        <IconButton 
+                            onClick={() => handleDeleteClick(params.row)} 
+                            color="error" 
+                            size="small"
+                            disabled={deleteEmployeeMutation.isPending}
+                        >
                             <DeleteIcon />
                         </IconButton>
                     </Tooltip>
@@ -372,7 +366,13 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             <Divider />
 
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-                {loading ? (
+                {error instanceof Error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {error.message}
+                    </Alert>
+                )}
+                
+                {isLoading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
                         <CircularProgress />
                     </Box>
@@ -408,7 +408,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 <EmployeeForm
                     open={openForm}
                     onClose={handleFormClose}
-                    onSave={fetchEmployees}
                     employee={selectedEmployee}
                 />
             )}
@@ -417,7 +416,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 <EmployeeImport
                     open={openImport}
                     onClose={() => setOpenImport(false)}
-                    onImportSuccess={fetchEmployees}
                 />
             )}
 
@@ -440,6 +438,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                             setDeleteDialogOpen(false);
                             setEmployeeToDelete(null);
                         }}
+                        disabled={deleteEmployeeMutation.isPending}
                     >
                         Abbrechen
                     </Button>
@@ -447,8 +446,9 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         onClick={handleDeleteConfirm}
                         variant="contained"
                         color="error"
+                        disabled={deleteEmployeeMutation.isPending}
                     >
-                        Löschen
+                        {deleteEmployeeMutation.isPending ? <CircularProgress size={24} /> : 'Löschen'}
                     </Button>
                 </DialogActions>
             </Dialog>

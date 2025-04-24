@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -19,12 +19,11 @@ import {
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Employee, EmployeeFormData } from '../../types/models';
-import { employeesApi } from '../../services/api/employees';
+import { useCreateEmployee, useUpdateEmployee } from '../../services/queries/useEmployees';
 
 interface EmployeeFormProps {
     open: boolean;
     onClose: (updated?: boolean) => void;
-    onSave: () => void;
     employee: Employee | null;
 }
 
@@ -44,11 +43,15 @@ const validationSchema = Yup.object({
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     open,
     onClose,
-    onSave,
     employee,
 }) => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    // React Query Hooks
+    const createEmployeeMutation = useCreateEmployee();
+    const updateEmployeeMutation = useUpdateEmployee();
+    
+    // Ermittle den aktuellen Ladestatus und Fehler aus den Mutationen
+    const isLoading = createEmployeeMutation.isPending || updateEmployeeMutation.isPending;
+    const error = createEmployeeMutation.error || updateEmployeeMutation.error;
 
     const formik = useFormik({
         initialValues: {
@@ -64,26 +67,19 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
         },
         validationSchema,
         onSubmit: async (values: EmployeeFormData) => {
-            setLoading(true);
-            setError(null);
-            
             try {
                 if (employee) {
-                    await employeesApi.update(employee.id!, values);
+                    await updateEmployeeMutation.mutateAsync({ 
+                        id: employee.id!, 
+                        employeeData: values 
+                    });
                 } else {
-                    await employeesApi.create(values);
+                    await createEmployeeMutation.mutateAsync(values);
                 }
-                onSave();
                 onClose(true);
             } catch (error: any) {
-                // Don't log expected errors (like duplicate employee)
-                if (error.response?.status !== 400) {
-                    console.error('Error saving employee:', error);
-                }
-                const errorMessage = error.response?.data?.error || 'Fehler beim Speichern des Mitarbeiters';
-                setError(errorMessage);
-            } finally {
-                setLoading(false);
+                // Fehlerbehandlung wird von React Query übernommen
+                console.error('Error saving employee:', error);
             }
         },
     });
@@ -95,9 +91,9 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             </DialogTitle>
             <form onSubmit={formik.handleSubmit}>
                 <DialogContent>
-                    {error && (
+                    {error instanceof Error && (
                         <Alert severity="error" sx={{ mb: 2 }}>
-                            {error}
+                            {error.message}
                         </Alert>
                     )}
                     <Grid container spacing={2}>
@@ -226,16 +222,16 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     </Grid>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => onClose(false)} disabled={loading}>
+                    <Button onClick={() => onClose(false)} disabled={isLoading}>
                         Abbrechen
                     </Button>
                     <Button 
                         type="submit" 
                         variant="contained" 
                         color="primary"
-                        disabled={loading || !formik.isValid || !formik.dirty}
+                        disabled={isLoading || !formik.isValid || !formik.dirty}
                     >
-                        {loading ? (
+                        {isLoading ? (
                             <>
                                 <CircularProgress size={20} sx={{ mr: 1 }} />
                                 Speichert...

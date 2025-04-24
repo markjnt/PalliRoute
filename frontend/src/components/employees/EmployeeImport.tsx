@@ -11,23 +11,23 @@ import {
     CircularProgress,
 } from '@mui/material';
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
-import { employeesApi } from '../../services/api/employees';
+import { useImportEmployees } from '../../services/queries/useEmployees';
 
 interface EmployeeImportProps {
     open: boolean;
     onClose: () => void;
-    onImportSuccess: () => void;
 }
 
 export const EmployeeImport: React.FC<EmployeeImportProps> = ({
     open,
     onClose,
-    onImportSuccess,
 }) => {
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    
+    // React Query hook
+    const importEmployeesMutation = useImportEmployees();
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -35,9 +35,9 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                 file.type === 'application/vnd.ms-excel') {
                 setSelectedFile(file);
-                setError(null);
+                setFileError(null);
             } else {
-                setError('Bitte wählen Sie eine Excel-Datei aus (.xlsx oder .xls)');
+                setFileError('Bitte wählen Sie eine Excel-Datei aus (.xlsx oder .xls)');
                 setSelectedFile(null);
             }
         }
@@ -45,16 +45,12 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
 
     const handleImport = async () => {
         if (!selectedFile) {
-            setError('Bitte wählen Sie zuerst eine Datei aus');
+            setFileError('Bitte wählen Sie zuerst eine Datei aus');
             return;
         }
 
-        setLoading(true);
-        setError(null);
-
         try {
-            const result = await employeesApi.import(selectedFile);
-            onImportSuccess();
+            const result = await importEmployeesMutation.mutateAsync(selectedFile);
             onClose();
             
             // Log zusätzliche Informationen über importierte Mitarbeiter
@@ -70,10 +66,6 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             }
         } catch (error: any) {
             console.error('Error importing employees:', error);
-            const errorMessage = error.response?.data?.error || 'Fehler beim Importieren der Mitarbeiter. Bitte überprüfen Sie das Dateiformat und versuchen Sie es erneut.';
-            setError(errorMessage);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -130,25 +122,31 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                         </Typography>
                     </Box>
 
-                    {error && (
+                    {fileError && (
                         <Alert severity="error" sx={{ mt: 2 }}>
-                            {error}
+                            {fileError}
+                        </Alert>
+                    )}
+                    
+                    {importEmployeesMutation.error instanceof Error && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            {importEmployeesMutation.error.message}
                         </Alert>
                     )}
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={loading}>
+                <Button onClick={onClose} disabled={importEmployeesMutation.isPending}>
                     Abbrechen
                 </Button>
                 <Button
                     onClick={handleImport}
                     variant="contained"
                     color="primary"
-                    disabled={!selectedFile || loading}
-                    startIcon={loading ? <CircularProgress size={20} /> : undefined}
+                    disabled={!selectedFile || importEmployeesMutation.isPending}
+                    startIcon={importEmployeesMutation.isPending ? <CircularProgress size={20} /> : undefined}
                 >
-                    {loading ? 'Importiere...' : 'Importieren'}
+                    {importEmployeesMutation.isPending ? 'Importiere...' : 'Importieren'}
                 </Button>
             </DialogActions>
         </Dialog>

@@ -4,13 +4,13 @@ import { GoogleMap, useJsApiLoader, Marker, DirectionsService, DirectionsRendere
 import { configApi } from '../../services/api/config';
 import { routesApi } from '../../services/api/routes';
 import { appointmentsApi } from '../../services/api/appointments';
-import { patientsApi } from '../../services/api/patients';
-import { employeesApi } from '../../services/api/employees';
-import { Route, Patient, Appointment, Employee } from '../../types/models';
+import { Route, Patient, Appointment, Employee, Weekday } from '../../types/models';
 import { useWeekdayStore } from '../../stores';
 import { useTheme } from '@mui/material/styles';
 import { RefreshOutlined as RefreshIcon } from '@mui/icons-material';
 import { appointmentTypeColors, employeeTypeColors, routeLineColors, getColorForTour } from '../../utils/colors';
+import { useEmployees } from '../../services/queries/useEmployees';
+import { usePatients } from '../../services/queries/usePatients';
 
 const containerStyle = {
     width: '100%',
@@ -221,8 +221,6 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     // State for actual data
     const [routes, setRoutes] = React.useState<Route[]>([]);
     const [allRoutes, setAllRoutes] = React.useState<Route[]>([]);
-    const [employees, setEmployees] = React.useState<Employee[]>([]);
-    const [patients, setPatients] = React.useState<Patient[]>([]);
     const [appointments, setAppointments] = React.useState<Appointment[]>([]);
     
     const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
@@ -234,6 +232,18 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
     const [markerGroups, setMarkerGroups] = React.useState<MarkerGroup[]>([]);
     const [activeGroup, setActiveGroup] = React.useState<string | null>(null);
     
+    // React Query Hooks
+    const { 
+        data: employees = [], 
+        isLoading: employeesLoading 
+    } = useEmployees();
+    
+    const {
+        data: patients = [],
+        isLoading: patientsLoading,
+        error: patientsError
+    } = usePatients();
+
     // Fetch all necessary data
     const fetchData = React.useCallback(async (showLoading = true) => {
         if (showLoading) setLoading(true);
@@ -248,35 +258,35 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
             const routesData = await routesApi.getRoutes();
             setAllRoutes(routesData);
             
-            // Fetch all employees
-            const employeesData = await employeesApi.getAll();
-            setEmployees(employeesData);
+            // Filter routes for the selected weekday
+            const weekdayRoutes = routesData.filter(r => 
+                r.weekday && r.weekday.toLowerCase() === selectedWeekday.toLowerCase()
+            );
+            setRoutes(weekdayRoutes);
             
-            // Fetch all appointments
-            const appointmentsData = await appointmentsApi.getAll();
+            // Fetch appointments for the selected weekday
+            const appointmentsData = await appointmentsApi.getByWeekday(selectedWeekday as Weekday);
             setAppointments(appointmentsData);
             
-            // Fetch all patients
-            const patientsData = await patientsApi.getAll();
-            setPatients(patientsData);
+            // Patienten und Mitarbeiter werden jetzt über React Query geladen
             
-            // Update last refreshed timestamp
             setLastRefreshed(new Date());
             
-            // Dispatch a custom event to notify other components that data was refreshed
-            const refreshEvent = new CustomEvent('palliRoute:dataRefreshed', {
-                detail: { timestamp: new Date() }
-            });
-            window.dispatchEvent(refreshEvent);
-            
+            // Send global data refreshed event
+            // (Other components like ToursView listen for this)
+            const event = new CustomEvent('palliRoute:dataRefreshed');
+            window.dispatchEvent(event);
         } catch (err) {
             console.error('Error fetching data:', err);
-            setMapError('Fehler beim Laden der Daten');
+            setMapError('Fehler beim Laden der Daten. Bitte versuchen Sie es später erneut.');
         } finally {
             if (showLoading) setLoading(false);
             if (!showLoading) setIsRefreshing(false);
         }
-    }, []);
+    }, [selectedWeekday]);
+    
+    // Kombinierter Ladestatus
+    const isDataLoading = loading || employeesLoading || patientsLoading || isRefreshing;
     
     // Initial data fetch
     React.useEffect(() => {
@@ -821,7 +831,7 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
         }
     }, [markers]);
 
-    if (!isLoaded) {
+    if (!isLoaded || isDataLoading) {
         return (
             <Box sx={{ 
                 display: 'flex', 

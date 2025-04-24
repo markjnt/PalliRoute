@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     Button,
     Dialog,
@@ -10,14 +10,11 @@ import {
     Box,
     Alert,
     AlertTitle,
-    LinearProgress,
-    List,
-    ListItem,
-    ListItemText,
+    CircularProgress,
 } from '@mui/material';
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
 import { PatientImportResponse } from '../../types/models';
-import { patientsApi } from '../../services/api';
+import { usePatientImport } from '../../services/queries/usePatients';
 import axios from 'axios';
 
 interface PatientExcelImportProps {
@@ -32,36 +29,34 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
     onSuccess
 }) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // React Query Hook
+    const patientImportMutation = usePatientImport();
+
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files.length > 0) {
             const file = event.target.files[0];
             // Check if it's an Excel file
             if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
                 setSelectedFile(file);
-                setError(null);
+                setFileError(null);
             } else {
                 setSelectedFile(null);
-                setError('Bitte wählen Sie eine Excel-Datei (.xlsx oder .xls) aus.');
+                setFileError('Bitte wählen Sie eine Excel-Datei (.xlsx oder .xls) aus.');
             }
         }
     };
     
-    const handleUpload = async () => {
+    const handleImport = async () => {
         if (!selectedFile) {
-            setError('Bitte wählen Sie eine Datei aus.');
+            setFileError('Bitte wählen Sie eine Datei aus.');
             return;
         }
         
-        setIsUploading(true);
-        setError(null);
-        
         try {
-            const response = await patientsApi.import(selectedFile);
-            
-            setIsUploading(false);
+            const response = await patientImportMutation.mutateAsync(selectedFile);
             
             // Add calendar week to success message if available
             if (response.calendar_week) {
@@ -71,26 +66,20 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
             onSuccess(response);
             handleClose();
         } catch (error) {
-            setIsUploading(false);
-            if (axios.isAxiosError(error) && error.response) {
-                setError(error.response.data.error || 'Ein Fehler ist bei der Verarbeitung der Datei aufgetreten.');
-            } else {
-                setError('Ein unbekannter Fehler ist aufgetreten.');
-            }
+            console.error('Error importing patients:', error);
         }
     };
     
     const handleClose = () => {
         setSelectedFile(null);
-        setError(null);
-        setIsUploading(false);
+        setFileError(null);
         onClose();
     };
     
     return (
         <Dialog 
             open={open} 
-            onClose={!isUploading ? handleClose : undefined}
+            onClose={!patientImportMutation.isPending ? handleClose : undefined}
             maxWidth="sm"
             fullWidth
         >
@@ -108,19 +97,26 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
                     gelöscht und durch die neu importierten Daten ersetzt!
                 </Alert>
                 
-                {error && (
+                {fileError && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         <AlertTitle>Fehler</AlertTitle>
-                        {error}
+                        {fileError}
                     </Alert>
                 )}
                 
-                {isUploading ? (
+                {patientImportMutation.error instanceof Error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        <AlertTitle>Fehler</AlertTitle>
+                        {patientImportMutation.error.message}
+                    </Alert>
+                )}
+                
+                {patientImportMutation.isPending ? (
                     <Box sx={{ width: '100%', mt: 2 }}>
                         <Typography variant="body2" gutterBottom>
                             Datei wird hochgeladen und verarbeitet...
                         </Typography>
-                        <LinearProgress />
+                        <CircularProgress />
                     </Box>
                 ) : (
                     <Box sx={{ textAlign: 'center', my: 3 }}>
@@ -130,7 +126,8 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
                             id="raised-button-file"
                             multiple={false}
                             type="file"
-                            onChange={handleFileChange}
+                            onChange={handleFileSelect}
+                            ref={fileInputRef}
                         />
                         <label htmlFor="raised-button-file">
                             <Button
@@ -158,13 +155,13 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
             <DialogActions>
                 <Button 
                     onClick={handleClose} 
-                    disabled={isUploading}
+                    disabled={patientImportMutation.isPending}
                 >
                     Abbrechen
                 </Button>
                 <Button 
-                    onClick={handleUpload} 
-                    disabled={!selectedFile || isUploading}
+                    onClick={handleImport} 
+                    disabled={!selectedFile || patientImportMutation.isPending}
                     variant="contained"
                     color="primary"
                 >

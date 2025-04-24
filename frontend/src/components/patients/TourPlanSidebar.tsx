@@ -17,11 +17,13 @@ import {
     CloudUpload as UploadIcon,
     Event as CalendarIcon
 } from '@mui/icons-material';
-import { Patient, Appointment, Weekday, Employee } from '../../types/models';
+import { Appointment, Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientExcelImport';
-import { patientsApi, employeesApi, appointmentsApi } from '../../services/api';
+import { appointmentsApi } from '../../services/api';
 import { useWeekdayStore } from '../../stores';
+import { useEmployees } from '../../services/queries/useEmployees';
+import { usePatients, usePatientImport } from '../../services/queries/usePatients';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -31,58 +33,45 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     width = 400
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
-    const [patients, setPatients] = useState<Patient[]>([]);
     const [dayAppointments, setDayAppointments] = useState<Appointment[]>([]);
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
-    const [loading, setLoading] = useState(false);
     const [loadingDayAppointments, setLoadingDayAppointments] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loadingEmployees, setLoadingEmployees] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    
+    // React Query Hooks
+    const { 
+        data: employees = [], 
+        isLoading: loadingEmployees 
+    } = useEmployees();
+    
+    const {
+        data: patients = [],
+        isLoading: loadingPatients,
+        error: patientsError,
+        refetch: refetchPatients
+    } = usePatients();
+    
+    const patientImportMutation = usePatientImport();
 
-    const fetchPatients = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        
-        try {
-            // Lade alle Patienten
-            const patients = await patientsApi.getAll();
-            setPatients(patients);
-            
-            // Bestimme die Kalenderwoche aus den Patientendaten
-            let extractedCalendarWeek: number | null = null;
-            
+    // Setze die Kalenderwoche basierend auf den Patientendaten
+    useEffect(() => {
+        if (patients && patients.length > 0) {
             // Finde die erste nicht-null Kalenderwoche
             for (const patient of patients) {
                 if (patient.calendar_week) {
-                    extractedCalendarWeek = patient.calendar_week;
+                    setCalendarWeek(patient.calendar_week);
                     break;
                 }
             }
-            
-            setCalendarWeek(extractedCalendarWeek);
-            
-            // Initial loading of appointments for the selected day
-            fetchAppointmentsByWeekday(selectedWeekday);
-        } catch (error) {
-            console.error('Error fetching patients:', error);
-            setError('Fehler beim Laden der Patienten.');
-        } finally {
-            setLoading(false);
         }
-    }, [selectedWeekday]);
-
-    useEffect(() => {
-        fetchPatients();
-        fetchEmployees();
-    }, [fetchPatients]);
+    }, [patients]);
 
     // Fetch appointments for the selected day when the day changes
     useEffect(() => {
         fetchAppointmentsByWeekday(selectedWeekday);
-    }, [selectedWeekday, fetchPatients]);
+    }, [selectedWeekday]);
 
     const fetchAppointmentsByWeekday = async (day: Weekday) => {
         setLoadingDayAppointments(true);
@@ -121,35 +110,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         }
     };
 
-    const fetchEmployees = async () => {
-        setLoadingEmployees(true);
-        try {
-            const allEmployees = await employeesApi.getAll();
-            // Zeige alle Mitarbeiter an, nicht nur aktive
-            setEmployees(allEmployees);
-        } catch (error) {
-            console.error('Error fetching employees:', error);
-        } finally {
-            setLoadingEmployees(false);
-        }
-    };
-
-    // Listen for employee status changes and refresh data
-    useEffect(() => {
-        const handleEmployeeUpdated = () => {
-            console.log('Employee data updated, refreshing employees...');
-            fetchEmployees();
-        };
-        
-        // Add event listener for employee updates
-        window.addEventListener('palliRoute:employeeUpdated', handleEmployeeUpdated);
-        
-        // Cleanup
-        return () => {
-            window.removeEventListener('palliRoute:employeeUpdated', handleEmployeeUpdated);
-        };
-    }, []);
-
     const handleDayChange = (event: SelectChangeEvent) => {
         setSelectedWeekday(event.target.value as Weekday);
     };
@@ -171,13 +131,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         // Close the dialog
         handleImportDialogClose();
         
-        // Refresh all data
-        fetchPatients();
-        fetchEmployees();
-        
-        // Refresh appointments for the selected day which will also update routes
-        fetchAppointmentsByWeekday(selectedWeekday);
-        
         // Show success notification
         setSuccessMessage(`Import erfolgreich abgeschlossen.`);
     };
@@ -197,6 +150,12 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             default: return 'Unbekannt';
         }
     };
+    
+    // Kombiniere alle Fehler und Lade-Status
+    const isLoading = loadingPatients || loadingEmployees || loadingDayAppointments;
+    const combinedError = patientsError instanceof Error 
+        ? patientsError.message 
+        : error;
 
     return (
         <Box
@@ -274,8 +233,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     patients={patients}
                     appointments={dayAppointments}
                     selectedDay={selectedWeekday}
-                    loading={loading || loadingEmployees || loadingDayAppointments}
-                    error={error}
+                    loading={isLoading}
+                    error={combinedError}
                 />
             </Box>
 
