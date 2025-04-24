@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -17,13 +17,14 @@ import {
     CloudUpload as UploadIcon,
     Event as CalendarIcon
 } from '@mui/icons-material';
-import { Appointment, Weekday } from '../../types/models';
+import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientExcelImport';
-import { appointmentsApi } from '../../services/api';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport } from '../../services/queries/usePatients';
+import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
+import { useRoutes } from '../../services/queries/useRoutes';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -33,9 +34,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     width = 400
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
-    const [dayAppointments, setDayAppointments] = useState<Appointment[]>([]);
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
-    const [loadingDayAppointments, setLoadingDayAppointments] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -49,9 +48,21 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const {
         data: patients = [],
         isLoading: loadingPatients,
-        error: patientsError,
-        refetch: refetchPatients
+        error: patientsError
     } = usePatients();
+    
+    const {
+        data: dayAppointments = [],
+        isLoading: loadingAppointments,
+        error: appointmentsError
+    } = useAppointmentsByWeekday(selectedWeekday);
+    
+    // Add the routes query hook
+    const {
+        data: routes = [],
+        isLoading: loadingRoutes,
+        error: routesError
+    } = useRoutes({ weekday: selectedWeekday });
     
     const patientImportMutation = usePatientImport();
 
@@ -67,48 +78,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             }
         }
     }, [patients]);
-
-    // Fetch appointments for the selected day when the day changes
-    useEffect(() => {
-        fetchAppointmentsByWeekday(selectedWeekday);
-    }, [selectedWeekday]);
-
-    const fetchAppointmentsByWeekday = async (day: Weekday) => {
-        setLoadingDayAppointments(true);
-        try {            
-            const response = await appointmentsApi.getByWeekday(day);
-            
-            if (response && response.length > 0) {
-                setDayAppointments(response);
-            } else {
-                console.log(`No appointments found from API for ${day}, falling back to client filtering`);
-                // Fallback: Wenn keine Termine vom API kommen, versuchen wir
-                // vorhandene Termine client-seitig zu filtern
-                const allAppointments = await appointmentsApi.getAll();
-                if (allAppointments) {
-                    // Direkte Filterung ohne Normalisierung
-                    const filteredAppointments = allAppointments.filter(a => a.weekday === day);
-                    setDayAppointments(filteredAppointments);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching appointments:", error);
-            // Bei Fehlern versuchen wir, die vorhandenen Termine zu filtern
-            try {
-                const allAppointments = await appointmentsApi.getAll();
-                if (allAppointments) {
-                    // Direkte Filterung ohne Normalisierung
-                    const filteredAppointments = allAppointments.filter(a => a.weekday === day);
-                    console.log(`Found ${filteredAppointments.length} appointments by client filtering after API error`);
-                    setDayAppointments(filteredAppointments);
-                }
-            } catch (fallbackError) {
-                console.error("Fallback error fetching all appointments:", fallbackError);
-            }
-        } finally {
-            setLoadingDayAppointments(false);
-        }
-    };
 
     const handleDayChange = (event: SelectChangeEvent) => {
         setSelectedWeekday(event.target.value as Weekday);
@@ -152,10 +121,14 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     };
     
     // Kombiniere alle Fehler und Lade-Status
-    const isLoading = loadingPatients || loadingEmployees || loadingDayAppointments;
+    const isLoading = loadingPatients || loadingEmployees || loadingAppointments || loadingRoutes;
     const combinedError = patientsError instanceof Error 
         ? patientsError.message 
-        : error;
+        : appointmentsError instanceof Error
+            ? appointmentsError.message
+            : routesError instanceof Error
+                ? routesError.message
+                : error;
 
     return (
         <Box
@@ -232,6 +205,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     employees={employees}
                     patients={patients}
                     appointments={dayAppointments}
+                    routes={routes}
                     selectedDay={selectedWeekday}
                     loading={isLoading}
                     error={combinedError}

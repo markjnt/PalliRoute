@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress, Button, Chip, Tooltip } from '@mui/material';
 import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
 import { TourContainer } from './TourContainer';
 import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon } from '@mui/icons-material';
-import { routesApi } from '../../services/api';
 import { useDragStore } from '../../stores';
 import { employeeTypeColors } from '../../utils/colors';
+import { useRoutes } from '../../services/queries/useRoutes';
 
 interface ToursViewProps {
     employees: Employee[];
     patients: Patient[];
     appointments: Appointment[];
+    routes: Route[];
     selectedDay: Weekday;
     loading: boolean;
     error: string | null;
@@ -20,6 +21,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
     employees,
     patients: initialPatients,
     appointments: initialAppointments,
+    routes: initialRoutes,
     selectedDay,
     loading,
     error
@@ -27,15 +29,16 @@ export const ToursView: React.FC<ToursViewProps> = ({
     // Create local state to manage patients and appointments, allowing updates via drag and drop
     const [patients, setPatients] = useState<Patient[]>(initialPatients);
     const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
-    const [routes, setRoutes] = useState<Route[]>([]);
-    const [routesLoading, setRoutesLoading] = useState<boolean>(false);
-    const [routesError, setRoutesError] = useState<string | null>(null);
+    const [routes, setRoutes] = useState<Route[]>(initialRoutes);
     
     // Get drag store functions
     const updatePatientTour = useDragStore(state => state.updatePatientTour);
     const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
     const updateRouteOrder = useDragStore(state => state.updateRouteOrder);
     const removeFromRouteOrder = useDragStore(state => state.removeFromRouteOrder);
+    
+    // React Query hook für Routen - nur für das Laden von Daten
+    const { refetch: refetchRoutes } = useRoutes({ weekday: selectedDay }); 
     
     // Update local state when props change
     useEffect(() => {
@@ -46,79 +49,12 @@ export const ToursView: React.FC<ToursViewProps> = ({
         setAppointments(initialAppointments);
     }, [initialAppointments]);
     
-    // Methode zum Neuladen der Routes - mit useCallback memoized
-    const fetchRoutes = useCallback(async (weekday: Weekday) => {
-        setRoutesLoading(true);
-        setRoutesError(null);
-        try {
-            const weekdayLower = weekday.toLowerCase() as Weekday;
-            const fetchedRoutes = await routesApi.getRoutes({ weekday: weekdayLower });
-            setRoutes(fetchedRoutes);
-            return fetchedRoutes;
-        } catch (error) {
-            console.error('Failed to fetch routes:', error);
-            setRoutesError('Fehler beim Laden der Routen');
-            return [];
-        } finally {
-            setRoutesLoading(false);
-        }
-    }, []);
-    
-    // Load routes when selectedDay changes
+    // Update local routes when prop changes
     useEffect(() => {
-        fetchRoutes(selectedDay);
-    }, [selectedDay, initialAppointments]); // Auch neu laden, wenn die Appointments aktualisiert werden
+        setRoutes(initialRoutes);
+    }, [initialRoutes]);
     
-    // Zusätzliche Abhängigkeit: Neu laden, wenn sich employees ändert (z.B. nach Import)
-    useEffect(() => {
-        if (employees.length > 0) {
-            fetchRoutes(selectedDay);
-        }
-    }, [employees, selectedDay]);
-    
-    // Listen for global data refresh events from MapView
-    useEffect(() => {
-        // Handler for global data refresh
-        const handleDataRefreshed = () => {
-            console.log('Received global data refresh event, updating routes...');
-            fetchRoutes(selectedDay);
-        };
-        
-        // Handler for specific route updates
-        const handleRouteUpdated = (event: CustomEvent<{
-            routeId: number;
-            employeeId: number;
-            weekday: string;
-            totalDistance: number;
-            totalDuration: number;
-        }>) => {
-            const { routeId, totalDistance, totalDuration, weekday } = event.detail;
-            
-            // Only update if it's for the current weekday
-            if (weekday.toLowerCase() === selectedDay.toLowerCase()) {
-                console.log(`Received route update for route ${routeId}: ${totalDistance}km, ${totalDuration}min`);
-                
-                // Update the route in local state
-                setRoutes(prevRoutes => 
-                    prevRoutes.map(route => 
-                        route.id === routeId
-                            ? { ...route, total_distance: totalDistance, total_duration: totalDuration }
-                            : route
-                    )
-                );
-            }
-        };
-        
-        // Add event listeners
-        window.addEventListener('palliRoute:dataRefreshed', handleDataRefreshed as EventListener);
-        window.addEventListener('palliRoute:routeUpdated', handleRouteUpdated as EventListener);
-        
-        // Cleanup
-        return () => {
-            window.removeEventListener('palliRoute:dataRefreshed', handleDataRefreshed as EventListener);
-            window.removeEventListener('palliRoute:routeUpdated', handleRouteUpdated as EventListener);
-        };
-    }, [selectedDay, fetchRoutes]);
+    // Removed all event listeners and handlers - now using React Query for data synchronization
     
     // Get employees with tour numbers
     const employeesWithTours = [...employees]
@@ -232,8 +168,8 @@ export const ToursView: React.FC<ToursViewProps> = ({
         
         // Schritt 4: Aktualisiere Routen für ALLE betroffenen Tage
         try {
-            // Lade alle Routen (wir brauchen Routen für alle Wochentage)
-            const allRoutes = await routesApi.getRoutes({});
+            // Führe nur die Aktualisierungen der Reihenfolge durch, ohne die lokalen Routen zu aktualisieren
+            const allRoutesSnapshot = [...routes]; // Nur als Kopie für die Suche nach Quell- und Zielrouten
             
             // Erstelle ein Array von Promises für die Routenaktualisierungen aller Tage
             const updatePromises = Array.from(appointmentsByWeekday.entries()).map(async (entry) => {
@@ -244,12 +180,12 @@ export const ToursView: React.FC<ToursViewProps> = ({
                 const weekdayLower = weekday.toLowerCase() as Weekday;
                 
                 // Finde Quell- und Zielrouten für diesen Tag
-                const sourceRoute = allRoutes.find(r => 
-                    sourceEmployee && r.employee_id === sourceEmployee.id && r.weekday === weekdayLower
+                const sourceRoute = allRoutesSnapshot.find(route => 
+                    sourceEmployee && route.employee_id === sourceEmployee.id && route.weekday === weekdayLower
                 );
                 
-                const targetRoute = allRoutes.find(r => 
-                    r.employee_id === targetEmployee.id && r.weekday === weekdayLower
+                const targetRoute = allRoutesSnapshot.find(route => 
+                    route.employee_id === targetEmployee.id && route.weekday === weekdayLower
                 );
                 
                 // Verarbeite Routenaktualisierungen für diesen Tag
@@ -322,20 +258,15 @@ export const ToursView: React.FC<ToursViewProps> = ({
             const results = await Promise.all(updatePromises);
             console.log(`Routenaktualisierungen abgeschlossen für Tage: ${results.filter(r => r.success).map(r => r.weekday).join(', ')}`);
             
-            // Schritt 5: Lade die Routen für den aktuellen Tag neu zur Aktualisierung der Anzeige
-            try {
-                const weekdayForApi = selectedDay.toLowerCase() as Weekday;
-                console.log(`Lade Routen für ${weekdayForApi} neu (für aktuelle Anzeige)`);
-                const updatedRoutes = await routesApi.getRoutes({ weekday: weekdayForApi });
-                setRoutes(updatedRoutes);
-                console.log(`${updatedRoutes.length} Routen neu geladen`);
-            } catch (error) {
-                console.error('Fehler beim Neuladen der Routen:', error);
-                setRoutesError('Fehler beim Neuladen der Routen-Reihenfolge');
+            // Schritt 5: Aktualisiere die Routen mit React Query - vermeide Endlosschleifen
+            console.log(`Aktualisiere Routen für aktuelle Anzeige`);
+            // Verwende refetchRoutes nur für die aktuelle Ansicht
+            if (results.some(r => r.success && r.weekday === selectedDay)) {
+                refetchRoutes();
             }
+            
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Routen:', error);
-            setRoutesError('Fehler beim Aktualisieren der Routen-Reihenfolge');
         }
     };
     
@@ -365,21 +296,6 @@ export const ToursView: React.FC<ToursViewProps> = ({
     
     return (
         <Box>
-            {routesLoading && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 2, pb: 2 }}>
-                    <CircularProgress size={24} sx={{ mr: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
-                        Lade Routeninformationen...
-                    </Typography>
-                </Box>
-            )}
-            
-            {routesError && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                    {routesError} - Die Routenreihenfolge wird möglicherweise nicht korrekt angezeigt.
-                </Alert>
-            )}
-
             {/* Display warning at the top of the page if there are inactive employees with tours */}
             {(inactiveEmployeesWithPatientsInTours.length > 0 || inactiveEmployeesWithEmptyTours.length > 0) && (
                 <Alert 

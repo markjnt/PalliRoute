@@ -121,14 +121,9 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         
         try {
             await deleteEmployeeMutation.mutateAsync(employeeToDelete.id);
-            setDeleteDialogOpen(false);
             setEmployeeToDelete(null);
             
-            // Sende ein Event, dass ein Mitarbeiter gelöscht wurde
-            const event = new CustomEvent('palliRoute:employeeUpdated', {
-                detail: { employeeId: employeeToDelete.id, action: 'deleted' }
-            });
-            window.dispatchEvent(event);
+            // Events entfernt, React Query übernimmt die Datensynchronisierung
         } catch (error) {
             console.error('Error deleting employee:', error);
         }
@@ -138,11 +133,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         try {
             await toggleEmployeeActiveMutation.mutateAsync({ id, isActive: !currentStatus });
             
-            // Sende ein Event, dass ein Mitarbeiter aktualisiert wurde
-            const event = new CustomEvent('palliRoute:employeeUpdated', {
-                detail: { employeeId: id, is_active: !currentStatus }
-            });
-            window.dispatchEvent(event);
+            // Events entfernt, React Query übernimmt die Datensynchronisierung
         } catch (error) {
             console.error('Error toggling employee status:', error);
         }
@@ -152,13 +143,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         setOpenForm(false);
         setSelectedEmployee(null);
         
-        if (updated) {
-            // Sende ein Event, dass ein Mitarbeiter aktualisiert wurde
-            const event = new CustomEvent('palliRoute:employeeUpdated', {
-                detail: { action: 'updated' }
-            });
-            window.dispatchEvent(event);
-        }
+        // Events entfernt, React Query übernimmt die Datensynchronisierung
     };
 
     const columns: GridColDef[] = [

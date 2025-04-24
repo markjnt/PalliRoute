@@ -1,0 +1,50 @@
+import { Route, Patient, Appointment, Employee, Weekday } from './models';
+
+// Main props for the map container
+export interface MapContainerProps {
+  apiKey: string;
+  selectedWeekday: string;
+}
+
+// Marker data for map
+export interface MarkerData {
+  position: google.maps.LatLng;
+  title: string;
+  label?: string;
+  type: 'employee' | 'patient';
+  visitType?: string; // HB, TK, or NA
+  employeeType?: string; // Job title for employees
+  patientId?: number;
+  appointmentId?: number;
+  employeeId?: number;
+  routePosition?: number; // Position in the route (1-based index)
+  displayPosition?: google.maps.LatLng; // Position to show InfoWindow at (for expanded markers)
+}
+
+// Group of markers at the same location
+export interface MarkerGroup {
+  markers: MarkerData[];
+  position: google.maps.LatLng;
+  count: number;
+}
+
+// Route path data for directions
+export interface RoutePathData {
+  employeeId: number;
+  routeId: number;
+  routeOrder: number[];
+  color: string;
+  directions: google.maps.DirectionsResult | null;
+  loading: boolean;
+  error: boolean;
+  totalDistance?: string;
+  drivingTime?: string;
+  totalTime?: string;
+  visitTime?: string;
+  employeeName?: string;
+  appointments?: {
+    id: number;
+    visitType?: string;
+    duration: number;
+  }[];
+} 
