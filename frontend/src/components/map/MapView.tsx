@@ -1157,7 +1157,6 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                                                         mb: 1
                                                     }}>
                                                         <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 1 }}>
-                                                            Tour:
                                                         </Typography>
                                                         <Chip 
                                                             label={`Tour ${patient.tour}`} 
@@ -1237,7 +1236,6 @@ const MapContent: React.FC<MapContentProps> = ({ apiKey, selectedWeekday }) => {
                                                         mb: 1
                                                     }}>
                                                         <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 1 }}>
-                                                            Tour:
                                                         </Typography>
                                                         <Chip 
                                                             label={`Tour ${employee.tour_number}`} 

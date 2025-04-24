@@ -12,6 +12,16 @@ export const usersApi = {
         }
     },
 
+    async getUser(id: number): Promise<User> {
+        try {
+            const response = await axios.get(`/users/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error(`Failed to fetch user with id ${id}:`, error);
+            throw error;
+        }
+    },
+
     async createUser(userData: UserFormData): Promise<User> {
         try {
             const response = await axios.post('/users/', userData);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Container,
     Paper,
@@ -27,8 +27,9 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { User, UserFormData, Area } from '../../types/models';
-import { useUserStore } from '../../stores/useUserStore';
 import { useNavigate } from 'react-router-dom';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../../services/queries/useUsers';
+import { useUserStore } from '../../stores/useUserStore';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -70,23 +71,16 @@ const UserSelection: React.FC = () => {
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
     const [formData, setFormData] = useState<UserFormData>({ name: '', area: 'Nordkreis' });
     
-    const { 
-        users, 
-        isLoading, 
-        error, 
-        setCurrentUser,
-        fetchUsers,
-        createUser,
-        updateUser,
-        deleteUser
-    } = useUserStore();
+    // React Query hooks
+    const { data: users = [], isLoading, error } = useUsers();
+    const createUserMutation = useCreateUser();
+    const updateUserMutation = useUpdateUser();
+    const deleteUserMutation = useDeleteUser();
+    
+    // Direkt useUserStore verwenden
+    const { setCurrentUser } = useUserStore();
     
     const navigate = useNavigate();
-
-    useEffect(() => {
-        fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const handleUserSelect = (user: User) => {
         setCurrentUser(user);
@@ -119,7 +113,10 @@ const UserSelection: React.FC = () => {
         if (!userToEdit) return;
 
         try {
-            await updateUser(userToEdit.id, formData);
+            await updateUserMutation.mutateAsync({ 
+                id: userToEdit.id, 
+                userData: formData 
+            });
             handleEditClose();
         } catch (err) {
             console.error('Error updating user:', err);
@@ -136,7 +133,7 @@ const UserSelection: React.FC = () => {
         if (!userToDelete) return;
 
         try {
-            await deleteUser(userToDelete.id);
+            await deleteUserMutation.mutateAsync(userToDelete.id);
             setDeleteDialogOpen(false);
             setUserToDelete(null);
         } catch (err) {
@@ -146,7 +143,7 @@ const UserSelection: React.FC = () => {
 
     const handleSubmit = async () => {
         try {
-            const newUser = await createUser(formData);
+            const newUser = await createUserMutation.mutateAsync(formData);
             handleCloseDialog();
             handleUserSelect(newUser);
         } catch (err) {
@@ -173,9 +170,9 @@ const UserSelection: React.FC = () => {
                 <Typography variant="h4" component="h1" gutterBottom>
                     Benutzerauswahl
                 </Typography>
-                {error && (
+                {error instanceof Error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
-                        {error}
+                        {error.message}
                     </Alert>
                 )}
                 <List>
@@ -207,7 +204,7 @@ const UserSelection: React.FC = () => {
                                         edge="end" 
                                         aria-label="edit"
                                         onClick={(e) => handleEditClick(e, user)}
-                                        disabled={isLoading}
+                                        disabled={isLoading || updateUserMutation.isPending}
                                     >
                                         <EditIcon />
                                     </IconButton>
@@ -215,7 +212,7 @@ const UserSelection: React.FC = () => {
                                         edge="end" 
                                         aria-label="delete"
                                         onClick={(e) => handleDeleteClick(e, user)}
-                                        disabled={isLoading}
+                                        disabled={isLoading || deleteUserMutation.isPending}
                                     >
                                         <DeleteIcon />
                                     </IconButton>
@@ -228,7 +225,7 @@ const UserSelection: React.FC = () => {
                     variant="contained" 
                     color="primary" 
                     onClick={handleAddUser}
-                    disabled={isLoading}
+                    disabled={isLoading || createUserMutation.isPending}
                     sx={{ mt: 2 }}
                 >
                     Neuen Benutzer erstellen
@@ -250,7 +247,6 @@ const UserSelection: React.FC = () => {
                             autoFocus
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            disabled={isLoading}
                         />
                         <FormControl fullWidth margin="normal">
                             <InputLabel id="area-label">Bereich</InputLabel>
@@ -260,7 +256,6 @@ const UserSelection: React.FC = () => {
                                 value={formData.area}
                                 label="Bereich"
                                 onChange={(e) => setFormData({ ...formData, area: e.target.value as Area })}
-                                disabled={isLoading}
                             >
                                 <MenuItem value="Nordkreis">Nordkreis</MenuItem>
                                 <MenuItem value="Südkreis">Südkreis</MenuItem>
@@ -270,15 +265,16 @@ const UserSelection: React.FC = () => {
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} disabled={isLoading}>
+                    <Button onClick={handleCloseDialog} disabled={createUserMutation.isPending}>
                         Abbrechen
                     </Button>
                     <Button 
                         onClick={handleSubmit} 
                         variant="contained" 
-                        disabled={isLoading || !formData.name.trim()}
+                        color="primary"
+                        disabled={createUserMutation.isPending || !formData.name}
                     >
-                        {isLoading ? <CircularProgress size={24} /> : 'Erstellen'}
+                        {createUserMutation.isPending ? <CircularProgress size={24} /> : 'Erstellen'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -291,24 +287,22 @@ const UserSelection: React.FC = () => {
                             margin="normal"
                             required
                             fullWidth
-                            id="edit-name"
+                            id="name"
                             label="Name"
                             name="name"
                             autoComplete="name"
                             autoFocus
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            disabled={isLoading}
                         />
                         <FormControl fullWidth margin="normal">
-                            <InputLabel id="edit-area-label">Bereich</InputLabel>
+                            <InputLabel id="area-label">Bereich</InputLabel>
                             <Select
-                                labelId="edit-area-label"
-                                id="edit-area"
+                                labelId="area-label"
+                                id="area"
                                 value={formData.area}
                                 label="Bereich"
                                 onChange={(e) => setFormData({ ...formData, area: e.target.value as Area })}
-                                disabled={isLoading}
                             >
                                 <MenuItem value="Nordkreis">Nordkreis</MenuItem>
                                 <MenuItem value="Südkreis">Südkreis</MenuItem>
@@ -318,43 +312,41 @@ const UserSelection: React.FC = () => {
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleEditClose} disabled={isLoading}>
+                    <Button onClick={handleEditClose} disabled={updateUserMutation.isPending}>
                         Abbrechen
                     </Button>
                     <Button 
                         onClick={handleEditSubmit} 
                         variant="contained" 
-                        disabled={isLoading || !formData.name.trim()}
+                        color="primary"
+                        disabled={updateUserMutation.isPending || !formData.name}
                     >
-                        {isLoading ? <CircularProgress size={24} /> : 'Speichern'}
+                        {updateUserMutation.isPending ? <CircularProgress size={24} /> : 'Aktualisieren'}
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            <Dialog
-                open={deleteDialogOpen}
-                onClose={() => setDeleteDialogOpen(false)}
-            >
+            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
                 <DialogTitle>Benutzer löschen</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Möchten Sie den Benutzer "{userToDelete?.name}" wirklich löschen?
+                        Sind Sie sicher, dass Sie diesen Benutzer löschen möchten?
                     </Typography>
                 </DialogContent>
                 <DialogActions>
                     <Button 
                         onClick={() => setDeleteDialogOpen(false)} 
-                        disabled={isLoading}
+                        disabled={deleteUserMutation.isPending}
                     >
                         Abbrechen
                     </Button>
                     <Button 
                         onClick={handleDeleteConfirm} 
-                        color="error" 
-                        variant="contained"
-                        disabled={isLoading}
+                        variant="contained" 
+                        color="error"
+                        disabled={deleteUserMutation.isPending}
                     >
-                        {isLoading ? <CircularProgress size={24} /> : 'Löschen'}
+                        {deleteUserMutation.isPending ? <CircularProgress size={24} /> : 'Löschen'}
                     </Button>
                 </DialogActions>
             </Dialog>
