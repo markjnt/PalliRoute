@@ -100,8 +100,6 @@ class RouteOptimizer:
                 mode="driving"
             )
 
-            print(result[0])
-
             if not result:
                 raise Exception("Failed to calculate route")
 

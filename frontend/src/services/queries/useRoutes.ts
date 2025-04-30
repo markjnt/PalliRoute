@@ -116,8 +116,8 @@ export const useOptimizeRoutes = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ date, employeeIds }: { date: string; employeeIds?: number[] }) => 
-      routesApi.optimizeRoutes(date, employeeIds),
+    mutationFn: ({ date, employeeId }: { date: string; employeeId: number }) => 
+      routesApi.optimizeRoutes(date, employeeId),
     onSuccess: (_, { date }) => {
       // Invalidate queries for this specific day
       queryClient.invalidateQueries({ 

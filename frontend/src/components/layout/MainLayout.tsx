@@ -286,7 +286,7 @@ export const MainLayout: React.FC = () => {
                             />
                             
                             {/* Sidebar content */}
-                            <EmployeeSidebar />
+                            <EmployeeSidebar/>
                         </Box>
                     </Box>
                 </Drawer>

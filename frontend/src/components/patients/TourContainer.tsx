@@ -34,6 +34,7 @@ import { useDragStore } from '../../stores';
 import { appointmentsApi } from '../../services/api/appointments';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import { routesApi } from '../../services/api/routes';
+import { useOptimizeRoutes } from '../../services/queries/useRoutes';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -402,13 +403,17 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     };
 
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const optimizeRoutesMutation = useOptimizeRoutes();
 
     const handleOptimizeRoute = async () => {
         if (!employee.id) return;
         
         setIsOptimizing(true);
         try {
-            await routesApi.optimizeRoutes(selectedDay.toLowerCase(), employee.id);
+            await optimizeRoutesMutation.mutateAsync({
+                date: selectedDay.toLowerCase(),
+                employeeId: employee.id
+            });
             // Show success notification
             setNotification({
                 open: true,
@@ -539,7 +544,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                     size="small"
                                     startIcon={<RouteIcon />}
                                     onClick={handleOptimizeRoute}
-                                    disabled={isOptimizing}
+                                    disabled={isOptimizing || tourPatients.length === 0}
                                     sx={{ 
                                         ml: 2,
                                         textTransform: 'none',
