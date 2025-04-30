@@ -11,7 +11,8 @@ import {
     Chip,
     Alert,
     Snackbar,
-    Tooltip
+    Tooltip,
+    Button
 } from '@mui/material';
 import { 
     Home as HomeIcon,
@@ -22,7 +23,8 @@ import {
     AddCircle as AddCircleIcon,
     CheckCircle,
     Cancel,
-    Warning as WarningIcon
+    Warning as WarningIcon,
+    Route as RouteIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
@@ -31,6 +33,7 @@ import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useDragStore } from '../../stores';
 import { appointmentsApi } from '../../services/api/appointments';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
+import { routesApi } from '../../services/api/routes';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -397,7 +400,32 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const handleCloseNotification = () => {
         setNotification({ ...notification, open: false });
     };
-    
+
+    const [isOptimizing, setIsOptimizing] = useState(false);
+
+    const handleOptimizeRoute = async () => {
+        if (!employee.id) return;
+        
+        setIsOptimizing(true);
+        try {
+            await routesApi.optimizeRoutes(selectedDay.toLowerCase(), employee.id);
+            // Show success notification
+            setNotification({
+                open: true,
+                message: 'Route wurde erfolgreich optimiert',
+                severity: 'success'
+            });
+        } catch (error) {
+            setNotification({
+                open: true,
+                message: 'Fehler beim Optimieren der Route',
+                severity: 'error'
+            });
+        } finally {
+            setIsOptimizing(false);
+        }
+    };
+
     return (
         <>
             <Paper 
@@ -504,6 +532,25 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                 >
                                     {routeData.timeRatio}
                                 </Typography>
+                            )}
+                            {expanded && employeeRoute && (
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<RouteIcon />}
+                                    onClick={handleOptimizeRoute}
+                                    disabled={isOptimizing}
+                                    sx={{ 
+                                        ml: 2,
+                                        textTransform: 'none',
+                                        '&:hover': {
+                                            backgroundColor: 'primary.light',
+                                            color: 'primary.contrastText'
+                                        }
+                                    }}
+                                >
+                                    {isOptimizing ? 'Optimierung läuft...' : 'Route optimieren'}
+                                </Button>
                             )}
                         </Box>
                     </Box>

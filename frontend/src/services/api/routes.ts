@@ -75,17 +75,22 @@ export const routesApi = {
         }
     },
 
-    // Optimize routes for a specific day
-    async optimizeRoutes(date: string, employee_ids?: number[]): Promise<any> {
+    // Optimize routes for a specific day and employee
+    async optimizeRoutes(weekday: string, employeeId: number): Promise<void> {
         try {
-            const data: { date: string; employee_ids?: number[] } = { date };
-            if (employee_ids && employee_ids.length > 0) {
-                data.employee_ids = employee_ids;
-            }
-            const response = await axios.post('/routes/optimize', data);
+            const response = await axios.post(`/routes/optimize`, {
+                weekday: weekday.toLowerCase(),
+                employee_id: employeeId
+            });
             return response.data;
         } catch (error) {
-            console.error(`Failed to optimize routes for date ${date}:`, error);
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    throw new Error(error.response.data.error || 'Invalid request');
+                } else if (error.response?.status === 500) {
+                    throw new Error(error.response.data.error || 'Server error occurred');
+                }
+            }
             throw error;
         }
     }

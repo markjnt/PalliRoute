@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file
-from datetime import datetime
+from datetime import datetime, timedelta, date
 import os
 from ..models.employee import Employee
 from ..models.appointment import Appointment
@@ -7,6 +7,7 @@ from ..models.route import Route
 from ..services.route_optimizer import RouteOptimizer
 from ..services.excel_export_service import ExcelExportService
 from .. import db
+from ..models.patient import Patient
 
 routes_bp = Blueprint('routes', __name__)
 route_optimizer = RouteOptimizer()
@@ -174,69 +175,34 @@ def delete_route(route_id):
 
 @routes_bp.route('/optimize', methods=['POST'])
 def optimize_routes():
-    """
-    Optimize routes for a specific date
-    Expected JSON body: {
-        "date": "YYYY-MM-DD",
-        "employee_ids": [1, 2, 3]  # Optional, if not provided optimize for all employees
-    }
-    """
     try:
         data = request.get_json()
-        if not data or 'date' not in data:
-            return jsonify({'error': 'Date is required'}), 400
+        weekday = data.get('weekday')
+        employee_id = data.get('employee_id')
 
-        # Parse date
+        if not weekday or not employee_id:
+            return jsonify({'error': 'Weekday and employee_id are required'}), 400
+
+        # Validate weekday
+        valid_weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        if weekday.lower() not in valid_weekdays:
+            return jsonify({'error': 'Invalid weekday'}), 400
+
+        # Validate employee_id is a number
         try:
-            date = datetime.strptime(data['date'], '%Y-%m-%d')
+            employee_id = int(employee_id)
         except ValueError:
-            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+            return jsonify({'error': 'employee_id must be a number'}), 400
 
-        # Get employees
-        if 'employee_ids' in data:
-            employees = Employee.query.filter(
-                Employee.id.in_(data['employee_ids']),
-                Employee.is_active == True
-            ).all()
-        else:
-            employees = Employee.query.filter_by(is_active=True).all()
+        # Optimize routes
+        optimizer = RouteOptimizer()
+        optimizer.optimize_routes(weekday.lower(), employee_id)
 
-        if not employees:
-            return jsonify({'error': 'No active employees found'}), 404
+        return jsonify({'message': 'Routes optimized successfully'}), 200
 
-        weekday = date.strftime('%A').lower()
-        optimized_routes = []
-
-        # Optimize route for each employee
-        for employee in employees:
-            # Get appointments for this employee on this weekday
-            appointments = Appointment.query.filter_by(
-                employee_id=employee.id,
-                weekday=weekday
-            ).all()
-
-            if not appointments:
-                continue
-
-            # Optimize route
-            route = route_optimizer.optimize_route(employee, appointments, date)
-            if route:
-                db.session.add(route)
-                optimized_routes.append({
-                    'employee_id': employee.id,
-                    'route_id': route.id,
-                    'total_duration': route.total_duration
-                })
-
-        db.session.commit()
-
-        return jsonify({
-            'message': f'Successfully optimized routes for {len(optimized_routes)} employees',
-            'routes': optimized_routes
-        })
-
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
-        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 @routes_bp.route('/export-excel', methods=['POST'])
