@@ -223,7 +223,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 </Box>
             </Box>
 
-            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Button
                     variant="contained"
                     fullWidth

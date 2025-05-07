@@ -329,12 +329,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 </Menu>
             </Box>
 
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Button
                     variant="contained"
                     onClick={() => setOpenImport(true)}
                     fullWidth
-                    sx={{ mb: 1 }}
                     startIcon={<UploadIcon />}
                 >
                     Excel Import
@@ -346,7 +345,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         setOpenForm(true);
                     }}
                     fullWidth
-                    sx={{ mb: 1 }}
                     startIcon={<AddIcon />}
                 >
                     Mitarbeiter hinzufügen
