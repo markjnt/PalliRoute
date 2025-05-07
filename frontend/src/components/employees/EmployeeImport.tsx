@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
 import { useImportEmployees } from '../../services/queries/useEmployees';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface EmployeeImportProps {
     open: boolean;
@@ -27,6 +28,7 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
     const [fileError, setFileError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const queryClient = useQueryClient();
     
     // React Query hook
     const importEmployeesMutation = useImportEmployees();
@@ -66,6 +68,12 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
+
+            // Invalidate all relevant queries to refresh the data
+            await queryClient.invalidateQueries({ queryKey: ['employees'] });
+            await queryClient.invalidateQueries({ queryKey: ['patients'] });
+            await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
             // Close the dialog after a short delay to show success state
             setTimeout(() => {
@@ -88,6 +96,9 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                 <DialogTitle>Mitarbeiter aus Excel importieren</DialogTitle>
                 <DialogContent>
                     <Box sx={{ p: 2 }}>
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            Achtung: Beim Import werden alle bestehenden Daten (Mitarbeiter, Patienten, Termine und Routen) gelöscht!
+                        </Alert>
                         <Typography variant="body1" gutterBottom>
                             Bitte wählen Sie eine Excel-Datei mit den folgenden Spalten:
                         </Typography>

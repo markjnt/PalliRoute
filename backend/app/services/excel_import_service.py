@@ -73,12 +73,32 @@ class ExcelImportService:
                 time_module.sleep(0.2)
 
     @staticmethod
+    def delete_all_data():
+        """
+        Deletes all data from the database in the correct order to maintain referential integrity
+        """
+        try:
+            # Delete in correct order to maintain referential integrity
+            Route.query.delete()
+            Appointment.query.delete()
+            Patient.query.delete()
+            Employee.query.delete()
+            db.session.commit()
+            print("Successfully deleted all data from database")
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Error deleting data: {str(e)}")
+
+    @staticmethod
     def import_employees(file) -> Dict[str, List[Any]]:
         """
         Import employees from Excel file
         Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Tournummer (optional)
         """
         try:
+            # First delete all existing data
+            ExcelImportService.delete_all_data()
+            
             df = pd.read_excel(file)
             required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang']
             

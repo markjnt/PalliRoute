@@ -15,6 +15,7 @@ import {
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
 import { PatientImportResponse } from '../../types/models';
 import { usePatientImport } from '../../services/queries/usePatients';
+import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
 interface PatientExcelImportProps {
@@ -31,6 +32,7 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const queryClient = useQueryClient();
     
     // React Query Hook
     const patientImportMutation = usePatientImport();
@@ -62,6 +64,12 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
             if (response.calendar_week) {
                 response.message += ` (KW ${response.calendar_week})`;
             }
+
+            // Invalidate all relevant queries to refresh the data
+            await queryClient.invalidateQueries({ queryKey: ['employees'] });
+            await queryClient.invalidateQueries({ queryKey: ['patients'] });
+            await queryClient.invalidateQueries({ queryKey: ['appointments'] });
+            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
             onSuccess(response);
             handleClose();
