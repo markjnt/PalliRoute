@@ -118,8 +118,10 @@ const UserDialog: React.FC<UserDialogProps> = ({
         <Dialog 
             open={open} 
             onClose={onClose}
-            PaperProps={{
-                sx: { width: '500px' }
+            slotProps={{
+                paper: {
+                    sx: { width: '500px' }
+                }
             }}
         >
             <DialogTitle>{getDialogTitle()}</DialogTitle>

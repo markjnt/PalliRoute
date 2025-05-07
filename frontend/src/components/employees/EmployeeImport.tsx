@@ -186,7 +186,6 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                     variant="contained"
                     color="primary"
                     disabled={!selectedFile || importEmployeesMutation.isPending}
-                    startIcon={importEmployeesMutation.isPending ? <CircularProgress size={20} /> : undefined}
                 >
                     {importEmployeesMutation.isPending ? 'Importiere...' : 'Importieren'}
                 </Button>

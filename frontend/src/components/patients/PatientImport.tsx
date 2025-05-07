@@ -200,7 +200,6 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
                     variant="contained"
                     color="primary"
                     disabled={!selectedFile || patientImportMutation.isPending}
-                    startIcon={patientImportMutation.isPending ? <CircularProgress size={20} /> : undefined}
                 >
                     {patientImportMutation.isPending ? 'Importiere...' : 'Importieren'}
                 </Button>
