@@ -1,11 +1,10 @@
 import React, { useState, useRef } from 'react';
 import {
-    Button,
     Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
     DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
     Typography,
     Box,
     Alert,
@@ -17,7 +16,6 @@ import { PatientImportResponse } from '../../types/models';
 import { usePatientImport } from '../../services/queries/usePatients';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNotificationStore } from '../../stores/useNotificationStore';
-import axios from 'axios';
 
 interface PatientExcelImportProps {
     open: boolean;
@@ -68,7 +66,7 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
                 result.message += ` (KW ${result.calendar_week})`;
             }
 
-            // Invalidate all relevant queries to refresh the data
+            // Invalidate queries
             await queryClient.invalidateQueries({ queryKey: ['employees'] });
             await queryClient.invalidateQueries({ queryKey: ['patients'] });
             await queryClient.invalidateQueries({ queryKey: ['appointments'] });
@@ -100,72 +98,95 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
         >
             <DialogTitle>Patienten aus Excel importieren</DialogTitle>
             <DialogContent>
-                <DialogContentText sx={{ mb: 2 }}>
-                    Laden Sie eine Excel-Datei hoch, um Patienten und deren Termine zu importieren. 
-                    Die Datei sollte folgende Spalten enthalten: Gebiet, Touren, Nachname, Vorname, 
-                    Ort, PLZ, Strasse, KW, Montag, Uhrzeit/Info Montag, usw.
-                </DialogContentText>
-                
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                    <AlertTitle>Achtung!</AlertTitle>
-                    Beim Import werden alle bestehenden Patienten und Termine aus der Datenbank 
-                    gelöscht und durch die neu importierten Daten ersetzt!
-                </Alert>
-                
-                {fileError && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        <AlertTitle>Fehler</AlertTitle>
-                        {fileError}
+                <Box sx={{ p: 2 }}>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        <AlertTitle>Achtung!</AlertTitle>
+                        Beim Import werden alle bestehenden Patienten und Termine aus der Datenbank 
+                        gelöscht und durch die neu importierten Daten ersetzt!
                     </Alert>
-                )}
-                
-                {patientImportMutation.error instanceof Error && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        <AlertTitle>Fehler</AlertTitle>
-                        {patientImportMutation.error.message}
-                    </Alert>
-                )}
-                
-                {patientImportMutation.isPending ? (
-                    <Box sx={{ width: '100%', mt: 2 }}>
-                        <Typography variant="body2" gutterBottom>
-                            Datei wird hochgeladen und verarbeitet...
-                        </Typography>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <Box sx={{ textAlign: 'center', my: 3 }}>
-                        <input
-                            accept=".xlsx,.xls"
-                            style={{ display: 'none' }}
-                            id="raised-button-file"
-                            multiple={false}
-                            type="file"
-                            onChange={handleFileSelect}
-                            ref={fileInputRef}
-                        />
-                        <label htmlFor="raised-button-file">
+
+                    <Typography variant="body1" gutterBottom>
+                        Bitte wählen Sie eine Excel-Datei mit den folgenden Spalten:
+                    </Typography>
+                    <Typography component="div" variant="body2" sx={{ pl: 2, mb: 3 }}>
+                        • Gebiet
+                        <br />
+                        • Touren
+                        <br />
+                        • Nachname
+                        <br />
+                        • Vorname
+                        <br />
+                        • Ort
+                        <br />
+                        • PLZ
+                        <br />
+                        • Strasse
+                        <br />
+                        • KW
+                        <br />
+                        • Montag, Uhrzeit/Info Montag
+                        <br />
+                        • Dienstag, Uhrzeit/Info Dienstag
+                        <br />
+                        • Mittwoch, Uhrzeit/Info Mittwoch
+                        <br />
+                        • Donnerstag, Uhrzeit/Info Donnerstag
+                        <br />
+                        • Freitag, Uhrzeit/Info Freitag
+                    </Typography>
+
+                    {patientImportMutation.isPending ? (
+                        <Box sx={{ width: '100%', textAlign: 'center', py: 3 }}>
+                            <Typography variant="body2" gutterBottom>
+                                Datei wird hochgeladen und verarbeitet...
+                            </Typography>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Box sx={{ textAlign: 'center', my: 3 }}>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileSelect}
+                                accept=".xlsx,.xls"
+                                style={{ display: 'none' }}
+                            />
                             <Button
                                 variant="outlined"
-                                component="span"
+                                onClick={() => fileInputRef.current?.click()}
                                 startIcon={<UploadIcon />}
                             >
                                 Excel-Datei auswählen
                             </Button>
-                        </label>
-                        
-                        {selectedFile && (
-                            <Box sx={{ mt: 2 }}>
-                                <Typography variant="subtitle2" gutterBottom>
-                                    Ausgewählte Datei:
-                                </Typography>
-                                <Typography variant="body2">
-                                    {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
-                                </Typography>
-                            </Box>
-                        )}
-                    </Box>
-                )}
+                            
+                            {selectedFile && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Ausgewählte Datei:
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+
+                    {fileError && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            <AlertTitle>Fehler</AlertTitle>
+                            {fileError}
+                        </Alert>
+                    )}
+                    
+                    {patientImportMutation.error instanceof Error && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            <AlertTitle>Fehler</AlertTitle>
+                            {patientImportMutation.error.message}
+                        </Alert>
+                    )}
+                </Box>
             </DialogContent>
             <DialogActions>
                 <Button 

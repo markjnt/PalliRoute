@@ -36,6 +36,8 @@ import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import { routesApi } from '../../services/api/routes';
 import { useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { useRoutes } from '../../services/queries/useRoutes';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -89,6 +91,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
     const error = useDragStore(state => state.error);
     const { notification, setNotification, closeNotification } = useNotificationStore();
+    
+    const queryClient = useQueryClient();
     
     // Berechne die maximale Arbeitszeit basierend auf dem Stellenumfang
     const getMaxWorkingMinutes = useCallback(() => {
@@ -385,6 +389,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     
     const [isOptimizing, setIsOptimizing] = useState(false);
     const optimizeRoutesMutation = useOptimizeRoutes();
+    const { refetch: refetchRoutes } = useRoutes({ weekday: selectedDay.toLowerCase() as Weekday });
 
     const handleOptimizeRoute = async () => {
         if (!employee.id) return;
@@ -395,6 +400,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 date: selectedDay.toLowerCase(),
                 employeeId: employee.id
             });
+            // Invalidate routes query to trigger a refetch
+            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             setNotification('Route wurde erfolgreich optimiert', 'success');
         } catch (error) {
             setNotification('Fehler beim Optimieren der Route', 'error');

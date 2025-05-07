@@ -20,13 +20,14 @@ import {
 } from '@mui/icons-material';
 import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
-import { PatientExcelImport } from './PatientExcelImport';
+import { PatientExcelImport } from './PatientImport';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -41,6 +42,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const [isOptimizing, setIsOptimizing] = useState(false);
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
+    const queryClient = useQueryClient();
 
     // React Query Hooks
     const { 
@@ -63,7 +65,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const {
         data: routes = [],
         isLoading: loadingRoutes,
-        error: routesError
+        error: routesError,
+        refetch
     } = useRoutes({ weekday: selectedWeekday });
     
     const patientImportMutation = usePatientImport();
@@ -142,16 +145,19 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         
         setIsOptimizing(true);
         try {
-            await Promise.all(
-                employees
-                    .filter(employee => employee.id !== undefined)
-                    .map(employee => 
-                        optimizeRoutesMutation.mutateAsync({
-                            date: selectedWeekday.toLowerCase(),
-                            employeeId: employee.id as number
-                        })
-                    )
-            );
+            const optimizationPromises = employees
+                .filter(employee => employee.id !== undefined)
+                .map(employee => 
+                    optimizeRoutesMutation.mutateAsync({
+                        date: selectedWeekday.toLowerCase(),
+                        employeeId: employee.id as number
+                    })
+                );
+            
+            await Promise.all(optimizationPromises);
+            
+            // Invalidate routes query to trigger a refetch
+            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             setNotification('Alle Routen wurden erfolgreich optimiert', 'success');
         } catch (error) {
             setNotification('Fehler beim Optimieren der Routen', 'error');

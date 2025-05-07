@@ -8,6 +8,7 @@ import {
     Typography,
     Box,
     Alert,
+    AlertTitle,
     CircularProgress,
 } from '@mui/material';
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
@@ -30,7 +31,7 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
     const queryClient = useQueryClient();
     const importEmployeesMutation = useImportEmployees();
     const { setNotification } = useNotificationStore();
-    
+
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -41,6 +42,9 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             } else {
                 setFileError('Bitte wählen Sie eine Excel-Datei aus (.xlsx oder .xls)');
                 setSelectedFile(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
             }
         }
     };
@@ -53,13 +57,8 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
 
         try {
             const result = await importEmployeesMutation.mutateAsync(selectedFile);
-            
-            // Create success message
-            const totalEmployees = result.added_employees.length + result.updated_employees.length;
-            const successMsg = `Import erfolgreich: ${totalEmployees} Mitarbeiter verarbeitet (${result.added_employees.length} neu, ${result.updated_employees.length} aktualisiert)`;
-            
-            // Set success message using notification store
-            setNotification(successMsg, 'success');
+            const totalEmployees = result.added_employees.length;
+            setNotification(`${totalEmployees} Mitarbeiter wurden erfolgreich importiert.`, 'success');
             
             // Reset form state
             setSelectedFile(null);
@@ -67,64 +66,71 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                 fileInputRef.current.value = '';
             }
 
-            // Invalidate all relevant queries to refresh the data
+            // Invalidate queries
             await queryClient.invalidateQueries({ queryKey: ['employees'] });
             await queryClient.invalidateQueries({ queryKey: ['patients'] });
             await queryClient.invalidateQueries({ queryKey: ['appointments'] });
             await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
-            // Close the dialog after a short delay
-            setTimeout(() => {
-                onClose();
-            }, 1500);
+            setTimeout(onClose, 1500);
         } catch (error: any) {
             console.error('Error importing employees:', error);
             setNotification(error.message || 'Fehler beim Importieren der Mitarbeiter', 'error');
         }
     };
 
-    return (
-        <>
-            <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Mitarbeiter aus Excel importieren</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ p: 2 }}>
-                        <Alert severity="warning" sx={{ mb: 2 }}>
-                            Achtung: Beim Import werden alle bestehenden Daten (Mitarbeiter, Patienten, Termine und Routen) gelöscht!
-                        </Alert>
-                        <Typography variant="body1" gutterBottom>
-                            Bitte wählen Sie eine Excel-Datei mit den folgenden Spalten:
-                        </Typography>
-                        <Typography component="div" variant="body2" sx={{ pl: 2 }}>
-                            • Vorname
-                            <br />
-                            • Nachname
-                            <br />
-                            • Strasse
-                            <br />
-                            • PLZ
-                            <br />
-                            • Ort
-                            <br />
-                            • Funktion (Pflegekraft, Arzt, Physiotherapie, Honorararzt, PDL)
-                            <br />
-                            • Stellenumfang (0-100)
-                        </Typography>
+    const handleClose = () => {
+        setSelectedFile(null);
+        setFileError(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+        onClose();
+    };
 
-                        <Box
-                            sx={{
-                                mt: 3,
-                                p: 3,
-                                border: '2px dashed #ccc',
-                                borderRadius: 1,
-                                textAlign: 'center',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    borderColor: 'primary.main',
-                                },
-                            }}
-                            onClick={() => fileInputRef.current?.click()}
-                        >
+    return (
+        <Dialog 
+            open={open} 
+            onClose={!importEmployeesMutation.isPending ? handleClose : undefined}
+            maxWidth="sm" 
+            fullWidth
+        >
+            <DialogTitle>Mitarbeiter aus Excel importieren</DialogTitle>
+            <DialogContent>
+                <Box sx={{ p: 2 }}>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        <AlertTitle>Achtung!</AlertTitle>
+                        Beim Import werden alle bestehenden Daten (Mitarbeiter, Patienten, Termine und Routen) gelöscht!
+                    </Alert>
+
+                    <Typography variant="body1" gutterBottom>
+                        Bitte wählen Sie eine Excel-Datei mit den folgenden Spalten:
+                    </Typography>
+                    <Typography component="div" variant="body2" sx={{ pl: 2, mb: 3 }}>
+                        • Vorname
+                        <br />
+                        • Nachname
+                        <br />
+                        • Strasse
+                        <br />
+                        • PLZ
+                        <br />
+                        • Ort
+                        <br />
+                        • Funktion (Pflegekraft, Arzt, Physiotherapie, Honorararzt, PDL)
+                        <br />
+                        • Stellenumfang (0-100)
+                    </Typography>
+
+                    {importEmployeesMutation.isPending ? (
+                        <Box sx={{ width: '100%', textAlign: 'center', py: 3 }}>
+                            <Typography variant="body2" gutterBottom>
+                                Datei wird hochgeladen und verarbeitet...
+                            </Typography>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <Box sx={{ textAlign: 'center', my: 3 }}>
                             <input
                                 type="file"
                                 ref={fileInputRef}
@@ -132,48 +138,59 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                                 accept=".xlsx,.xls"
                                 style={{ display: 'none' }}
                             />
-                            <UploadIcon sx={{ fontSize: 48, color: 'action.active', mb: 1 }} />
-                            <Typography>
-                                {selectedFile
-                                    ? `Ausgewählte Datei: ${selectedFile.name}`
-                                    : 'Klicken Sie hier, um eine Excel-Datei auszuwählen'}
-                            </Typography>
+                            <Button
+                                variant="outlined"
+                                onClick={() => fileInputRef.current?.click()}
+                                startIcon={<UploadIcon />}
+                            >
+                                Excel-Datei auswählen
+                            </Button>
+                            
+                            {selectedFile && (
+                                <Box sx={{ mt: 2 }}>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Ausgewählte Datei:
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                                    </Typography>
+                                </Box>
+                            )}
                         </Box>
+                    )}
 
-                        {fileError && (
-                            <Alert severity="error" sx={{ mt: 2 }}>
-                                {fileError}
-                            </Alert>
-                        )}
-                        
-                        {importEmployeesMutation.error instanceof Error && (
-                            <Alert severity="error" sx={{ mt: 2 }}>
-                                {importEmployeesMutation.error.message}
-                            </Alert>
-                        )}
-                        
-                        {importEmployeesMutation.isSuccess && (
-                            <Alert severity="success" sx={{ mt: 2 }}>
-                                Import erfolgreich!
-                            </Alert>
-                        )}
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={onClose} disabled={importEmployeesMutation.isPending}>
-                        Abbrechen
-                    </Button>
-                    <Button
-                        onClick={handleImport}
-                        variant="contained"
-                        color="primary"
-                        disabled={!selectedFile || importEmployeesMutation.isPending}
-                        startIcon={importEmployeesMutation.isPending ? <CircularProgress size={20} /> : undefined}
-                    >
-                        {importEmployeesMutation.isPending ? 'Importiere...' : 'Importieren'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </>
+                    {fileError && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            <AlertTitle>Fehler</AlertTitle>
+                            {fileError}
+                        </Alert>
+                    )}
+                    
+                    {importEmployeesMutation.error instanceof Error && (
+                        <Alert severity="error" sx={{ mt: 2 }}>
+                            <AlertTitle>Fehler</AlertTitle>
+                            {importEmployeesMutation.error.message}
+                        </Alert>
+                    )}
+                </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button 
+                    onClick={handleClose} 
+                    disabled={importEmployeesMutation.isPending}
+                >
+                    Abbrechen
+                </Button>
+                <Button
+                    onClick={handleImport}
+                    variant="contained"
+                    color="primary"
+                    disabled={!selectedFile || importEmployeesMutation.isPending}
+                    startIcon={importEmployeesMutation.isPending ? <CircularProgress size={20} /> : undefined}
+                >
+                    {importEmployeesMutation.isPending ? 'Importiere...' : 'Importieren'}
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 }; 

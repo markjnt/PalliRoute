@@ -60,11 +60,14 @@ class RouteOptimizer:
             # Get appointments for this employee on this weekday
             appointments = Appointment.query.filter_by(
                 employee_id=employee.id,
-                weekday=weekday.lower()
+                weekday=weekday.lower(),
+                visit_type='HB'  # Only consider HB appointments
             ).all()
 
             if not appointments:
-                raise ValueError(f"No appointments found for employee {employee.id} on {weekday}")
+                print(f"No HB appointments found for employee {employee.id} on {weekday}")
+                # Early return if no appointments found
+                return
 
             # Check if route exists
             route = Route.query.filter_by(

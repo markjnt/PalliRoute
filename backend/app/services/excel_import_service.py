@@ -108,15 +108,8 @@ class ExcelImportService:
                 raise ValueError(f"Missing required columns: {', '.join(missing)}")
 
             added_employees = []
-            updated_employees = []
             for _, row in df.iterrows():
                 try:
-                    # Check if employee already exists
-                    existing_employee = Employee.query.filter_by(
-                        first_name=str(row['Vorname']).strip(),
-                        last_name=str(row['Nachname']).strip()
-                    ).first()
-                    
                     # Convert Stellenumfang to float and handle percentage format
                     stellenumfang = str(row['Stellenumfang']).replace('%', '')
                     work_hours = float(stellenumfang)
@@ -132,9 +125,9 @@ class ExcelImportService:
                         if str(row['Tournummer']).strip() != '':
                             try:
                                 tour_number = int(row['Tournummer'])
-                                # Check if tour_number already exists on another employee
+                                # Check if tour_number already exists
                                 existing_tour = Employee.query.filter_by(tour_number=tour_number).first()
-                                if existing_tour and (not existing_employee or existing_tour.id != existing_employee.id):
+                                if existing_tour:
                                     raise ValueError(f"Ein Mitarbeiter mit der Tournummer {tour_number} existiert bereits")
                             except ValueError as ve:
                                 if "existiert bereits" in str(ve):
@@ -153,37 +146,23 @@ class ExcelImportService:
                     if function not in valid_functions:
                         raise ValueError(f"Ungültige Funktion '{function}'. Muss einer der folgenden Werte sein: {', '.join(valid_functions)}")
                     
-                    if existing_employee:
-                        # Update existing employee
-                        existing_employee.street = street
-                        existing_employee.zip_code = zip_code
-                        existing_employee.city = city
-                        existing_employee.latitude = latitude
-                        existing_employee.longitude = longitude
-                        existing_employee.function = function
-                        existing_employee.work_hours = work_hours
-                        existing_employee.tour_number = tour_number
-                        existing_employee.is_active = True
-                        
-                        updated_employees.append(existing_employee)
-                    else:
-                        # Create new employee
-                        employee = Employee(
-                            first_name=str(row['Vorname']).strip(),
-                            last_name=str(row['Nachname']).strip(),
-                            street=street,
-                            zip_code=zip_code,
-                            city=city,
-                            latitude=latitude,
-                            longitude=longitude,
-                            function=function,
-                            work_hours=work_hours,
-                            tour_number=tour_number,
-                            is_active=True
-                        )
-                        
-                        added_employees.append(employee)
-                        db.session.add(employee)
+                    # Create new employee
+                    employee = Employee(
+                        first_name=str(row['Vorname']).strip(),
+                        last_name=str(row['Nachname']).strip(),
+                        street=street,
+                        zip_code=zip_code,
+                        city=city,
+                        latitude=latitude,
+                        longitude=longitude,
+                        function=function,
+                        work_hours=work_hours,
+                        tour_number=tour_number,
+                        is_active=True
+                    )
+                    
+                    added_employees.append(employee)
+                    db.session.add(employee)
                     
                 except Exception as row_error:
                     raise ValueError(f"Fehler in Zeile {_ + 2}: {str(row_error)}")
@@ -193,7 +172,7 @@ class ExcelImportService:
 
             return {
                 'added': added_employees,
-                'updated': updated_employees
+                'updated': []
             }
 
         except Exception as e:
