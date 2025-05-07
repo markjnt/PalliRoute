@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, IconButton, Drawer, useTheme, useMediaQuery } from '@mui/material';
+import { Box, IconButton, Drawer, useTheme, useMediaQuery, Snackbar, Alert } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 import { useLayoutStore, useUserStore } from '../../stores';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
 import { TourPlanSidebar } from '../patients/TourPlanSidebar';
@@ -46,6 +47,7 @@ export const MainLayout: React.FC = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const { currentUser } = useUserStore();
     const navigate = useNavigate();
+    const { notification, closeNotification } = useNotificationStore();
 
     // Redirect to user selection if no user is selected
     React.useEffect(() => {
@@ -425,6 +427,23 @@ export const MainLayout: React.FC = () => {
                     </Box>
                 </Drawer>
             </Box>
+            
+            {/* Global Notification Snackbar */}
+            <Snackbar
+                open={notification.open}
+                autoHideDuration={6000}
+                onClose={closeNotification}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert 
+                    onClose={closeNotification} 
+                    severity={notification.severity}
+                    variant="filled"
+                    sx={{ width: '100%' }}
+                >
+                    {notification.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }; 

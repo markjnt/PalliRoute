@@ -35,6 +35,7 @@ import { appointmentsApi } from '../../services/api/appointments';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import { routesApi } from '../../services/api/routes';
 import { useOptimizeRoutes } from '../../services/queries/useRoutes';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -81,17 +82,13 @@ export const TourContainer: React.FC<TourContainerProps> = ({
 }) => {
     // State zum Tracking des ausgeklappten/eingeklappten Zustands
     const [expanded, setExpanded] = useState(false);
-    const [notification, setNotification] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({ 
-        open: false, 
-        message: '', 
-        severity: 'success' 
-    });
     const dropRef = useRef<HTMLDivElement>(null);
     
     // Verwende den useDragStore anstelle des DragContext
     const updatePatientTour = useDragStore(state => state.updatePatientTour);
     const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
     const error = useDragStore(state => state.error);
+    const { notification, setNotification, closeNotification } = useNotificationStore();
     
     // Berechne die maximale Arbeitszeit basierend auf dem Stellenumfang
     const getMaxWorkingMinutes = useCallback(() => {
@@ -196,11 +193,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             
             // Prevent dropping onto a deactivated employee's tour
             if (!employee.is_active) {
-                setNotification({
-                    open: true,
-                    message: 'Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter für diese Tour.',
-                    severity: 'error'
-                });
+                setNotification('Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter für diese Tour.', 'error');
                 return;
             }
             
@@ -233,11 +226,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 }
                 
                 // Zeige Erfolgsbenachrichtigung an
-                setNotification({
-                    open: true,
-                    message: `Patient erfolgreich zu Tour ${employee.tour_number} verschoben`,
-                    severity: 'success'
-                });
+                setNotification(`Patient erfolgreich zu Tour ${employee.tour_number} verschoben`, 'success');
                 
                 // Schritt 3: Aktualisiere die Routen-Reihenfolgen (wird von der übergeordneten Komponente verarbeitet)
                 if (onPatientMoved) {
@@ -251,11 +240,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             } catch (err) {
                 console.error('Fehler beim Verschieben des Patienten:', err);
                 // Zeige Fehlerbenachrichtigung an
-                setNotification({
-                    open: true,
-                    message: error || 'Fehler beim Verschieben des Patienten',
-                    severity: 'error'
-                });
+                setNotification('Fehler beim Verschieben des Patienten', 'error');
             }
         },
         canDrop: (item) => item.sourceTourNumber !== employee.tour_number && employee.is_active, // Only allow dropping on active employees 
@@ -398,10 +383,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         };
     };
     
-    const handleCloseNotification = () => {
-        setNotification({ ...notification, open: false });
-    };
-
     const [isOptimizing, setIsOptimizing] = useState(false);
     const optimizeRoutesMutation = useOptimizeRoutes();
 
@@ -414,18 +395,9 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 date: selectedDay.toLowerCase(),
                 employeeId: employee.id
             });
-            // Show success notification
-            setNotification({
-                open: true,
-                message: 'Route wurde erfolgreich optimiert',
-                severity: 'success'
-            });
+            setNotification('Route wurde erfolgreich optimiert', 'success');
         } catch (error) {
-            setNotification({
-                open: true,
-                message: 'Fehler beim Optimieren der Route',
-                severity: 'error'
-            });
+            setNotification('Fehler beim Optimieren der Route', 'error');
         } finally {
             setIsOptimizing(false);
         }
@@ -776,17 +748,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     )}
                 </Collapse>
             </Paper>
-            
-            <Snackbar 
-                open={notification.open} 
-                autoHideDuration={6000} 
-                onClose={handleCloseNotification}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            >
-                <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }}>
-                    {notification.message}
-                </Alert>
-            </Snackbar>
         </>
     );
 }; 

@@ -9,11 +9,11 @@ import {
     Box,
     Alert,
     CircularProgress,
-    Snackbar,
 } from '@mui/material';
 import { CloudUpload as UploadIcon } from '@mui/icons-material';
 import { useImportEmployees } from '../../services/queries/useEmployees';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 
 interface EmployeeImportProps {
     open: boolean;
@@ -26,13 +26,11 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
 }) => {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
-    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const queryClient = useQueryClient();
-    
-    // React Query hook
     const importEmployeesMutation = useImportEmployees();
-
+    const { setNotification } = useNotificationStore();
+    
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
@@ -60,8 +58,8 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             const totalEmployees = result.added_employees.length + result.updated_employees.length;
             const successMsg = `Import erfolgreich: ${totalEmployees} Mitarbeiter verarbeitet (${result.added_employees.length} neu, ${result.updated_employees.length} aktualisiert)`;
             
-            // Set success message and close dialog
-            setSuccessMessage(successMsg);
+            // Set success message using notification store
+            setNotification(successMsg, 'success');
             
             // Reset form state
             setSelectedFile(null);
@@ -75,19 +73,14 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             await queryClient.invalidateQueries({ queryKey: ['appointments'] });
             await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
-            // Close the dialog after a short delay to show success state
+            // Close the dialog after a short delay
             setTimeout(() => {
                 onClose();
-                // Clear success message after dialog closes
-                setTimeout(() => setSuccessMessage(null), 300);
             }, 1500);
         } catch (error: any) {
             console.error('Error importing employees:', error);
+            setNotification(error.message || 'Fehler beim Importieren der Mitarbeiter', 'error');
         }
-    };
-
-    const handleCloseSnackbar = () => {
-        setSuccessMessage(null);
     };
 
     return (
@@ -181,14 +174,6 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                     </Button>
                 </DialogActions>
             </Dialog>
-            
-            {/* Success notification */}
-            <Snackbar
-                open={!!successMessage}
-                autoHideDuration={6000}
-                onClose={handleCloseSnackbar}
-                message={successMessage}
-            />
         </>
     );
 }; 

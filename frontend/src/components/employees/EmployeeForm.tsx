@@ -20,6 +20,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Employee, EmployeeFormData } from '../../types/models';
 import { useCreateEmployee, useUpdateEmployee } from '../../services/queries/useEmployees';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 
 interface EmployeeFormProps {
     open: boolean;
@@ -45,15 +46,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
     onClose,
     employee,
 }) => {
-    // React Query Hooks
+    const { setNotification } = useNotificationStore();
     const createEmployeeMutation = useCreateEmployee();
     const updateEmployeeMutation = useUpdateEmployee();
     
-    // Ermittle den aktuellen Ladestatus und Fehler aus den Mutationen
-    const isLoading = createEmployeeMutation.isPending || updateEmployeeMutation.isPending;
-    const error = createEmployeeMutation.error || updateEmployeeMutation.error;
-
-    const formik = useFormik({
+    const formik = useFormik<EmployeeFormData>({
         initialValues: {
             first_name: employee?.first_name || '',
             last_name: employee?.last_name || '',
@@ -66,20 +63,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             is_active: employee?.is_active ?? true,
         },
         validationSchema,
-        onSubmit: async (values: EmployeeFormData) => {
+        onSubmit: async (values) => {
             try {
                 if (employee) {
-                    await updateEmployeeMutation.mutateAsync({ 
-                        id: employee.id!, 
-                        employeeData: values 
+                    await updateEmployeeMutation.mutateAsync({
+                        id: employee.id,
+                        ...values
                     });
+                    setNotification('Mitarbeiter erfolgreich aktualisiert', 'success');
                 } else {
                     await createEmployeeMutation.mutateAsync(values);
+                    setNotification('Mitarbeiter erfolgreich erstellt', 'success');
                 }
                 onClose(true);
             } catch (error: any) {
-                // Fehlerbehandlung wird von React Query übernommen
                 console.error('Error saving employee:', error);
+                setNotification(error.message || 'Fehler beim Speichern des Mitarbeiters', 'error');
             }
         },
     });
@@ -91,13 +90,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             </DialogTitle>
             <form onSubmit={formik.handleSubmit}>
                 <DialogContent>
-                    {error instanceof Error && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {error.message}
-                        </Alert>
-                    )}
                     <Grid container spacing={2}>
-                        <Grid size={6}>
+                        <Grid item xs={12} sm={6}>
                             <TextField
                                 fullWidth
                                 id="first_name"
@@ -109,7 +103,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.first_name && formik.errors.first_name}
                             />
                         </Grid>
-                        <Grid size={6}>
+                        <Grid item xs={12} sm={6}>
                             <TextField
                                 fullWidth
                                 id="last_name"
@@ -121,7 +115,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.last_name && formik.errors.last_name}
                             />
                         </Grid>
-                        <Grid size={12}>
+                        <Grid item xs={12}>
                             <TextField
                                 fullWidth
                                 id="street"
@@ -133,7 +127,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.street && formik.errors.street}
                             />
                         </Grid>
-                        <Grid size={4}>
+                        <Grid item xs={12} sm={4}>
                             <TextField
                                 fullWidth
                                 id="zip_code"
@@ -145,7 +139,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.zip_code && formik.errors.zip_code}
                             />
                         </Grid>
-                        <Grid size={8}>
+                        <Grid item xs={12} sm={8}>
                             <TextField
                                 fullWidth
                                 id="city"
@@ -157,27 +151,25 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.city && formik.errors.city}
                             />
                         </Grid>
-                        <Grid size={6}>
-                            <FormControl fullWidth>
-                                <InputLabel id="function-label">Funktion</InputLabel>
+                        <Grid item xs={12} sm={6}>
+                            <FormControl fullWidth error={formik.touched.function && Boolean(formik.errors.function)}>
+                                <InputLabel>Funktion</InputLabel>
                                 <Select
-                                    labelId="function-label"
                                     id="function"
                                     name="function"
                                     value={formik.values.function}
                                     onChange={formik.handleChange}
-                                    error={formik.touched.function && Boolean(formik.errors.function)}
                                     label="Funktion"
                                 >
-                                    <MenuItem value="PDL">PDL</MenuItem>
                                     <MenuItem value="Pflegekraft">Pflegekraft</MenuItem>
                                     <MenuItem value="Arzt">Arzt</MenuItem>
-                                    <MenuItem value="Honorararzt">Honorararzt</MenuItem>
                                     <MenuItem value="Physiotherapie">Physiotherapie</MenuItem>
+                                    <MenuItem value="Honorararzt">Honorararzt</MenuItem>
+                                    <MenuItem value="PDL">PDL</MenuItem>
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid size={6}>
+                        <Grid item xs={12} sm={6}>
                             <TextField
                                 fullWidth
                                 id="work_hours"
@@ -193,7 +185,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 }}
                             />
                         </Grid>
-                        <Grid size={6}>
+                        <Grid item xs={12} sm={6}>
                             <TextField
                                 fullWidth
                                 id="tour_number"
@@ -207,7 +199,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 }}
                             />
                         </Grid>
-                        <Grid size={12}>
+                        <Grid item xs={12}>
                             <FormControlLabel
                                 control={
                                     <Switch
@@ -222,21 +214,19 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                     </Grid>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => onClose(false)} disabled={isLoading}>
-                        Abbrechen
-                    </Button>
-                    <Button 
-                        type="submit" 
-                        variant="contained" 
+                    <Button onClick={() => onClose(false)}>Abbrechen</Button>
+                    <Button
+                        type="submit"
+                        variant="contained"
                         color="primary"
-                        disabled={isLoading || !formik.isValid || !formik.dirty}
+                        disabled={formik.isSubmitting || createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
+                        startIcon={(formik.isSubmitting || createEmployeeMutation.isPending || updateEmployeeMutation.isPending) ? <CircularProgress size={20} /> : undefined}
                     >
-                        {isLoading ? (
-                            <>
-                                <CircularProgress size={20} sx={{ mr: 1 }} />
-                                Speichert...
-                            </>
-                        ) : 'Speichern'}
+                        {formik.isSubmitting || createEmployeeMutation.isPending || updateEmployeeMutation.isPending
+                            ? 'Speichern...'
+                            : employee
+                                ? 'Aktualisieren'
+                                : 'Erstellen'}
                     </Button>
                 </DialogActions>
             </form>

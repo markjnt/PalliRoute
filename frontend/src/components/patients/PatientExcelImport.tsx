@@ -16,6 +16,7 @@ import { CloudUpload as UploadIcon } from '@mui/icons-material';
 import { PatientImportResponse } from '../../types/models';
 import { usePatientImport } from '../../services/queries/usePatients';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 import axios from 'axios';
 
 interface PatientExcelImportProps {
@@ -33,36 +34,38 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
     const [fileError, setFileError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const queryClient = useQueryClient();
-    
-    // React Query Hook
     const patientImportMutation = usePatientImport();
-
+    const { setNotification } = useNotificationStore();
+    
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files.length > 0) {
-            const file = event.target.files[0];
-            // Check if it's an Excel file
-            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                setSelectedFile(file);
-                setFileError(null);
-            } else {
+        const file = event.target.files?.[0];
+        if (file) {
+            if (file.type !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' && 
+                file.type !== 'application/vnd.ms-excel') {
+                setFileError('Bitte wählen Sie eine Excel-Datei aus (.xlsx oder .xls)');
                 setSelectedFile(null);
-                setFileError('Bitte wählen Sie eine Excel-Datei (.xlsx oder .xls) aus.');
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
             }
+            setSelectedFile(file);
+            setFileError(null);
         }
     };
     
     const handleImport = async () => {
         if (!selectedFile) {
-            setFileError('Bitte wählen Sie eine Datei aus.');
+            setFileError('Bitte wählen Sie zuerst eine Datei aus');
             return;
         }
         
         try {
-            const response = await patientImportMutation.mutateAsync(selectedFile);
+            const result = await patientImportMutation.mutateAsync(selectedFile);
             
             // Add calendar week to success message if available
-            if (response.calendar_week) {
-                response.message += ` (KW ${response.calendar_week})`;
+            if (result.calendar_week) {
+                result.message += ` (KW ${result.calendar_week})`;
             }
 
             // Invalidate all relevant queries to refresh the data
@@ -71,16 +74,20 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
             await queryClient.invalidateQueries({ queryKey: ['appointments'] });
             await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
-            onSuccess(response);
+            onSuccess(result);
             handleClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error importing patients:', error);
+            setNotification(error.message || 'Fehler beim Importieren der Patienten', 'error');
         }
     };
     
     const handleClose = () => {
         setSelectedFile(null);
         setFileError(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
         onClose();
     };
     
@@ -167,13 +174,14 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
                 >
                     Abbrechen
                 </Button>
-                <Button 
-                    onClick={handleImport} 
-                    disabled={!selectedFile || patientImportMutation.isPending}
+                <Button
+                    onClick={handleImport}
                     variant="contained"
                     color="primary"
+                    disabled={!selectedFile || patientImportMutation.isPending}
+                    startIcon={patientImportMutation.isPending ? <CircularProgress size={20} /> : undefined}
                 >
-                    Importieren
+                    {patientImportMutation.isPending ? 'Importiere...' : 'Importieren'}
                 </Button>
             </DialogActions>
         </Dialog>

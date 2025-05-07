@@ -28,6 +28,8 @@ import {
     Cancel as InactiveIcon,
     LocationOn as LocationIcon,
     ExitToApp as LogoutIcon,
+    Upload as UploadIcon,
+    Add as AddIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
@@ -333,6 +335,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     onClick={() => setOpenImport(true)}
                     fullWidth
                     sx={{ mb: 1 }}
+                    startIcon={<UploadIcon />}
                 >
                     Excel Import
                 </Button>
@@ -343,6 +346,8 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         setOpenForm(true);
                     }}
                     fullWidth
+                    sx={{ mb: 1 }}
+                    startIcon={<AddIcon />}
                 >
                     Mitarbeiter hinzufügen
                 </Button>

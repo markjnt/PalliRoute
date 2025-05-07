@@ -14,8 +14,9 @@ import {
 } from '@mui/material';
 import {
     Today as TodayIcon,
-    CloudUpload as UploadIcon,
-    Event as CalendarIcon
+    Upload as UploadIcon,
+    Event as CalendarIcon,
+    Route as RouteIcon
 } from '@mui/icons-material';
 import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
@@ -24,7 +25,8 @@ import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
-import { useRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -36,8 +38,10 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
-    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [isOptimizing, setIsOptimizing] = useState(false);
     
+    const { notification, setNotification, closeNotification } = useNotificationStore();
+
     // React Query Hooks
     const { 
         data: employees = [], 
@@ -63,6 +67,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     } = useRoutes({ weekday: selectedWeekday });
     
     const patientImportMutation = usePatientImport();
+    const optimizeRoutesMutation = useOptimizeRoutes();
 
     // Memoize calendar week calculation
     const calculateCalendarWeek = useCallback(() => {
@@ -93,12 +98,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             setCalendarWeek(response.calendar_week);
         }
         handleImportDialogClose();
-        setSuccessMessage(`Import erfolgreich abgeschlossen.`);
-    }, [handleImportDialogClose]);
-
-    const handleCloseSuccessMessage = useCallback(() => {
-        setSuccessMessage(null);
-    }, []);
+        setNotification('Import erfolgreich abgeschlossen.', 'success');
+    }, [handleImportDialogClose, setNotification]);
 
     // Memoize weekday name mapping
     const getWeekdayName = useCallback((day: Weekday): string => {
@@ -135,6 +136,29 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         loading: isLoading,
         error
     }), [employees, patients, dayAppointments, routes, selectedWeekday, isLoading, error]);
+
+    const handleOptimizeAllRoutes = async () => {
+        if (!employees.length) return;
+        
+        setIsOptimizing(true);
+        try {
+            await Promise.all(
+                employees
+                    .filter(employee => employee.id !== undefined)
+                    .map(employee => 
+                        optimizeRoutesMutation.mutateAsync({
+                            date: selectedWeekday.toLowerCase(),
+                            employeeId: employee.id as number
+                        })
+                    )
+            );
+            setNotification('Alle Routen wurden erfolgreich optimiert', 'success');
+        } catch (error) {
+            setNotification('Fehler beim Optimieren der Routen', 'error');
+        } finally {
+            setIsOptimizing(false);
+        }
+    };
 
     return (
         <Box
@@ -193,14 +217,23 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 </Box>
             </Box>
 
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Button
                     variant="contained"
                     fullWidth
                     startIcon={<UploadIcon />}
                     onClick={handleImportDialogOpen}
                 >
-                    Excel Import (Daten zurücksetzen)
+                    Excel Import
+                </Button>
+                <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<RouteIcon />}
+                    onClick={handleOptimizeAllRoutes}
+                    disabled={isOptimizing || !employees.length}
+                >
+                    {isOptimizing ? 'Optimierung läuft...' : 'Alle Routen optimieren'}
                 </Button>
             </Box>
 
@@ -215,22 +248,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 onClose={handleImportDialogClose}
                 onSuccess={handleImportSuccess}
             />
-            
-            <Snackbar
-                open={!!successMessage}
-                autoHideDuration={6000}
-                onClose={handleCloseSuccessMessage}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-            >
-                <Alert 
-                    onClose={handleCloseSuccessMessage} 
-                    severity="success" 
-                    variant="filled"
-                    sx={{ width: '100%' }}
-                >
-                    {successMessage}
-                </Alert>
-            </Snackbar>
         </Box>
     );
 }; 
