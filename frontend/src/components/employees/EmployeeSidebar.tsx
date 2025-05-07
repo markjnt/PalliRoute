@@ -123,11 +123,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         
         try {
             await deleteEmployeeMutation.mutateAsync(employeeToDelete.id);
+            setDeleteDialogOpen(false);
             setEmployeeToDelete(null);
-            
-            // Events entfernt, React Query übernimmt die Datensynchronisierung
         } catch (error) {
             console.error('Error deleting employee:', error);
+            // Optional: Show error message to user
         }
     };
 
@@ -418,6 +418,9 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 <DialogContent>
                     <Typography>
                         Sind Sie sicher, dass Sie den Mitarbeiter {employeeToDelete?.name} löschen möchten?
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Hinweis: Alle zugehörigen Termine und Routen werden ebenfalls gelöscht.
                     </Typography>
                 </DialogContent>
                 <DialogActions>

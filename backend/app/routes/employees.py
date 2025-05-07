@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, send_file
 from app import db
 from app.models.employee import Employee
+from app.models.route import Route
+from app.models.appointment import Appointment
 from app.services.excel_import_service import ExcelImportService
 import pandas as pd
 from io import BytesIO
@@ -103,10 +105,23 @@ def update_employee(id):
 
 @employees_bp.route('/<int:id>', methods=['DELETE'])
 def delete_employee(id):
-    employee = Employee.query.get_or_404(id)
-    db.session.delete(employee)
-    db.session.commit()
-    return jsonify({"message": "Employee deleted successfully"}), 200
+    try:
+        employee = Employee.query.get_or_404(id)
+        
+        # Delete related routes first
+        Route.query.filter_by(employee_id=id).delete()
+        
+        # Delete related appointments
+        Appointment.query.filter_by(employee_id=id).delete()
+        
+        # Now delete the employee
+        db.session.delete(employee)
+        db.session.commit()
+        
+        return jsonify({"message": "Employee deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete employee: {str(e)}"}), 500
 
 @employees_bp.route('/import', methods=['POST'])
 def import_employees():
