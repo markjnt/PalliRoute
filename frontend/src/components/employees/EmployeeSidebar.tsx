@@ -350,7 +350,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 
             <Divider />
 
-            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 , width: '100%'}}>
                 {error instanceof Error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         {error.message}

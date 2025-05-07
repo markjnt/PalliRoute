@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Weekday } from '../types/models';
-import { MarkerData, RoutePathData } from '../types/mapTypes';
+import { MarkerData } from '../types/mapTypes';
 import { useEmployees } from '../services/queries/useEmployees';
 import { usePatients } from '../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../services/queries/useAppointments';
 import { useRoutes } from '../services/queries/useRoutes';
+import { useGoogleMapsLoader } from './useGoogleMapsLoader';
 import { 
   createEmployeeMarkerData, 
   createPatientMarkerData, 
@@ -16,12 +17,10 @@ import {
  * Custom hook to manage map data
  */
 export const useMapData = (selectedWeekday: string) => {
-  // State for markers and routes
+  // State for markers
   const [markers, setMarkers] = useState<MarkerData[]>([]);
-  const [allRoutes, setAllRoutes] = useState<any[]>([]);
-  const [filteredRoutes, setFilteredRoutes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isGoogleMapsLoaded = useGoogleMapsLoader();
 
   // React Query hooks for data fetching
   const { 
@@ -51,36 +50,20 @@ export const useMapData = (selectedWeekday: string) => {
     refetch: refetchRoutes
   } = useRoutes({ weekday: selectedWeekday as Weekday });
 
-  // Store routes in state when they change
-  useEffect(() => {
-    if (routes && routes.length > 0) {
-      setAllRoutes(routes);
-    }
-  }, [routes]);
-
-  // Filter routes when weekday changes
-  useEffect(() => {
-    if (allRoutes.length > 0) {
-      // Filter routes for the selected day AND only valid routes with non-empty route_order
-      const filtered = allRoutes.filter(route => 
-        route.weekday === selectedWeekday && isValidRoute(route)
-      );
-      
-      // Store filtered routes
-      setFilteredRoutes(filtered);
-      
-      // Log for debugging
-      console.log(`${filtered.length} valid routes found for ${selectedWeekday}`);
-    }
-  }, [selectedWeekday, allRoutes]);
+  // Memoize filtered routes to prevent unnecessary recalculations
+  const filteredRoutes = useMemo(() => {
+    return routes.filter(route => 
+      route.weekday === selectedWeekday && isValidRoute(route)
+    );
+  }, [routes, selectedWeekday]);
 
   // Create markers from employees and patients
   const createMarkers = useCallback(async () => {
-    if (!window.google || !window.google.maps) {
+    if (!isGoogleMapsLoaded) {
+      console.warn('Google Maps API not yet loaded');
       return;
     }
     
-    setLoading(true);
     const newMarkers: MarkerData[] = [];
     
     try {
@@ -102,14 +85,11 @@ export const useMapData = (selectedWeekday: string) => {
           appointment.visit_type.trim() !== ''
         );
         
-        // Get routes for the selected day to determine patient positions
-        const routesForDay = filteredRoutes;
-        
         // Create a map of appointment IDs to their position in the route
         const appointmentPositions = new Map<number, number>();
         
         // Process all routes for the day to find positions of appointments
-        routesForDay.forEach(route => {
+        filteredRoutes.forEach(route => {
           const routeOrder = parseRouteOrder(route.route_order);
           routeOrder.forEach((appointmentId: number, index: number) => {
             appointmentPositions.set(appointmentId, index + 1); // 1-based position
@@ -133,15 +113,12 @@ export const useMapData = (selectedWeekday: string) => {
     } catch (err) {
       console.error('Error creating markers:', err);
       setError('Fehler beim Erstellen der Marker');
-    } finally {
-      setLoading(false);
     }
-  }, [employees, patients, appointments, selectedWeekday, filteredRoutes]);
+  }, [employees, patients, appointments, selectedWeekday, filteredRoutes, isGoogleMapsLoaded]);
   
   // Function to refetch all data
   const refetchData = useCallback(async () => {
     try {
-      setLoading(true);
       // Clear markers to prevent stale data
       setMarkers([]);
       
@@ -153,18 +130,21 @@ export const useMapData = (selectedWeekday: string) => {
         refetchRoutes()
       ]);
       
-      // After refetch is complete, recreate markers
-      // This will be triggered by the useEffect hooks once data is loaded
     } catch (error) {
       console.error('Error refetching data:', error);
       setError('Fehler beim Aktualisieren der Daten');
-    } finally {
-      setLoading(false);
     }
   }, [refetchEmployees, refetchPatients, refetchAppointments, refetchRoutes]);
 
+  // Update markers when data changes
+  useEffect(() => {
+    if (isGoogleMapsLoaded && (employees.length > 0 || patients.length > 0)) {
+      createMarkers();
+    }
+  }, [employees, patients, appointments, filteredRoutes, createMarkers, isGoogleMapsLoaded]);
+
   // Combined loading state
-  const isLoading = loading || employeesLoading || patientsLoading || appointmentsLoading || routesLoading;
+  const isLoading = employeesLoading || patientsLoading || appointmentsLoading || routesLoading || !isGoogleMapsLoaded;
   
   // Combined error handling
   const combinedError = error || 
@@ -174,13 +154,11 @@ export const useMapData = (selectedWeekday: string) => {
 
   return {
     markers,
-    allRoutes,
     filteredRoutes,
     employees,
     patients,
     appointments,
     routes,
-    createMarkers,
     refetchData,
     isLoading,
     error: combinedError

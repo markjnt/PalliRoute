@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -35,7 +35,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
-    const [error, setError] = useState<string | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     
@@ -57,7 +56,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         error: appointmentsError
     } = useAppointmentsByWeekday(selectedWeekday);
     
-    // Add the routes query hook
     const {
         data: routes = [],
         isLoading: loadingRoutes,
@@ -66,69 +64,77 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const patientImportMutation = usePatientImport();
 
-    // Setze die Kalenderwoche basierend auf den Patientendaten
-    useEffect(() => {
+    // Memoize calendar week calculation
+    const calculateCalendarWeek = useCallback(() => {
         if (patients && patients.length > 0) {
-            // Finde die erste nicht-null Kalenderwoche
-            for (const patient of patients) {
-                if (patient.calendar_week) {
-                    setCalendarWeek(patient.calendar_week);
-                    break;
-                }
+            const patientWithWeek = patients.find(p => p.calendar_week);
+            if (patientWithWeek?.calendar_week) {
+                setCalendarWeek(patientWithWeek.calendar_week);
             }
         }
     }, [patients]);
 
-    const handleDayChange = (event: SelectChangeEvent) => {
+    // Handle weekday change
+    const handleDayChange = useCallback((event: SelectChangeEvent) => {
         setSelectedWeekday(event.target.value as Weekday);
-    };
+    }, [setSelectedWeekday]);
 
-    const handleImportDialogOpen = () => {
+    // Import dialog handlers
+    const handleImportDialogOpen = useCallback(() => {
         setImportDialogOpen(true);
-    };
+    }, []);
 
-    const handleImportDialogClose = () => {
+    const handleImportDialogClose = useCallback(() => {
         setImportDialogOpen(false);
-    };
+    }, []);
 
-    const handleImportSuccess = (response: any) => {
-        // Set the calendar week from the import response
+    const handleImportSuccess = useCallback((response: any) => {
         if (response.calendar_week) {
             setCalendarWeek(response.calendar_week);
         }
-        
-        // Close the dialog
         handleImportDialogClose();
-        
-        // Show success notification
         setSuccessMessage(`Import erfolgreich abgeschlossen.`);
-    };
+    }, [handleImportDialogClose]);
 
-    // Handler zum Schließen der Erfolgsbenachrichtigung
-    const handleCloseSuccessMessage = () => {
+    const handleCloseSuccessMessage = useCallback(() => {
         setSuccessMessage(null);
-    };
+    }, []);
 
-    const getWeekdayName = (day: Weekday): string => {
-        switch (day) {
-            case 'monday': return 'Montag';
-            case 'tuesday': return 'Dienstag';
-            case 'wednesday': return 'Mittwoch';
-            case 'thursday': return 'Donnerstag';
-            case 'friday': return 'Freitag';
-            default: return 'Unbekannt';
-        }
-    };
+    // Memoize weekday name mapping
+    const getWeekdayName = useCallback((day: Weekday): string => {
+        const weekdayNames: Record<Weekday, string> = {
+            monday: 'Montag',
+            tuesday: 'Dienstag',
+            wednesday: 'Mittwoch',
+            thursday: 'Donnerstag',
+            friday: 'Freitag'
+        };
+        return weekdayNames[day] || 'Unbekannt';
+    }, []);
     
-    // Kombiniere alle Fehler und Lade-Status
-    const isLoading = loadingPatients || loadingEmployees || loadingAppointments || loadingRoutes;
-    const combinedError = patientsError instanceof Error 
-        ? patientsError.message 
-        : appointmentsError instanceof Error
-            ? appointmentsError.message
-            : routesError instanceof Error
-                ? routesError.message
-                : error;
+    // Memoize loading and error states
+    const isLoading = useMemo(() => 
+        loadingPatients || loadingEmployees || loadingAppointments || loadingRoutes,
+        [loadingPatients, loadingEmployees, loadingAppointments, loadingRoutes]
+    );
+
+    const error = useMemo(() => {
+        if (patientsError instanceof Error) return patientsError.message;
+        if (appointmentsError instanceof Error) return appointmentsError.message;
+        if (routesError instanceof Error) return routesError.message;
+        return null;
+    }, [patientsError, appointmentsError, routesError]);
+
+    // Memoize ToursView props
+    const toursViewProps = useMemo(() => ({
+        employees,
+        patients,
+        appointments: dayAppointments,
+        routes,
+        selectedDay: selectedWeekday,
+        loading: isLoading,
+        error
+    }), [employees, patients, dayAppointments, routes, selectedWeekday, isLoading, error]);
 
     return (
         <Box
@@ -201,15 +207,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             <Divider />
 
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-                <ToursView 
-                    employees={employees}
-                    patients={patients}
-                    appointments={dayAppointments}
-                    routes={routes}
-                    selectedDay={selectedWeekday}
-                    loading={isLoading}
-                    error={combinedError}
-                />
+                <ToursView {...toursViewProps} />
             </Box>
 
             <PatientExcelImport
@@ -218,7 +216,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 onSuccess={handleImportSuccess}
             />
             
-            {/* Erfolgsbenachrichtigung */}
             <Snackbar
                 open={!!successMessage}
                 autoHideDuration={6000}

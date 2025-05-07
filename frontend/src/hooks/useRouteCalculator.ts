@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Employee, Appointment, Route } from '../types/models';
 import { MarkerData, RoutePathData } from '../types/mapTypes';
 import { useUpdateRoute } from '../services/queries/useRoutes';
@@ -23,354 +23,251 @@ export const useRouteCalculator = (
   // Get the update route mutation
   const updateRouteMutation = useUpdateRoute();
 
+  // Memoize valid routes to prevent unnecessary recalculations
+  const validRoutes = useMemo(() => {
+    return filteredRoutes.filter(route => hasValidRouteOrder(route, appointments, selectedWeekday));
+  }, [filteredRoutes, appointments, selectedWeekday]);
+
+  // Helper function to create initial route path data
+  const createRoutePathData = useCallback((route: Route, employee: Employee | undefined) => {
+    const routeOrder = parseRouteOrder(route.route_order);
+    const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee';
+    const tourNumber = employee?.tour_number;
+    const color = tourNumber ? routeLineColors[(Math.abs(tourNumber) - 1) % routeLineColors.length] : '#9E9E9E';
+
+    return {
+      employeeId: route.employee_id,
+      routeId: route.id,
+      routeOrder: routeOrder,
+      color,
+      directions: null,
+      loading: false,
+      error: false,
+      totalDistance: undefined,
+      totalTime: undefined,
+      employeeName
+    };
+  }, []);
+
+  // Helper function to update route in backend
+  const updateRouteInBackend = useCallback(async (routeId: number, distance: number, duration: number) => {
+    try {
+      await updateRouteMutation.mutateAsync({ 
+        id: routeId, 
+        routeData: {
+          total_distance: distance,
+          total_duration: duration
+        } 
+      });
+    } catch (error) {
+      console.error(`Error saving route ${routeId}:`, error);
+    }
+  }, [updateRouteMutation]);
+
+  // Helper function to handle empty routes
+  const handleEmptyRoute = useCallback((routePath: RoutePathData, routeData: Route, updatedRoutePaths: RoutePathData[], routeIndex: number) => {
+    const updatedPath = {
+      ...routePath,
+      error: false,
+      loading: false,
+      totalDistance: '0.0 km',
+      totalTime: '0min'
+    };
+    
+    updatedRoutePaths[routeIndex] = updatedPath;
+    setRoutePaths([...updatedRoutePaths]);
+    
+    if (routeData.id) {
+      updateRouteInBackend(routeData.id, 0, 0);
+    }
+  }, [updateRouteInBackend]);
+
   // Calculate routes
   const calculateRoutes = useCallback(async () => {
-    // Early return if necessary data is missing
-    if (!map || !filteredRoutes.length || !markers.length || !appointments.length) {
-      console.log("Missing data for route calculation, resetting routePaths", {
-        hasMap: !!map,
-        filteredRoutesLength: filteredRoutes.length,
-        markersLength: markers.length,
-        appointmentsLength: appointments.length
-      });
+    if (!map || !validRoutes.length || !markers.length || isCalculatingRoutes.current) {
       setRoutePaths([]);
       isCalculatingRoutes.current = false;
       return;
     }
     
-    // Prevent duplicate calculation
-    if (isCalculatingRoutes.current) {
-      console.log("Calculations already running, skipping...");
-      return;
-    }
-    
-    console.log("Starting route calculation with:", {
-      filteredRoutesCount: filteredRoutes.length, 
-      markersCount: markers.length,
-      appointmentsCount: appointments.length
-    });
-    
-    // Find routes with empty route_order
-    const emptyRoutes = filteredRoutes.filter(route => !hasValidRouteOrder(route, appointments, selectedWeekday));
-    if (emptyRoutes.length > 0) {
-      console.log(`${emptyRoutes.length} routes with empty route_order found`);
-    }
-    
-    // Filter routes again to ensure only valid routes are used
-    const validRoutes = filteredRoutes.filter(route => hasValidRouteOrder(route, appointments, selectedWeekday));
-    
-    if (validRoutes.length === 0) {
-      console.log("No valid routes with non-empty route_order found");
-      setRoutePaths([]);
-      isCalculatingRoutes.current = false;
-      return;
-    }
-    
-    console.log(`Initializing and calculating ${validRoutes.length} valid routes for ${selectedWeekday}`);
-    
-    // Mark that we're now calculating routes
     isCalculatingRoutes.current = true;
     
-    // A set to track which routes have already been calculated
-    const calculatedRouteIds = new Set<number>();
-    
-    // Initialize and calculate routes
-    const initializeAndCalculateRoutes = async () => {
-      try {
-        // First clear old route paths
-        setRoutePaths([]);
-        
-        // Create new route paths only for routes with valid route_order
-        const newRoutePaths: RoutePathData[] = validRoutes.map((route) => {
-          const routeOrder = parseRouteOrder(route.route_order);
-          
-          // Find the employee name for the hover info
-          const employee = employees.find(e => e.id === route.employee_id);
-          const employeeName = employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee';
-          
-          // Use same color assignment logic as in TourContainer
-          const tourNumber = employee?.tour_number;
-          let color = '#9E9E9E'; // Default grey for undefined tour
-          
-          if (tourNumber) {
-            // Ensure tourNumber is a positive number and convert to zero-based index
-            const index = (Math.abs(tourNumber) - 1) % routeLineColors.length;
-            color = routeLineColors[index];
-          }
-          
-          return {
-            employeeId: route.employee_id,
-            routeId: route.id,
-            routeOrder: routeOrder,
-            color: color,
-            directions: null,
-            loading: false,
-            error: false,
-            totalDistance: undefined,
-            totalTime: undefined,
-            employeeName: employeeName
-          };
-        });
-        
-        // Set initial routes
-        setRoutePaths(newRoutePaths);
-        
-        // Calculate directions for all routes
-        for (let i = 0; i < newRoutePaths.length; i++) {
-          await calculateDirections(i, newRoutePaths);
-        }
-        
-      } catch (error) {
-        console.error("Error calculating routes:", error);
-      } finally {
-        // Reset calculation status
-        isCalculatingRoutes.current = false;
-      }
-    };
-    
-    // Function to calculate a single route
-    const calculateDirections = async (routeIndex: number, updatedRoutePaths: RoutePathData[]) => {
-      const routePath = updatedRoutePaths[routeIndex];
+    try {
+      const newRoutePaths: RoutePathData[] = validRoutes.map((route) => {
+        const employee = employees.find(e => e.id === route.employee_id);
+        return createRoutePathData(route, employee);
+      });
       
-      // Check again if route_order is empty
-      if (!routePath.routeOrder || routePath.routeOrder.length === 0) {
-        console.log(`Empty route_order for route ${routePath.routeId}, skipping.`);
-        updatedRoutePaths[routeIndex] = {
-          ...routePath,
-          error: true
-        };
-        setRoutePaths([...updatedRoutePaths]);
-        return;
-      }
+      setRoutePaths(newRoutePaths);
       
-      // Skip if already loading, already has directions, or has an error
-      if (routePath.loading || routePath.directions || routePath.error) {
-        return;
+      for (let i = 0; i < newRoutePaths.length; i++) {
+        await calculateDirections(i, newRoutePaths);
       }
-      
-      // Find the route data based on the route ID
-      const routeData = filteredRoutes.find(r => r.id === routePath.routeId);
-      
-      // Check if this route has already been calculated
-      if (routeData && routeData.id && calculatedRouteIds.has(routeData.id)) {
-        console.log(`Route ${routeData.id} has already been calculated, skipping.`);
-        return;
-      }
-
-      // Mark this route as calculated
-      if (routeData && routeData.id) {
-        calculatedRouteIds.add(routeData.id);
-      }
-
-      // Find the employee marker for this route
-      const employeeMarker = markers.find(
-        marker => marker.type === 'employee' && marker.employeeId === routePath.employeeId
-      );
-      
-      if (!employeeMarker) {
-        console.log(`No employee marker found for route ${routePath.routeId}.`);
-        updatedRoutePaths[routeIndex] = {
-          ...routePath,
-          error: true
-        };
-        setRoutePaths([...updatedRoutePaths]);
-        return;
-      }
-
-      // Find all patient markers in route_order
-      const waypoints: google.maps.DirectionsWaypoint[] = [];
-      const validPatientMarkers: MarkerData[] = [];
-      
-      for (const appointmentId of routePath.routeOrder) {
-        const patientMarker = markers.find(
-          marker => marker.type === 'patient' && marker.appointmentId === appointmentId
-        );
-        
-        if (patientMarker) {
-          validPatientMarkers.push(patientMarker);
-          waypoints.push({
-            location: patientMarker.position,
-            stopover: true
-          });
-        }
-      }
-      
-      // Skip if no valid patient markers
-      if (!validPatientMarkers.length) {
-        console.log(`No valid patient markers found for route ${routePath.routeId}.`);
-        updatedRoutePaths[routeIndex] = {
-          ...routePath,
-          error: true
-        };
-        setRoutePaths([...updatedRoutePaths]);
-        return;
-      }
-
-      // Mark as loading
-      updatedRoutePaths[routeIndex] = {
-        ...routePath,
-        loading: true
-      };
-      setRoutePaths([...updatedRoutePaths]);
-
-      // Use DirectionsService directly
-      const directionsService = new google.maps.DirectionsService();
-
-      try {
-        const result = await new Promise<google.maps.DirectionsResult>((resolve, reject) => {
-          directionsService.route({
-            origin: employeeMarker.position,
-            destination: employeeMarker.position, // Return to start
-            waypoints: waypoints,
-            optimizeWaypoints: false, // We already have the order
-            travelMode: google.maps.TravelMode.DRIVING,
-            provideRouteAlternatives: false,
-            drivingOptions: {
-              departureTime: new Date(), // Now
-              trafficModel: google.maps.TrafficModel.BEST_GUESS
-            }
-          }, (result, status) => {
-            if (status === google.maps.DirectionsStatus.OK && result) {
-              resolve(result);
-            } else {
-              reject(new Error(`Directions request failed: ${status}`));
-            }
-          });
-        });
-
-        // Calculate total distance, driving time, and visit times
-        if (result && result.routes && result.routes.length > 0) {
-          const routeResult = result.routes[0];
-          
-          // Calculate distance and driving time
-          let totalDistanceValue = 0;
-          let totalDurationValue = 0;
-          let totalVisitDuration = 0;
-          
-          // Calculate visit duration
-          validPatientMarkers.forEach(marker => {
-            const appointmentId = marker.appointmentId || 0;
-            const appointment = appointments.find(a => a.id === appointmentId);
-            const duration = (appointment && appointment.duration) ? appointment.duration : 0;
-            totalVisitDuration += duration;
-          });
-          
-          // Calculate distance and driving time from legs
-          if (routeResult.legs) {
-            routeResult.legs.forEach(leg => {
-              if (leg.distance && leg.distance.value) {
-                totalDistanceValue += leg.distance.value;
-              }
-              if (leg.duration && leg.duration.value) {
-                totalDurationValue += leg.duration.value;
-              }
-            });
-          }
-          
-          // Convert distance from meters to kilometers
-          const distanceKm = totalDistanceValue / 1000;
-          
-          // Convert driving time from seconds to minutes
-          const drivingTimeMinutes = Math.round(totalDurationValue / 60);
-          
-          // Calculate total time (driving time + visit time)
-          const totalTimeMinutes = drivingTimeMinutes + totalVisitDuration;
-          
-          // Update the route with all calculated values (for UI)
-          updatedRoutePaths[routeIndex] = {
-            ...updatedRoutePaths[routeIndex],
-            directions: result,
-            totalDistance: `${distanceKm.toFixed(1)} km`,
-            totalTime: totalTimeMinutes >= 60 
-              ? `${Math.floor(totalTimeMinutes / 60)}h ${totalTimeMinutes % 60}min` 
-              : `${totalTimeMinutes}min`,
-            loading: false
-          };
-          
-          // Save only important values to the backend with React Query mutation
-          if (routeData && routeData.id) {
-            try {
-              // Save values to backend with React Query mutation
-              updateRouteMutation.mutate({ 
-                id: routeData.id, 
-                routeData: {
-                  total_distance: distanceKm,
-                  total_duration: totalTimeMinutes
-                } 
-              });
-              
-              console.log(`Route ${routeData.id} updated: ${distanceKm}km, ${totalTimeMinutes}min`);
-              
-            } catch (error) {
-              console.error(`Error saving route ${routeData.id}:`, error);
-            }
-          }
-        }
-        
-        // Update state
-        setRoutePaths([...updatedRoutePaths]);
-      } catch (error) {
-        console.error(`Error calculating directions for route ${routeIndex}:`, error);
-        updatedRoutePaths[routeIndex] = {
-          ...routePath,
-          loading: false,
-          error: true
-        };
-        setRoutePaths([...updatedRoutePaths]);
-      }
-    };
-
-    // Start the process
-    initializeAndCalculateRoutes();
-    
-  }, [map, filteredRoutes, markers, appointments, employees, selectedWeekday, updateRouteMutation]);
+    } catch (error) {
+      console.error("Error calculating routes:", error);
+    } finally {
+      isCalculatingRoutes.current = false;
+    }
+  }, [map, validRoutes, markers, employees, createRoutePathData]);
   
-  // Debug logging for input data
-  useEffect(() => {
-    console.log('useRouteCalculator input data:', {
-      hasMap: !!map,
-      markersCount: markers.length,
-      filteredRoutesCount: filteredRoutes.length,
-      appointmentsCount: appointments.length,
-      employeesCount: employees.length,
-      selectedWeekday
-    });
-  }, [map, markers.length, filteredRoutes.length, appointments.length, employees.length, selectedWeekday]);
-
-  // Trigger recalculation when the route_order changes
-  useEffect(() => {
-    // Early return if we don't have necessary data yet
-    if (!map || !filteredRoutes.length || !markers.length) {
+  // Calculate directions for a single route
+  const calculateDirections = async (routeIndex: number, updatedRoutePaths: RoutePathData[]) => {
+    const routePath = updatedRoutePaths[routeIndex];
+    const routeData = validRoutes.find(r => r.id === routePath.routeId);
+    
+    if (!routeData || !routePath.routeOrder?.length) {
+      handleEmptyRoute(routePath, routeData!, updatedRoutePaths, routeIndex);
       return;
     }
     
-    // Create a serialized version of all route orders to detect changes
+    if (routePath.loading || routePath.directions || routePath.error) {
+      return;
+    }
+
+    const employeeMarker = markers.find(
+      marker => marker.type === 'employee' && marker.employeeId === routePath.employeeId
+    );
+    
+    if (!employeeMarker) {
+      handleEmptyRoute(routePath, routeData, updatedRoutePaths, routeIndex);
+      return;
+    }
+
+    const { waypoints, validPatientMarkers } = routePath.routeOrder.reduce((acc, appointmentId) => {
+      const patientMarker = markers.find(
+        marker => marker.type === 'patient' && marker.appointmentId === appointmentId
+      );
+      
+      if (patientMarker) {
+        acc.validPatientMarkers.push(patientMarker);
+        acc.waypoints.push({
+          location: patientMarker.position,
+          stopover: true
+        });
+      }
+      return acc;
+    }, { waypoints: [] as google.maps.DirectionsWaypoint[], validPatientMarkers: [] as MarkerData[] });
+    
+    if (!validPatientMarkers.length) {
+      handleEmptyRoute(routePath, routeData, updatedRoutePaths, routeIndex);
+      return;
+    }
+
+    updatedRoutePaths[routeIndex] = { ...routePath, loading: true };
+    setRoutePaths([...updatedRoutePaths]);
+
+    try {
+      const result = await calculateRouteDirections(employeeMarker.position, waypoints);
+      const { totalDistance, totalTime } = calculateRouteMetrics(result, validPatientMarkers, appointments);
+      
+      updatedRoutePaths[routeIndex] = {
+        ...routePath,
+        directions: result,
+        totalDistance: `${(totalDistance / 1000).toFixed(1)} km`,
+        totalTime: totalTime >= 60 ? `${Math.floor(totalTime / 60)}h ${totalTime % 60}min` : `${totalTime}min`,
+        loading: false
+      };
+      
+      if (routeData.id) {
+        await updateRouteInBackend(routeData.id, totalDistance / 1000, totalTime);
+      }
+      
+      setRoutePaths([...updatedRoutePaths]);
+    } catch (error) {
+      console.error(`Error calculating directions for route ${routeIndex}:`, error);
+      updatedRoutePaths[routeIndex] = {
+        ...routePath,
+        loading: false,
+        error: true
+      };
+      setRoutePaths([...updatedRoutePaths]);
+    }
+  };
+
+  // Helper function to calculate route directions
+  const calculateRouteDirections = (origin: google.maps.LatLng, waypoints: google.maps.DirectionsWaypoint[]): Promise<google.maps.DirectionsResult> => {
+    return new Promise((resolve, reject) => {
+      const directionsService = new google.maps.DirectionsService();
+      directionsService.route({
+        origin,
+        destination: origin,
+        waypoints,
+        optimizeWaypoints: false,
+        travelMode: google.maps.TravelMode.DRIVING,
+        provideRouteAlternatives: false,
+        drivingOptions: {
+          departureTime: new Date(),
+          trafficModel: google.maps.TrafficModel.BEST_GUESS
+        }
+      }, (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result) {
+          resolve(result);
+        } else {
+          reject(new Error(`Directions request failed: ${status}`));
+        }
+      });
+    });
+  };
+
+  // Helper function to calculate route metrics
+  const calculateRouteMetrics = (
+    result: google.maps.DirectionsResult,
+    validPatientMarkers: MarkerData[],
+    appointments: Appointment[]
+  ) => {
+    let totalDistance = 0;
+    let totalDuration = 0;
+    let totalVisitDuration = 0;
+
+    // Calculate visit duration
+    validPatientMarkers.forEach(marker => {
+      const appointmentId = marker.appointmentId || 0;
+      const appointment = appointments.find(a => a.id === appointmentId);
+      totalVisitDuration += (appointment?.duration || 0);
+    });
+
+    // Calculate distance and driving time from legs
+    if (result.routes[0]?.legs) {
+      result.routes[0].legs.forEach(leg => {
+        totalDistance += (leg.distance?.value || 0);
+        totalDuration += (leg.duration?.value || 0);
+      });
+    }
+
+    const drivingTimeMinutes = Math.round(totalDuration / 60);
+    const totalTimeMinutes = drivingTimeMinutes + totalVisitDuration;
+
+    return {
+      totalDistance,
+      totalTime: totalTimeMinutes
+    };
+  };
+
+  // Trigger recalculation when route order or markers change
+  useEffect(() => {
+    if (!map || !validRoutes.length || !markers.length) {
+      return;
+    }
+    
     const currentRouteOrderString = JSON.stringify(
-      filteredRoutes.map(route => ({ 
+      validRoutes.map(route => ({ 
         id: route.id, 
-        order: route.route_order 
+        order: route.route_order,
+        // Add marker count to detect when all patients are removed
+        markerCount: markers.filter(m => m.type === 'patient' && 
+          route.route_order.includes(m.appointmentId || 0)).length
       }))
     );
     
-    // Check if the route order has changed
     if (previousRouteOrder.current !== currentRouteOrderString) {
-      console.log('Route order changed, triggering recalculation');
-      
-      // Update the reference for future comparisons
       previousRouteOrder.current = currentRouteOrderString;
       
-      // Don't trigger on first load (previousRouteOrder would be null)
       if (previousRouteOrder.current !== null) {
-        // Only trigger if we already have calculated routes
-        if (routePaths.length > 0) {
-          console.log('Recalculating routes because route_order changed');
-          calculateRoutes();
-        }
+        calculateRoutes();
       }
     }
-  }, [filteredRoutes, map, markers, calculateRoutes, routePaths.length]);
+  }, [validRoutes, map, markers, calculateRoutes]);
 
-  // Return the route calculation results and the function to trigger calculation
   return {
     routePaths,
     calculateRoutes,

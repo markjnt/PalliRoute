@@ -1,9 +1,9 @@
 import React from 'react';
 import { Marker, GroundOverlay } from '@react-google-maps/api';
 import { MarkerGroup } from '../../types/mapTypes';
-import { getColorForVisitType, getColorForEmployeeType } from '../../utils/mapUtils';
 import { MarkerInfoWindow } from './MarkerInfoWindow';
 import { Appointment, Employee, Patient } from '../../types/models';
+import { createMarkerIcon, createMarkerLabel } from '../../utils/markerConfig';
 
 interface MapMarkersProps {
   markerGroups: MarkerGroup[];
@@ -51,42 +51,17 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
                 position={group.position}
                 title={group.count > 1 ? `${group.count} Marker an dieser Position` : group.markers[0].title}
                 onClick={() => handleMarkerClick(group.markers[0], group)}
-                label={group.count > 1 ? {
-                  text: group.count.toString(),
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontSize: '12px'
-                } : group.markers[0].type === 'employee' ? undefined : 
-                // Only create a label object for HB appointments with position numbers
-                (group.markers[0].visitType === 'HB' && group.markers[0].label) ? {
-                  text: group.markers[0].label || '',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontSize: '14px'
-                } : undefined}
-                icon={group.count > 1 ? {
-                  // Use a different style for multi-marker groups
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: '#4285F4', // Google Blue for multi-marker groups
-                  fillOpacity: 1,
-                  strokeColor: '#ffffff',
-                  strokeWeight: 2,
-                  scale: 15, // Slightly larger for groups
-                } : group.markers[0].type === 'employee' ? {
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: getColorForEmployeeType(group.markers[0].employeeType),
-                  fillOpacity: 1,
-                  strokeColor: '#ffffff',
-                  strokeWeight: 2,
-                  scale: 12,
-                } : {
-                  path: google.maps.SymbolPath.CIRCLE,
-                  fillColor: getColorForVisitType(group.markers[0].visitType),
-                  fillOpacity: 1,
-                  strokeColor: '#ffffff',
-                  strokeWeight: 2,
-                  scale: 12,
-                }}
+                label={createMarkerLabel(
+                  group.count,
+                  group.markers[0].visitType,
+                  group.markers[0].label
+                )}
+                icon={createMarkerIcon(
+                  group.markers[0].type,
+                  group.markers[0].employeeType,
+                  group.markers[0].visitType,
+                  group.count > 1
+                )}
               />
             ) : (
               // When group is active, expand markers in a circle
@@ -104,29 +79,8 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
                     position={expandedPosition}
                     title={marker.title}
                     onClick={() => handleExpandedMarkerClick(marker, expandedPosition)}
-                    label={marker.type === 'employee' ? undefined : 
-                    // Only create a label object for HB appointments with position numbers
-                    (marker.visitType === 'HB' && marker.label) ? {
-                      text: marker.label || '',
-                      color: 'white',
-                      fontWeight: 'bold',
-                      fontSize: '14px'
-                    } : undefined}
-                    icon={marker.type === 'employee' ? {
-                      path: google.maps.SymbolPath.CIRCLE,
-                      fillColor: getColorForEmployeeType(marker.employeeType),
-                      fillOpacity: 1,
-                      strokeColor: '#ffffff',
-                      strokeWeight: 2,
-                      scale: 12,
-                    } : {
-                      path: google.maps.SymbolPath.CIRCLE,
-                      fillColor: getColorForVisitType(marker.visitType),
-                      fillOpacity: 1,
-                      strokeColor: '#ffffff',
-                      strokeWeight: 2,
-                      scale: 12,
-                    }}
+                    label={createMarkerLabel(undefined, marker.visitType, marker.label)}
+                    icon={createMarkerIcon(marker.type, marker.employeeType, marker.visitType)}
                   />
                 );
               })

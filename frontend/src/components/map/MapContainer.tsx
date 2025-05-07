@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Box, CircularProgress, Alert, Button, Typography } from '@mui/material';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { MapContainerProps } from '../../types/mapTypes';
@@ -16,6 +16,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   apiKey,
   selectedWeekday
 }) => {
+  // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: apiKey,
@@ -24,21 +25,17 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     region: 'DE'
   });
 
-  // State for Google Map
+  // Map state
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   
-  // Ref für die Verfolgung von Änderungen in der Routenreihenfolge
-  const routeOrderRef = useRef<string | null>(null);
-  
-  // Use custom hooks for data management - React Query handles caching and updates
+  // Data hooks
   const {
     markers,
     filteredRoutes,
     employees,
     patients,
     appointments,
-    createMarkers,
     refetchData,
     isLoading,
     error: dataError
@@ -68,11 +65,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     handleMapClick
   } = useMarkerGroups(markers);
   
-  // Map load callback - only run once when map loads
+  // Memoize map callbacks
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
     
-    // Create a custom style for the map markers with position numbers
+    // Add custom styles for map markers
     const customLabelStyle = document.createElement('style');
     customLabelStyle.textContent = `
       .gm-style .gm-style-iw {
@@ -85,73 +82,18 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       }
     `;
     document.head.appendChild(customLabelStyle);
-    
-    // When map is ready, initialize data
-    if (markers.length === 0) {
-      createMarkers();
-    }
-    
-    // Calculate routes if needed (only if we have markers and routes, but no directions yet)
-    if (markers.length > 0 && filteredRoutes.length > 0 && (!routePaths || routePaths.length === 0)) {
-      calculateRoutes();
-    }
-  }, [createMarkers, calculateRoutes, markers.length, filteredRoutes.length, routePaths]);
-
-  // Explizit die Routenberechnung auslösen, wenn Map bereit ist und Daten verfügbar sind
-  useEffect(() => {
-    if (map && markers.length > 0 && filteredRoutes.length > 0 && (!routePaths || routePaths.length === 0)) {
-      console.log('Triggering route calculation from useEffect');
-      calculateRoutes();
-    }
-  }, [map, markers, filteredRoutes, routePaths, calculateRoutes, selectedWeekday]);
-
-  // Reagiere auf Änderungen in den filteredRoutes (z.B. wenn ein Patient verschoben wurde)
-  useEffect(() => {
-    // Nur neu berechnen, wenn sich die Reihenfolge geändert hat
-    if (map && markers.length > 0 && filteredRoutes.length > 0) {
-      // Serialisiere die Routen-Reihenfolge für den Vergleich
-      const routeOrderString = JSON.stringify(
-        filteredRoutes.map(route => ({ id: route.id, order: route.route_order }))
-      );
-      
-      // Nur neu berechnen, wenn sich die Reihenfolge geändert hat
-      if (routeOrderString !== routeOrderRef.current) {
-        console.log('Routes changed, recalculating directions');
-        routeOrderRef.current = routeOrderString;
-        calculateRoutes();
-      }
-    }
-  }, [filteredRoutes, map, markers, calculateRoutes]);
+  }, []);
   
-  // Map unmount callback
   const onUnmount = useCallback(() => {
     setMap(null);
   }, []);
   
-  // Manual recalculation handler
   const handleRecalculate = useCallback(() => {
     refetchData();
-    // After data is refreshed, markers will be created and routes calculated via React Query
   }, [refetchData]);
   
-  // Combined error handling
-  const combinedError = mapError || dataError;
-  
-  // Error handling
-  if (combinedError) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{combinedError}</Alert>
-        <Button 
-          variant="contained" 
-          sx={{ mt: 2 }} 
-          onClick={handleRecalculate}
-        >
-          Erneut versuchen
-        </Button>
-      </Box>
-    );
-  }
+  // Memoize error state
+  const error = useMemo(() => mapError || dataError, [mapError, dataError]);
   
   // Loading state
   if (!isLoaded || isLoading) {
@@ -163,6 +105,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         height: '100%'
       }}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button 
+          variant="contained" 
+          sx={{ mt: 2 }} 
+          onClick={handleRecalculate}
+        >
+          Erneut versuchen
+        </Button>
       </Box>
     );
   }
@@ -190,20 +148,6 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           zIndex: 10,
         }}>
           <CircularProgress />
-        </Box>
-      )}
-      
-      {/* Error display */}
-      {mapError && (
-        <Box sx={{ p: 2 }}>
-          <Typography color="error">{mapError}</Typography>
-          <Button 
-            variant="contained" 
-            sx={{ mt: 1 }} 
-            onClick={handleRecalculate}
-          >
-            Erneut versuchen
-          </Button>
         </Box>
       )}
       
