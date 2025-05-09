@@ -7,12 +7,24 @@ import {
     Chip,
     Badge,
     Grid,
-    Tooltip
+    Tooltip,
+    IconButton,
+    Menu,
+    MenuItem,
+    ListItemIcon,
+    ListItemText,
+    Popper,
+    Paper,
+    ClickAwayListener
 } from '@mui/material';
 import { 
     Phone as PhoneIcon,
     Home as HomeIcon,
-    Info as InfoIcon
+    Info as InfoIcon,
+    Navigation as NavigationIcon,
+    MoreVert as MoreVertIcon,
+    SwapHoriz as SwapHorizIcon,
+    ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
 import { Patient, Appointment, Weekday } from '../../types/models';
@@ -38,6 +50,26 @@ export const PatientCard: React.FC<PatientCardProps> = ({
 }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [submenuAnchorEl, setSubmenuAnchorEl] = useState<null | HTMLElement>(null);
+    
+    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+        setSubmenuAnchorEl(null);
+    };
+
+    const handleSubmenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        event.stopPropagation();
+        setSubmenuAnchorEl(event.currentTarget);
+    };
+
+    const handleSubmenuClose = () => {
+        setSubmenuAnchorEl(null);
+    };
     
     // Lade alle Termine des Patienten
     useEffect(() => {
@@ -195,28 +227,75 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 }
             }}
         >
-            {/* Nummer in der linken oberen Ecke */}
-            {index !== undefined && (
-                <Box sx={{ 
-                    position: 'absolute', 
-                    top: '10px', 
-                    right: '25px', 
-                    zIndex: 1 
-                }}>
-                    <Badge
-                        badgeContent={index}
-                        color="primary"
+            {/* Three-dot menu */}
+            <Box sx={{ 
+                position: 'absolute', 
+                top: '10px', 
+                right: '10px', 
+                zIndex: 1 
+            }}>
+                <IconButton
+                    size="small"
+                    onClick={handleMenuOpen}
+                    sx={{ 
+                        color: 'text.secondary',
+                        '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                        }
+                    }}
+                >
+                    <MoreVertIcon />
+                </IconButton>
+                <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={handleMenuClose}
+                >
+                    <MenuItem 
+                        onMouseEnter={handleSubmenuOpen}
                         sx={{ 
-                            '& .MuiBadge-badge': {
-                                fontSize: '0.9rem',
-                                height: '30px',
-                                minWidth: '30px',
-                                borderRadius: '50%'
+                            '&:hover': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.04)'
                             }
                         }}
-                    />
-                </Box>
-            )}
+                    >
+                        <ListItemIcon>
+                            <SwapHorizIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText>Zuweisen</ListItemText>
+                        <ChevronRightIcon fontSize="small" />
+                    </MenuItem>
+                </Menu>
+                <Menu
+                    anchorEl={submenuAnchorEl}
+                    open={Boolean(submenuAnchorEl)}
+                    onClose={handleSubmenuClose}
+                    anchorOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'left',
+                    }}
+                    sx={{
+                        pointerEvents: 'none',
+                        '& .MuiPaper-root': {
+                            pointerEvents: 'auto'
+                        }
+                    }}
+                >
+                    <MenuItem onClick={handleMenuClose}>
+                        <ListItemText>Pflegekraft 1</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={handleMenuClose}>
+                        <ListItemText>Pflegekraft 2</ListItemText>
+                    </MenuItem>
+                    <MenuItem onClick={handleMenuClose}>
+                        <ListItemText>Pflegekraft 3</ListItemText>
+                    </MenuItem>
+                </Menu>
+            </Box>
             
             <CardContent sx={{ py: 2, px: 2, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ 
@@ -226,23 +305,57 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 }}>
                     <Box sx={{ width: '100%' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            {index !== undefined && (
+                                <Box sx={{ 
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '50%',
+                                    bgcolor: 'primary.main',
+                                    color: 'white',
+                                    mr: 1,
+                                    fontSize: '0.9rem',
+                                    fontWeight: 'bold',
+                                    flexShrink: 0
+                                }}>
+                                    {index}
+                                </Box>
+                            )}
                             <Typography 
                                 variant="h6" 
                                 component="div" 
                                 fontWeight="bold"
-                                gutterBottom
+                                sx={{ 
+                                    lineHeight: 1.2,
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
                             >
                                 {patient.last_name}, {patient.first_name}
                             </Typography>
-                            
-                            {patient.area && (
-                                <Chip 
-                                    label={patient.area} 
-                                    size="small" 
-                                    sx={{ ml: 1 }}
-                                />
-                            )}
                         </Box>
+                        
+                        {patient.area && (
+                            <Box sx={{ mb: 0.5, display: 'flex', alignItems: 'center' }}>
+                                <Tooltip title={patient.area}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <NavigationIcon 
+                                            fontSize="small" 
+                                            sx={{ 
+                                                mr: 0.5, 
+                                                color: 'text.secondary',
+                                                transform: patient.area.includes('Nordkreis') ? 'rotate(0deg)' : 'rotate(180deg)'
+                                            }} 
+                                        />
+                                        <Typography variant="body2" color="text.secondary">
+                                            {patient.area.includes('Nordkreis') ? 'N' : 'S'}
+                                        </Typography>
+                                    </Box>
+                                </Tooltip>
+                            </Box>
+                        )}
                         
                         {/* Adresse immer mit Haussymbol anzeigen */}
                         <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>

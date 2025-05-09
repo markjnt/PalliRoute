@@ -457,31 +457,39 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                 {employee.tour_number ? `Tour ${employee.tour_number}:` : ''}
                             </Typography>
                             
+                            <Typography 
+                                variant="h6" 
+                                component="h3" 
+                                sx={{ 
+                                    fontWeight: 'medium',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 1
+                                }}
+                            >
+                                {employee.first_name} {employee.last_name}
+                            </Typography>
+                        </Box>
+                        
+                        {/* Employee status and function info */}
+                        <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            gap: 1,
+                            mt: 0.5
+                        }}>
                             <Tooltip title={`Funktion: ${employee.function} - ${employee.is_active ? 'Aktiv' : 'Inaktiv'}`}>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <Typography 
-                                        variant="h6" 
-                                        component="h3" 
-                                        sx={{ 
-                                            fontWeight: 'medium',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 1
-                                        }}
-                                    >
-                                        {employee.first_name} {employee.last_name}
-                                        {employee.is_active ? 
-                                            <CheckCircle color="success" fontSize="small" /> : 
-                                            <Cancel color="error" fontSize="small" />
-                                        }
-                                    </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {employee.is_active ? 
+                                        <CheckCircle color="success" fontSize="small" /> : 
+                                        <Cancel color="error" fontSize="small" />
+                                    }
                                     
                                     {/* Employee function chip */}
                                     <Chip 
                                         label={employee.function}
                                         size="small"
                                         sx={{ 
-                                            ml: 1,
                                             height: '20px',
                                             fontSize: '0.7rem',
                                             backgroundColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
@@ -493,7 +501,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                             </Tooltip>
                         </Box>
                         
-                        {/* Anzeige der Strecke und Gesamtzeit - jetzt unter dem Namen */}
+                        {/* Anzeige der Strecke und Gesamtzeit */}
                         <Box sx={{ 
                             display: 'flex', 
                             alignItems: 'center',
@@ -533,7 +541,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                         }
                                     }}
                                 >
-                                    {isOptimizing ? 'Optimierung läuft...' : 'Route optimieren'}
+                                    {isOptimizing ? 'Optimiert...' : 'Optimieren'}
                                 </Button>
                             )}
                         </Box>

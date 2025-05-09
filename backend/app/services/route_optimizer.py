@@ -54,7 +54,7 @@ class RouteOptimizer:
         # Get employee
         employee = Employee.query.filter_by(id=employee_id).first()
         if not employee:
-            raise ValueError(f"Employee with ID {employee_id} not found or not active")
+            raise ValueError(f"Employee with ID {employee_id} not found")
 
         try:
             # Get appointments for this employee on this weekday
