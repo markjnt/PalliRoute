@@ -52,7 +52,7 @@ class RouteOptimizer:
                 departure_time = departure_time + timedelta(days=1)
 
         # Get employee
-        employee = Employee.query.filter_by(id=employee_id, is_active=True).first()
+        employee = Employee.query.filter_by(id=employee_id).first()
         if not employee:
             raise ValueError(f"Employee with ID {employee_id} not found or not active")
 
