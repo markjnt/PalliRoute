@@ -19,7 +19,7 @@ interface DragState {
   clearError: () => void;
 }
 
-export const useDragStore = create<DragState>((set, get) => ({
+export const useAssignPatientStore = create<DragState>((set, get) => ({
   // Initial state
   loadingPatients: false,
   loadingAppointments: false,

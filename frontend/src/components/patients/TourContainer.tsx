@@ -30,7 +30,7 @@ import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
 import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
-import { useDragStore } from '../../stores';
+import { useAssignPatientStore } from '../../stores';
 import { appointmentsApi } from '../../services/api/appointments';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import { routesApi } from '../../services/api/routes';
@@ -86,10 +86,10 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const [expanded, setExpanded] = useState(false);
     const dropRef = useRef<HTMLDivElement>(null);
     
-    // Verwende den useDragStore anstelle des DragContext
-    const updatePatientTour = useDragStore(state => state.updatePatientTour);
-    const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
-    const error = useDragStore(state => state.error);
+    // Verwende den useAssignPatientStore anstelle des DragContext
+    const updatePatientTour = useAssignPatientStore(state => state.updatePatientTour);
+    const updateAppointmentEmployee = useAssignPatientStore(state => state.updateAppointmentEmployee);
+    const error = useAssignPatientStore(state => state.error);
     const { notification, setNotification, closeNotification } = useNotificationStore();
     
     const queryClient = useQueryClient();
@@ -610,6 +610,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                 visitType="HB"
                                                 index={index + 1}
                                                 selectedDay={selectedDay}
+                                                onPatientMoved={onPatientMoved}
                                             />
                                         </ListItem>
                                     ))}
@@ -658,6 +659,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                         visitType="TK"
                                                         compact
                                                         selectedDay={selectedDay}
+                                                        onPatientMoved={onPatientMoved}
                                                     />
                                                 </ListItem>
                                             ))}
@@ -706,6 +708,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                         visitType="NA"
                                                         compact
                                                         selectedDay={selectedDay}
+                                                        onPatientMoved={onPatientMoved}
                                                     />
                                                 </ListItem>
                                             ))}
@@ -748,6 +751,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                         visitType="none"
                                                         compact
                                                         selectedDay={selectedDay}
+                                                        onPatientMoved={onPatientMoved}
                                                     />
                                                 </ListItem>
                                             ))}

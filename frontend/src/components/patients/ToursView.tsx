@@ -3,7 +3,7 @@ import { Box, Typography, Alert, CircularProgress, Button, Chip, Tooltip } from 
 import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
 import { TourContainer } from './TourContainer';
 import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon } from '@mui/icons-material';
-import { useDragStore } from '../../stores';
+import { useAssignPatientStore } from '../../stores';
 import { employeeTypeColors } from '../../utils/colors';
 import { useRoutes } from '../../services/queries/useRoutes';
 
@@ -32,10 +32,8 @@ export const ToursView: React.FC<ToursViewProps> = ({
     const [routes, setRoutes] = useState<Route[]>(initialRoutes);
     
     // Get drag store functions
-    const updatePatientTour = useDragStore(state => state.updatePatientTour);
-    const updateAppointmentEmployee = useDragStore(state => state.updateAppointmentEmployee);
-    const updateRouteOrder = useDragStore(state => state.updateRouteOrder);
-    const removeFromRouteOrder = useDragStore(state => state.removeFromRouteOrder);
+    const updateRouteOrder = useAssignPatientStore(state => state.updateRouteOrder);
+    const removeFromRouteOrder = useAssignPatientStore(state => state.removeFromRouteOrder);
     
     // React Query hook für Routen - nur für das Laden von Daten
     const { refetch: refetchRoutes } = useRoutes({ weekday: selectedDay }); 
