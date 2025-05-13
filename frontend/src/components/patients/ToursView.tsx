@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress, Button, Chip, Tooltip } from '@mui/material';
-import Masonry from '@mui/lab/Masonry';
 import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
 import { TourContainer } from './TourContainer';
 import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon } from '@mui/icons-material';
@@ -327,16 +326,34 @@ export const ToursView: React.FC<ToursViewProps> = ({
 
             {/* Display tour containers for employees with tour numbers and patients */}
             {employeesWithPatientsInTours.length > 0 ? (
-                <Masonry
-                    columns={{ xs: 1, sm: 2, md: 3, lg: 4 }}
-                    spacing={3}
-                    sx={{
-                        '& .MuiPaper-root': {
-                            width: '100%',
-                            maxWidth: '400px',
+                <Box sx={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: 3,
+                    '& > *': { 
+                        flexGrow: 1,
+                        flexShrink: 1,
+                        // Verbesserte Responsivität mit angepassten Größen
+                        flexBasis: {
+                            xs: '100%',              // Volle Breite auf kleinen Geräten
+                            sm: 'calc(100% - 16px)', // Eine pro Zeile auf kleinen Bildschirmen
+                            md: '47%',               // ~2 pro Zeile auf mittleren Bildschirmen mit etwas Abstand
+                            lg: '31%',               // ~3 pro Zeile auf großen Bildschirmen mit Abstand
+                            xl: '23%'                // ~4 pro Zeile auf sehr großen Bildschirmen mit Abstand
+                        },
+                        minWidth: {
+                            xs: '280px',
+                            sm: '320px',
+                            md: '340px'
+                        },
+                        maxWidth: {
+                            xs: '100%',
+                            sm: '100%',
+                            md: '100%',
+                            lg: '900px'
                         }
-                    }}
-                >
+                    }
+                }}>
                     {employeesWithPatientsInTours.map(employee => (
                         <TourContainer
                             key={employee.id}
@@ -348,7 +365,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                             onPatientMoved={handlePatientMoved}
                         />
                     ))}
-                </Masonry>
+                </Box>
             ) : (
                 <Alert severity="info" sx={{ my: 2 }}>
                     Keine Touren mit Patienten gefunden. Bitte weisen Sie den Patienten Tournummern zu.
@@ -384,16 +401,14 @@ export const ToursView: React.FC<ToursViewProps> = ({
                         )}
                     </Box>
                     
-                    <Masonry
-                        columns={{ xs: 1, sm: 2, md: 3, lg: 4 }}
-                        spacing={3}
-                        sx={{
-                            '& .MuiPaper-root': {
-                                width: '100%',
-                                maxWidth: '400px',
-                            }
-                        }}
-                    >
+                    <Box sx={{
+                        display: 'grid',
+                        gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'repeat(auto-fill, minmax(300px, 1fr))',
+                        },
+                        gap: 2
+                    }}>
                         {employeesWithEmptyTours.map(employee => (
                             <TourContainer
                                 key={`empty-${employee.id}`}
@@ -405,7 +420,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                                 onPatientMoved={handlePatientMoved}
                             />
                         ))}
-                    </Masonry>
+                    </Box>
                 </Box>
             )}
             
