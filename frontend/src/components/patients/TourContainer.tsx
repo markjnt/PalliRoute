@@ -89,6 +89,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     // Verwende den useAssignPatientStore anstelle des DragContext
     const updatePatientTour = useAssignPatientStore(state => state.updatePatientTour);
     const updateAppointmentEmployee = useAssignPatientStore(state => state.updateAppointmentEmployee);
+    const updateRouteOrder = useAssignPatientStore(state => state.updateRouteOrder);
     const error = useAssignPatientStore(state => state.error);
     const { notification, setNotification, closeNotification } = useNotificationStore();
     
@@ -410,6 +411,138 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         }
     };
 
+    // Function to handle moving a patient up in the route order
+    const handleMoveUp = async (patientId: number) => {
+        // Find route for this employee on the selected day
+        const route = routes.find(r => 
+            r.employee_id === employee.id && 
+            r.weekday === selectedDay.toLowerCase()
+        );
+        
+        if (!route || !route.id || !route.route_order) {
+            setNotification('Keine Route gefunden oder keine Reihenfolge definiert', 'error');
+            return;
+        }
+        
+        // Get current route order
+        let routeOrder: number[] = [];
+        if (Array.isArray(route.route_order)) {
+            routeOrder = [...route.route_order];
+        } else {
+            try {
+                const parsedOrder = JSON.parse(route.route_order as unknown as string);
+                if (Array.isArray(parsedOrder)) {
+                    routeOrder = [...parsedOrder];
+                }
+            } catch (error) {
+                console.error('Failed to parse route_order:', error);
+                setNotification('Fehler beim Verarbeiten der Routenreihenfolge', 'error');
+                return;
+            }
+        }
+        
+        // Find the appointment ID for this patient
+        const patientAppointment = appointments.find(
+            a => a.patient_id === patientId && a.weekday === selectedDay && a.visit_type === 'HB'
+        );
+        
+        if (!patientAppointment || !patientAppointment.id) {
+            setNotification('Kein passender Termin für diesen Patienten gefunden', 'error');
+            return;
+        }
+        
+        const appointmentId = patientAppointment.id;
+        const currentIndex = routeOrder.indexOf(appointmentId);
+        
+        // If appointment not found in route order or it's already at the top, do nothing
+        if (currentIndex <= 0) {
+            return;
+        }
+        
+        // Swap with the previous item
+        const newOrder = [...routeOrder];
+        [newOrder[currentIndex], newOrder[currentIndex - 1]] = [newOrder[currentIndex - 1], newOrder[currentIndex]];
+        
+        try {
+            // Update the route order in the backend
+            await updateRouteOrder(route.id, newOrder);
+            
+            // Refresh routes data
+            queryClient.invalidateQueries({ queryKey: ['routes'] });
+            
+            setNotification('Patientenreihenfolge aktualisiert', 'success');
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren der Routenreihenfolge:', error);
+            setNotification('Fehler beim Aktualisieren der Routenreihenfolge', 'error');
+        }
+    };
+    
+    // Function to handle moving a patient down in the route order
+    const handleMoveDown = async (patientId: number) => {
+        // Find route for this employee on the selected day
+        const route = routes.find(r => 
+            r.employee_id === employee.id && 
+            r.weekday === selectedDay.toLowerCase()
+        );
+        
+        if (!route || !route.id || !route.route_order) {
+            setNotification('Keine Route gefunden oder keine Reihenfolge definiert', 'error');
+            return;
+        }
+        
+        // Get current route order
+        let routeOrder: number[] = [];
+        if (Array.isArray(route.route_order)) {
+            routeOrder = [...route.route_order];
+        } else {
+            try {
+                const parsedOrder = JSON.parse(route.route_order as unknown as string);
+                if (Array.isArray(parsedOrder)) {
+                    routeOrder = [...parsedOrder];
+                }
+            } catch (error) {
+                console.error('Failed to parse route_order:', error);
+                setNotification('Fehler beim Verarbeiten der Routenreihenfolge', 'error');
+                return;
+            }
+        }
+        
+        // Find the appointment ID for this patient
+        const patientAppointment = appointments.find(
+            a => a.patient_id === patientId && a.weekday === selectedDay && a.visit_type === 'HB'
+        );
+        
+        if (!patientAppointment || !patientAppointment.id) {
+            setNotification('Kein passender Termin für diesen Patienten gefunden', 'error');
+            return;
+        }
+        
+        const appointmentId = patientAppointment.id;
+        const currentIndex = routeOrder.indexOf(appointmentId);
+        
+        // If appointment not found in route order or it's already at the bottom, do nothing
+        if (currentIndex === -1 || currentIndex >= routeOrder.length - 1) {
+            return;
+        }
+        
+        // Swap with the next item
+        const newOrder = [...routeOrder];
+        [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
+        
+        try {
+            // Update the route order in the backend
+            await updateRouteOrder(route.id, newOrder);
+            
+            // Refresh routes data
+            queryClient.invalidateQueries({ queryKey: ['routes'] });
+            
+            setNotification('Patientenreihenfolge aktualisiert', 'success');
+        } catch (error) {
+            console.error('Fehler beim Aktualisieren der Routenreihenfolge:', error);
+            setNotification('Fehler beim Aktualisieren der Routenreihenfolge', 'error');
+        }
+    };
+
     return (
         <>
             <Paper 
@@ -611,6 +744,10 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                 index={index + 1}
                                                 selectedDay={selectedDay}
                                                 onPatientMoved={onPatientMoved}
+                                                onMoveUp={handleMoveUp}
+                                                onMoveDown={handleMoveDown}
+                                                isFirst={index === 0}
+                                                isLast={index === sortedHbPatients.length - 1}
                                             />
                                         </ListItem>
                                     ))}
