@@ -30,6 +30,7 @@ import {
     ExitToApp as LogoutIcon,
     Upload as UploadIcon,
     Add as AddIcon,
+    MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
@@ -88,6 +89,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const { currentUser, setCurrentUser } = useUserStore();
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState<null | HTMLElement>(null);
 
     // React Query hooks
     const { data: employees = [], isLoading, error } = useEmployees();
@@ -101,6 +103,10 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 
     const handleMenuClose = () => {
         setAnchorEl(null);
+    };
+
+    const handleStatusMenuClose = () => {
+        setStatusMenuAnchorEl(null);
     };
 
     const handleEdit = (employee: Employee) => {
@@ -131,6 +137,22 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         }
     };
 
+    const handleToggleAllActive = async (status: boolean) => {
+        try {
+            // Filter employees that need to be changed and have valid IDs
+            const employeesToToggle = employees.filter(emp => emp.is_active !== status && emp.id);
+            
+            // Update all employees in parallel
+            await Promise.all(
+                employeesToToggle.map(emp => 
+                    toggleEmployeeActiveMutation.mutateAsync({ id: emp.id!, isActive: status })
+                )
+            );
+        } catch (error) {
+            console.error('Error toggling all employees:', error);
+        }
+    };
+
     const handleToggleActive = async (id: number, currentStatus: boolean) => {
         try {
             await toggleEmployeeActiveMutation.mutateAsync({ id, isActive: !currentStatus });
@@ -153,8 +175,11 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             field: 'is_active',
             headerName: 'Status',
             width: 100,
+            type: 'boolean',
+            filterable: true,
+            valueFormatter: (params: any) => params.value ? 'Aktiv' : 'Inaktiv',
             renderCell: (params: GridRenderCellParams) => (
-                <Tooltip title={params.row.is_active ? 'Aktiv' : 'Inaktiv'}>
+                <Tooltip title={params.value ? 'Aktiv' : 'Inaktiv'}>
                     <IconButton
                         onClick={() => handleToggleActive(params.row.id, params.row.is_active)}
                         color={params.row.is_active ? 'success' : 'error'}
@@ -170,46 +195,56 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             field: 'last_name', 
             headerName: 'Nachname', 
             flex: 1,
-            minWidth: 120
+            minWidth: 120,
+            filterable: true,
         },
         { 
             field: 'first_name', 
             headerName: 'Vorname', 
             flex: 1,
-            minWidth: 120
+            minWidth: 120,
+            filterable: true,
         },
         {
             field: 'tour_number',
             headerName: 'Tournummer',
             width: 110,
+            filterable: true,
+            type: 'number',
         },
         { 
             field: 'street', 
             headerName: 'Straße', 
             flex: 1.5,
-            minWidth: 150
+            minWidth: 150,
+            filterable: true,
         },
         { 
             field: 'zip_code', 
             headerName: 'PLZ', 
-            width: 80
+            width: 80,
+            filterable: true,
         },
         { 
             field: 'city', 
             headerName: 'Ort', 
             flex: 1,
-            minWidth: 120
+            minWidth: 120,
+            filterable: true,
         },
         { 
             field: 'function', 
             headerName: 'Funktion', 
             flex: 1,
-            minWidth: 120
+            minWidth: 120,
+            filterable: true,
         },
         {
             field: 'work_hours',
             headerName: 'Stellenumfang',
             width: 110,
+            filterable: true,
+            type: 'number',
             renderCell: (params: GridRenderCellParams) => (
                 params.value === undefined || params.value === null ? '-' : `${params.value} %`
             )
@@ -353,7 +388,28 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 
             <Divider />
 
-            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 , width: '100%'}}>
+            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2, width: '100%' }}>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleToggleAllActive(true)}
+                        disabled={toggleEmployeeActiveMutation.isPending}
+                        startIcon={<ActiveIcon />}
+                    >
+                        Alle aktivieren
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleToggleAllActive(false)}
+                        disabled={toggleEmployeeActiveMutation.isPending}
+                        startIcon={<InactiveIcon />}
+                    >
+                        Alle deaktivieren
+                    </Button>
+                </Box>
+
                 {error instanceof Error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         {error.message}
@@ -371,7 +427,30 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         hideFooter={true}
                         disableRowSelectionOnClick
                         localeText={{
-                            noRowsLabel: 'Keine Einträge'
+                            noRowsLabel: 'Keine Einträge',
+                            filterPanelAddFilter: 'Filter hinzufügen',
+                            filterPanelDeleteIconLabel: 'Löschen',
+                            filterPanelInputLabel: 'Wert',
+                            filterPanelInputPlaceholder: 'Filterwert',
+                            filterOperatorContains: 'enthält',
+                            filterOperatorEquals: 'ist gleich',
+                            filterOperatorStartsWith: 'beginnt mit',
+                            filterOperatorEndsWith: 'endet mit',
+                            filterOperatorIsEmpty: 'ist leer',
+                            filterOperatorIsNotEmpty: 'ist nicht leer',
+                            filterOperatorIs: 'ist',
+                            filterOperatorNot: 'ist nicht',
+                            filterOperatorAfter: 'ist nach',
+                            filterOperatorOnOrAfter: 'ist am oder nach',
+                            filterOperatorBefore: 'ist vor',
+                            filterOperatorOnOrBefore: 'ist am oder vor',
+                            columnMenuFilter: 'Filter',
+                            columnMenuHideColumn: 'Spalte ausblenden',
+                            columnMenuShowColumns: 'Spalten anzeigen',
+                            columnMenuManageColumns: 'Spalten verwalten',
+                            columnMenuSortAsc: 'Aufsteigend sortieren',
+                            columnMenuSortDesc: 'Absteigend sortieren',
+                            columnMenuUnsort: 'Sortierung aufheben',
                         }}
                         sx={{
                             '& .MuiDataGrid-cell': {
@@ -385,8 +464,19 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                             '& .MuiDataGrid-virtualScroller': {
                                 overflow: 'auto !important'
                             },
+                            '& .MuiDataGrid-filterIcon': {
+                                opacity: 1,
+                            },
                             height: '100%',
                             border: 'none'
+                        }}
+                        initialState={{
+                            filter: {
+                                filterModel: {
+                                    items: [],
+                                    quickFilterValues: [''],
+                                },
+                            },
                         }}
                     />
                 )}
