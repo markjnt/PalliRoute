@@ -67,10 +67,9 @@ export const useMapData = (selectedWeekday: string) => {
     const newMarkers: MarkerData[] = [];
     
     try {
-      // Create employee markers for all active employees
+      // Create employee markers for all employees (active and inactive)
       if (employees.length > 0) {
-        const activeEmployees = employees.filter(e => e.is_active);
-        for (const employee of activeEmployees) {
+        for (const employee of employees) {
           const employeeMarkerData = createEmployeeMarkerData(employee);
           if (employeeMarkerData) newMarkers.push(employeeMarkerData);
         }

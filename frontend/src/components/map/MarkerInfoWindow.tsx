@@ -1,6 +1,7 @@
 import React from 'react';
 import { InfoWindow } from '@react-google-maps/api';
 import { Box, Typography, Chip } from '@mui/material';
+import { CheckCircle as ActiveIcon, Cancel as InactiveIcon } from '@mui/icons-material';
 import { MarkerData } from '../../types/mapTypes';
 import { Appointment, Employee, Patient } from '../../types/models';
 import { getColorForVisitType, getColorForEmployeeType } from '../../utils/mapUtils';
@@ -158,15 +159,30 @@ const EmployeeInfoContent: React.FC<{
 
   return (
     <>
-      <Typography variant="subtitle1" component="div" sx={{ 
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
         fontWeight: 'bold',
         borderBottom: 1,
         borderColor: 'divider',
         pb: 0.5,
-        mb: 1
+        mb: 1,
+        p: 0.5,
+        bgcolor: employee.is_active ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+        borderRadius: 1
       }}>
-        {marker.title.split(' - ')[0]} {/* Just the name without function */}
-      </Typography>
+        {employee.is_active ? (
+          <ActiveIcon sx={{ color: 'success.main', mr: 1 }} />
+        ) : (
+          <InactiveIcon sx={{ color: 'error.main', mr: 1 }} />
+        )}
+        <Typography variant="subtitle1" component="div" sx={{ 
+          fontWeight: 'bold',
+          flexGrow: 1
+        }}>
+          {marker.title.split(' - ')[0]} {/* Just the name without function */}
+        </Typography>
+      </Box>
       
       {/* Employee function/role */}
       {marker.employeeType && (
@@ -222,7 +238,7 @@ const EmployeeInfoContent: React.FC<{
       )}
       
       <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
-        Arbeitszeit: {employee.work_hours}%
+        Stellenumfang: {employee.work_hours}%
       </Typography>
     </>
   );
