@@ -627,7 +627,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                             fontSize: '0.7rem',
                                             backgroundColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
                                             color: 'white',
-                                            opacity: employee.is_active ? 1 : 0.7,
                                         }}
                                     />
                                 </Box>
