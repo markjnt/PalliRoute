@@ -12,7 +12,11 @@ import {
     Alert,
     Snackbar,
     Tooltip,
-    Button
+    Button,
+    Menu,
+    MenuItem,
+    ListItemIcon,
+    ListItemText
 } from '@mui/material';
 import { 
     Home as HomeIcon,
@@ -24,7 +28,8 @@ import {
     CheckCircle,
     Cancel,
     Warning as WarningIcon,
-    Route as RouteIcon
+    Route as RouteIcon,
+    SwapHoriz as SwapHorizIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
@@ -38,6 +43,7 @@ import { useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useRoutes } from '../../services/queries/useRoutes';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEmployees } from '../../services/queries/useEmployees';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -389,8 +395,18 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     };
     
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const optimizeRoutesMutation = useOptimizeRoutes();
     const { refetch: refetchRoutes } = useRoutes({ weekday: selectedDay.toLowerCase() as Weekday });
+    const { data: employeesData = [] } = useEmployees();
+
+    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+    };
 
     const handleOptimizeRoute = async () => {
         if (!employee.id) return;
@@ -543,6 +559,148 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         }
     };
 
+    const handleMoveAllPatients = async (targetEmployeeId: number) => {
+        const targetEmployee = employeesData.find(e => e.id === targetEmployeeId);
+        if (!targetEmployee || !targetEmployee.tour_number) {
+            setNotification('Ungültiger Mitarbeiter oder keine Tour-Nummer zugewiesen', 'error');
+            return;
+        }
+
+        // Prevent assigning to the same tour
+        if (employee.tour_number === targetEmployee.tour_number) {
+            setNotification('Patienten sind bereits dieser Tour zugewiesen', 'error');
+            return;
+        }
+
+        // Prevent assigning to a deactivated employee
+        if (!targetEmployee.is_active) {
+            setNotification('Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter.', 'error');
+            return;
+        }
+
+        try {
+            // Get all patients in this tour
+            const tourPatients = patients.filter(p => p.tour === employee.tour_number);
+            if (tourPatients.length === 0) {
+                setNotification('Keine Patienten zum Verschieben gefunden', 'error');
+                return;
+            }
+            
+            setNotification('Verschiebe Patienten...', 'success');
+            
+            // Collect all patient IDs
+            const patientIds = tourPatients.map(p => p.id).filter(id => id !== undefined) as number[];
+            
+            // Step 1: Update all patients' tour numbers in a single batch operation
+            // This is a theoretical implementation - you'll need to create this API endpoint
+            try {
+                // Use the existing updatePatientTour function in a Promise.all to parallelize
+                await Promise.all(patientIds.map(id => 
+                    updatePatientTour(id, targetEmployee.tour_number!)
+                ));
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren der Patienten-Touren:', error);
+                setNotification('Fehler beim Aktualisieren der Patienten-Touren', 'error');
+                return;
+            }
+            
+            // Step 2: Get all appointments for these patients in a single batch
+            let allAppointments: Appointment[] = [];
+            try {
+                // Fetch all appointments in parallel
+                const appointmentPromises = patientIds.map(id => appointmentsApi.getByPatientId(id));
+                const appointmentsArrays = await Promise.all(appointmentPromises);
+                
+                // Flatten the arrays
+                allAppointments = appointmentsArrays.flat();
+            } catch (error) {
+                console.error('Fehler beim Laden der Termine:', error);
+                setNotification('Fehler beim Laden der Termine', 'error');
+                return;
+            }
+            
+            // Step 3: Update all appointments with the new employee ID
+            try {
+                // Get all appointment IDs
+                const appointmentIds = allAppointments
+                    .map(a => a.id)
+                    .filter(id => id !== undefined) as number[];
+                
+                // Update all appointments in parallel
+                await Promise.all(appointmentIds.map(id => 
+                    updateAppointmentEmployee(id, targetEmployee.id!)
+                ));
+            } catch (error) {
+                console.error('Fehler beim Aktualisieren der Termine:', error);
+                setNotification('Fehler beim Aktualisieren der Termine', 'error');
+                return;
+            }
+            
+            // Step 4: Notify parent component about the moves
+            if (onPatientMoved) {
+                // Extract HB appointments for route updates
+                const hbAppointments = allAppointments.filter(a => a.visit_type === 'HB');
+                
+                // Process each patient
+                for (const patient of tourPatients) {
+                    if (!patient.id) continue;
+                    onPatientMoved(patient, targetEmployee.tour_number!, hbAppointments);
+                }
+            }
+            
+            // Invalidate queries to refresh data
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
+            queryClient.invalidateQueries({ queryKey: ['appointments'] });
+            queryClient.invalidateQueries({ queryKey: ['routes'] });
+            
+            setNotification(`Alle Patienten erfolgreich zu Tour ${targetEmployee.tour_number} verschoben`, 'success');
+            handleMenuClose();
+            
+        } catch (error) {
+            console.error('Fehler beim Verschieben der Patienten:', error);
+            setNotification('Fehler beim Verschieben der Patienten', 'error');
+        }
+    };
+
+    // Filter active employees with tour numbers
+    const availableEmployees = employeesData
+        .filter(emp => emp.is_active && 
+                emp.tour_number !== undefined && 
+                emp.tour_number !== null && 
+                emp.tour_number !== employee.tour_number)
+        .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
+
+    // Get inactive employees with tour numbers
+    const inactiveEmployees = employeesData
+        .filter(emp => !emp.is_active && 
+                emp.tour_number !== undefined && 
+                emp.tour_number !== null && 
+                emp.tour_number !== employee.tour_number)
+        .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
+
+    // Count patients in each tour
+    const patientCountByTour = React.useMemo(() => {
+        const counts = new Map<number, number>();
+        
+        // Initialize counts for all tours
+        employeesData.forEach(emp => {
+            if (emp.tour_number !== undefined && emp.tour_number !== null) {
+                counts.set(emp.tour_number, 0);
+            }
+        });
+        
+        // Use the patients prop passed to this component
+        const allPatients = queryClient.getQueryData<Patient[]>(['patients']) || patients;
+        
+        allPatients.forEach((p: Patient) => {
+            if (p.tour !== undefined && p.tour !== null) {
+                counts.set(p.tour, (counts.get(p.tour) || 0) + 1);
+            }
+        });
+        
+        return counts;
+    }, [employeesData, queryClient, patients]);
+
     return (
         <>
             <Paper 
@@ -658,23 +816,231 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                 </Typography>
                             )}
                             {expanded && employeeRoute && (
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    startIcon={<RouteIcon />}
-                                    onClick={handleOptimizeRoute}
-                                    disabled={isOptimizing || tourPatients.length === 0}
-                                    sx={{ 
-                                        ml: 2,
-                                        textTransform: 'none',
-                                        '&:hover': {
-                                            backgroundColor: 'primary.light',
-                                            color: 'primary.contrastText'
-                                        }
-                                    }}
-                                >
-                                    {isOptimizing ? 'Optimiert...' : 'Optimieren'}
-                                </Button>
+                                <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<RouteIcon />}
+                                        onClick={handleOptimizeRoute}
+                                        disabled={isOptimizing || tourPatients.length === 0}
+                                        sx={{ 
+                                            textTransform: 'none',
+                                            '&:hover': {
+                                                backgroundColor: 'primary.light',
+                                                color: 'primary.contrastText'
+                                            }
+                                        }}
+                                    >
+                                        {isOptimizing ? 'Optimiert...' : 'Optimieren'}
+                                    </Button>
+                                    
+                                    <Tooltip title="Alle neu zuweisen" arrow>
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                onClick={handleMenuOpen}
+                                                disabled={tourPatients.length === 0}
+                                                sx={{ 
+                                                    textTransform: 'none',
+                                                    minWidth: '40px',
+                                                    width: '40px',
+                                                    px: 0,
+                                                    height: '31px',
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    '&:hover': {
+                                                        backgroundColor: 'primary.light',
+                                                        color: 'primary.contrastText'
+                                                    }
+                                                }}
+                                            >
+                                                <SwapHorizIcon fontSize="small" />
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                    
+                                    {/* Tour assignment menu */}
+                                    <Menu
+                                        anchorEl={anchorEl}
+                                        open={Boolean(anchorEl)}
+                                        onClose={handleMenuClose}
+                                        sx={{
+                                            '& .MuiPaper-root': {
+                                                maxHeight: 300,
+                                                overflow: 'auto',
+                                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                                                borderRadius: 2
+                                            }
+                                        }}
+                                    >
+                                        {/* Active employees section */}
+                                        <Typography 
+                                            variant="subtitle2" 
+                                            sx={{ px: 2, py: 1, bgcolor: 'background.default', fontWeight: 'bold' }}
+                                        >
+                                            Aktive Touren
+                                        </Typography>
+                                        
+                                        {availableEmployees.map((emp) => {
+                                            const patientCount = patientCountByTour.get(emp.tour_number!) || 0;
+                                            const isEmpty = patientCount === 0;
+                                            
+                                            return (
+                                                <MenuItem 
+                                                    key={emp.id}
+                                                    onClick={() => emp.id && handleMoveAllPatients(emp.id)}
+                                                    sx={{
+                                                        py: 1,
+                                                        '&:hover': {
+                                                            backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                                                        }
+                                                    }}
+                                                >
+                                                    <ListItemIcon>
+                                                        <PersonIcon 
+                                                            fontSize="small" 
+                                                            sx={{ color: getColorForTour(emp.tour_number!) }} 
+                                                        />
+                                                    </ListItemIcon>
+                                                    <ListItemText>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Typography variant="body2">
+                                                                {emp.first_name} {emp.last_name}
+                                                            </Typography>
+                                                            <Chip
+                                                                label={`Tour ${emp.tour_number}`}
+                                                                size="small"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    bgcolor: getColorForTour(emp.tour_number!),
+                                                                    color: 'white',
+                                                                    '& .MuiChip-label': {
+                                                                        px: 1,
+                                                                        fontSize: '0.75rem'
+                                                                    }
+                                                                }}
+                                                            />
+                                                            {isEmpty && (
+                                                                <Chip
+                                                                    label="Leer"
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        height: 20,
+                                                                        fontSize: '0.7rem',
+                                                                        borderColor: 'warning.main',
+                                                                        color: 'warning.main'
+                                                                    }}
+                                                                />
+                                                            )}
+                                                            {!isEmpty && (
+                                                                <Typography 
+                                                                    variant="caption" 
+                                                                    sx={{ 
+                                                                        color: 'text.secondary',
+                                                                        fontSize: '0.7rem'
+                                                                    }}
+                                                                >
+                                                                    {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    </ListItemText>
+                                                </MenuItem>
+                                            );
+                                        })}
+                                        
+                                        {/* Show inactive employees if there are any */}
+                                        {inactiveEmployees.length > 0 && (
+                                            <>
+                                                <Divider sx={{ my: 1 }} />
+                                                <Typography 
+                                                    variant="subtitle2" 
+                                                    sx={{ px: 2, py: 1, bgcolor: 'background.default', fontWeight: 'bold', color: 'error.main' }}
+                                                >
+                                                    Inaktive Touren
+                                                </Typography>
+                                                
+                                                {inactiveEmployees.map((emp) => {
+                                                    const patientCount = patientCountByTour.get(emp.tour_number!) || 0;
+                                                    const isEmpty = patientCount === 0;
+                                                    
+                                                    return (
+                                                        <MenuItem 
+                                                            key={emp.id}
+                                                            onClick={() => emp.id && handleMoveAllPatients(emp.id)}
+                                                            disabled={true}
+                                                            sx={{
+                                                                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                                opacity: 0.7,
+                                                                py: 1
+                                                            }}
+                                                        >
+                                                            <ListItemIcon>
+                                                                <PersonIcon 
+                                                                    fontSize="small" 
+                                                                    sx={{ 
+                                                                        color: 'error.main',
+                                                                        opacity: 0.7
+                                                                    }} 
+                                                                />
+                                                            </ListItemIcon>
+                                                            <ListItemText>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                    <Typography 
+                                                                        variant="body2"
+                                                                        sx={{ opacity: 0.7 }}
+                                                                    >
+                                                                        {emp.first_name} {emp.last_name}
+                                                                    </Typography>
+                                                                    <Chip
+                                                                        label={`Tour ${emp.tour_number}`}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            height: 20,
+                                                                            bgcolor: 'error.light',
+                                                                            color: 'white',
+                                                                            opacity: 0.7,
+                                                                            '& .MuiChip-label': {
+                                                                                px: 1,
+                                                                                fontSize: '0.75rem'
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <Chip
+                                                                        label="Inaktiv"
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                        sx={{
+                                                                            height: 20,
+                                                                            fontSize: '0.7rem',
+                                                                            borderColor: 'error.main',
+                                                                            color: 'error.main'
+                                                                        }}
+                                                                    />
+                                                                    {!isEmpty && (
+                                                                        <Typography 
+                                                                            variant="caption" 
+                                                                            sx={{ 
+                                                                                color: 'error.main',
+                                                                                fontSize: '0.7rem',
+                                                                                fontWeight: 'bold'
+                                                                            }}
+                                                                        >
+                                                                            {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'}
+                                                                        </Typography>
+                                                                    )}
+                                                                </Box>
+                                                            </ListItemText>
+                                                        </MenuItem>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                    </Menu>
+                                </Box>
                             )}
                         </Box>
                     </Box>
