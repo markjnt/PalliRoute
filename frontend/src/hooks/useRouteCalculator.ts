@@ -25,7 +25,12 @@ export const useRouteCalculator = (
 
   // Memoize valid routes to prevent unnecessary recalculations
   const validRoutes = useMemo(() => {
-    return filteredRoutes.filter(route => hasValidRouteOrder(route, appointments, selectedWeekday));
+    // Include routes that either have valid route order OR are empty (to reset them to 0)
+    return filteredRoutes.filter(route => {
+      const routeOrder = parseRouteOrder(route.route_order);
+      // Include route if it has no route_order (empty) or if it has valid appointments
+      return routeOrder.length === 0 || hasValidRouteOrder(route, appointments, selectedWeekday);
+    });
   }, [filteredRoutes, appointments, selectedWeekday]);
 
   // Helper function to create initial route path data

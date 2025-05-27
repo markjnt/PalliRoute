@@ -6,6 +6,7 @@ import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon } fro
 import { useAssignPatientStore } from '../../stores';
 import { employeeTypeColors } from '../../utils/colors';
 import { useRoutes } from '../../services/queries/useRoutes';
+import { routesApi } from '../../services/api/routes';
 
 interface ToursViewProps {
     employees: Employee[];
@@ -201,7 +202,30 @@ export const ToursView: React.FC<ToursViewProps> = ({
                             for (const appId of appointmentIdsToRemove) {
                                 removePromises.push(
                                     removeFromRouteOrder(sourceRoute.id, appId)
-                                        .then(() => console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`))
+                                        .then(async (updatedRoute) => {
+                                            console.log(`Termin ${appId} erfolgreich aus Route ${sourceRoute.id} entfernt`);
+                                            
+                                            // Überprüfe, ob die Route jetzt leer ist
+                                            const remainingOrder = Array.isArray(updatedRoute.route_order) 
+                                                ? updatedRoute.route_order 
+                                                : [];
+                                            
+                                            if (remainingOrder.length === 0 && sourceRoute.id) {
+                                                // Wenn die Route leer ist, setze Distanz und Zeit auf 0
+                                                console.log(`Route ${sourceRoute.id} ist jetzt leer. Setze Distanz und Zeit auf 0.`);
+                                                try {
+                                                    await updateRouteOrder(sourceRoute.id, []);
+                                                    // Explizit Distanz und Zeit auf 0 setzen
+                                                    await routesApi.updateRoute(sourceRoute.id, {
+                                                        total_distance: 0,
+                                                        total_duration: 0,
+                                                        route_order: []
+                                                    });
+                                                } catch (error) {
+                                                    console.error('Fehler beim Zurücksetzen der leeren Route:', error);
+                                                }
+                                            }
+                                        })
                                         .catch((error: Error) => console.error(`Fehler beim Entfernen von Termin ${appId} aus Route:`, error))
                                 );
                             }
@@ -252,17 +276,35 @@ export const ToursView: React.FC<ToursViewProps> = ({
                 return { weekday, success: false };
             });
             
-            // Warte auf alle Tagesaktualisierungen (parallel)
-            const results = await Promise.all(updatePromises);
-            console.log(`Routenaktualisierungen abgeschlossen für Tage: ${results.filter(r => r.success).map(r => r.weekday).join(', ')}`);
-            
-            // Schritt 5: Aktualisiere die Routen mit React Query - vermeide Endlosschleifen
-            console.log(`Aktualisiere Routen für aktuelle Anzeige`);
-            // Verwende refetchRoutes nur für die aktuelle Ansicht
-            if (results.some(r => r.success && r.weekday === selectedDay)) {
-                refetchRoutes();
+            // Warte auf alle Routenaktualisierungen
+            try {
+                await Promise.all(updatePromises);
+                console.log('Alle Routenaktualisierungen abgeschlossen');
+                
+                // Schritt 3.5: Refresh der Routen-Daten
+                await refetchRoutes();
+                
+                // Aktualisiere die lokalen Routen mit den neuesten Daten
+                setRoutes(prevRoutes => {
+                    return prevRoutes.map(route => {
+                        // Für die Quellroute: Wenn sie leer ist, setze Distanz und Zeit auf 0
+                        if (sourceEmployee && route.employee_id === sourceEmployee.id && route.weekday === selectedDay.toLowerCase()) {
+                            const routeOrder = Array.isArray(route.route_order) ? route.route_order : [];
+                            if (routeOrder.length === 0) {
+                                return {
+                                    ...route,
+                                    total_distance: 0,
+                                    total_duration: 0,
+                                    route_order: []
+                                };
+                            }
+                        }
+                        return route;
+                    });
+                });
+            } catch (error) {
+                console.error('Fehler bei der Aktualisierung der Routen:', error);
             }
-            
         } catch (error) {
             console.error('Fehler beim Aktualisieren der Routen:', error);
         }
