@@ -149,3 +149,37 @@ def import_patients():
         error_message = str(e)
         print(f"Error during import: {error_message}")
         return jsonify({"error": error_message}), 400
+
+@patients_bp.route('/clear-all', methods=['DELETE'])
+def clear_all_data():
+    """
+    Delete all data from the database including patients, appointments and routes.
+    This is a destructive operation and should be used with caution.
+    """
+    try:
+        # Count existing records for response
+        patient_count = Patient.query.count()
+        appointment_count = Appointment.query.count()
+        route_count = Route.query.count()
+        
+        # Delete in correct order due to foreign key constraints
+        Route.query.delete()
+        Appointment.query.delete()
+        Patient.query.delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "All data successfully deleted",
+            "deleted_count": {
+                "patients": patient_count,
+                "appointments": appointment_count,
+                "routes": route_count
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        error_message = str(e)
+        print(f"Error clearing all data: {error_message}")
+        return jsonify({"error": error_message}), 500

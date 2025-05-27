@@ -9,21 +9,25 @@ import {
     MenuItem,
     SelectChangeEvent,
     Chip,
-    Snackbar,
-    Alert
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions
 } from '@mui/material';
 import {
     Today as TodayIcon,
     Upload as UploadIcon,
     Event as CalendarIcon,
-    Route as RouteIcon
+    Route as RouteIcon,
+    DeleteForever as DeleteForeverIcon
 } from '@mui/icons-material';
 import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientImport';
-import { useWeekdayStore } from '../../stores';
+import { useWeekdayStore, useMapResetStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
-import { usePatients, usePatientImport } from '../../services/queries/usePatients';
+import { usePatients, usePatientImport, useClearAllData } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
@@ -40,8 +44,10 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [clearDialogOpen, setClearDialogOpen] = useState(false);
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
+    const { resetMap } = useMapResetStore();
     const queryClient = useQueryClient();
 
     // React Query Hooks
@@ -71,6 +77,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
+    const clearAllDataMutation = useClearAllData();
 
     // Memoize calendar week calculation
     const calculateCalendarWeek = useCallback(() => {
@@ -166,6 +173,30 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         }
     };
 
+    const handleClearAllData = async () => {
+        try {
+            const result = await clearAllDataMutation.mutateAsync();
+            setCalendarWeek(null);
+            setClearDialogOpen(false);
+            
+            // Reset map to clear directions
+            resetMap();
+            
+            // Invalidate all queries to refresh data
+            await queryClient.invalidateQueries();
+            
+            setNotification(
+                `Alle Daten wurden gelöscht: ${result.deleted_count.patients} Patienten, ${result.deleted_count.appointments} Termine, ${result.deleted_count.routes} Routen`,
+                'success'
+            );
+        } catch (error) {
+            setNotification('Fehler beim Löschen der Daten', 'error');
+        }
+    };
+
+    // Check if there's any data
+    const hasData = patients.length > 0 || dayAppointments.length > 0 || routes.length > 0;
+
     return (
         <Box
             sx={{
@@ -224,14 +255,27 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             </Box>
 
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Button
-                    variant="contained"
-                    fullWidth
-                    startIcon={<UploadIcon />}
-                    onClick={handleImportDialogOpen}
-                >
-                    Excel Import
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                        variant="contained"
+                        fullWidth
+                        startIcon={<UploadIcon />}
+                        onClick={handleImportDialogOpen}
+                    >
+                        Excel Import
+                    </Button>
+                    {hasData && (
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            fullWidth
+                            startIcon={<DeleteForeverIcon />}
+                            onClick={() => setClearDialogOpen(true)}
+                        >
+                            Zurücksetzen
+                        </Button>
+                    )}
+                </Box>
                 <Button
                     variant="outlined"
                     fullWidth
@@ -254,6 +298,40 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 onClose={handleImportDialogClose}
                 onSuccess={handleImportSuccess}
             />
+
+            <Dialog
+                open={clearDialogOpen}
+                onClose={() => setClearDialogOpen(false)}
+                aria-labelledby="clear-dialog-title"
+                aria-describedby="clear-dialog-description"
+            >
+                <DialogTitle id="clear-dialog-title">
+                    Daten zurücksetzen
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="clear-dialog-description">
+                        Wirklich alle Daten zurücksetzen?
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button 
+                        onClick={() => setClearDialogOpen(false)}
+                        color="primary"
+                    >
+                        Abbrechen
+                    </Button>
+                    <Button 
+                        onClick={handleClearAllData}
+                        color="error"
+                        variant="contained"
+                        disabled={clearAllDataMutation.isPending}
+                    >
+                        {clearAllDataMutation.isPending ? 'Zurücksetzen...' : 'Zurücksetzen'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+
         </Box>
     );
 }; 

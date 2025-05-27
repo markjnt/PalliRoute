@@ -4,6 +4,7 @@ import { MarkerData, RoutePathData } from '../types/mapTypes';
 import { useUpdateRoute } from '../services/queries/useRoutes';
 import { parseRouteOrder, hasValidRouteOrder } from '../utils/mapUtils';
 import { routeLineColors } from '../utils/colors';
+import { useMapResetStore } from '../stores';
 
 /**
  * Custom hook to calculate and manage route data for the map
@@ -19,6 +20,9 @@ export const useRouteCalculator = (
   const [routePaths, setRoutePaths] = useState<RoutePathData[]>([]);
   const isCalculatingRoutes = useRef(false);
   const previousRouteOrder = useRef<string | null>(null);
+  
+  // Get the map reset state
+  const { shouldResetMap } = useMapResetStore();
   
   // Get the update route mutation
   const updateRouteMutation = useUpdateRoute();
@@ -272,6 +276,13 @@ export const useRouteCalculator = (
       }
     }
   }, [validRoutes, map, markers, calculateRoutes]);
+
+  // Clear route paths when reset flag is set
+  useEffect(() => {
+    if (shouldResetMap) {
+      setRoutePaths([]);
+    }
+  }, [shouldResetMap]);
 
   return {
     routePaths,

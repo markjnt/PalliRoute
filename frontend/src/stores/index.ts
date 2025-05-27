@@ -4,3 +4,4 @@ export * from './useWeekdayStore';
 export * from './useAssignPatientStore';
 export * from './useLayoutStore';
 export * from './useNotificationStore';
+export * from './useMapResetStore';
