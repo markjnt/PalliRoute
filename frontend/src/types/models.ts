@@ -88,9 +88,10 @@ export interface Route {
     id: number;
     employee_id: number;
     weekday: string;
-    route_order: number[];  // Array of appointment IDs
+    route_order: string;
     total_duration: number;
-    total_distance?: number;
+    total_distance: number;
+    polyline: string;
     created_at: string;
     updated_at: string;
 } 

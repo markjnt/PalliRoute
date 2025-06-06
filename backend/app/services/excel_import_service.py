@@ -12,6 +12,7 @@ from ..models.appointment import Appointment
 from ..models.route import Route
 from .. import db
 import json
+from .route_planner import RoutePlanner
 
 class ExcelImportService:
     # Class-level cache for geocoding to avoid redundant API calls
@@ -480,6 +481,25 @@ class ExcelImportService:
                 print(f"  Empty routes saved successfully")
             else:
                 print("  No empty routes to save")
+
+            # Step 8: Plan routes for all non-empty routes
+            print("\nStep 8: Planning routes for all non-empty routes...")
+            route_planner = RoutePlanner()
+            planned_routes = 0
+            failed_routes = 0
+
+            # Plan routes for all non-empty routes
+            for route in routes:
+                try:
+                    print(f"  Planning route for employee {route.employee_id} on {route.weekday}")
+                    route_planner.plan_route(route.weekday, route.employee_id, optimize=True)
+                    planned_routes += 1
+                except Exception as e:
+                    print(f"  Failed to plan route for employee {route.employee_id} on {route.weekday}: {str(e)}")
+                    failed_routes += 1
+                    continue
+
+            print(f"\nRoute planning complete: {planned_routes} routes planned successfully, {failed_routes} routes failed")
             
             # Return the results with summary
             calendar_week = patients[0].calendar_week if patients else None
@@ -506,4 +526,4 @@ class ExcelImportService:
             db.session.rollback()
             error_message = f"Error importing patients: {str(e)}"
             print(error_message)
-            raise Exception(error_message) 
+            raise Exception(error_message)

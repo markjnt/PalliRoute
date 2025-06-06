@@ -4,13 +4,13 @@ import os
 from ..models.employee import Employee
 from ..models.appointment import Appointment
 from ..models.route import Route
-from ..services.route_optimizer import RouteOptimizer
+from ..services.route_planner import RoutePlanner
 from ..services.excel_export_service import ExcelExportService
 from .. import db
 from ..models.patient import Patient
 
 routes_bp = Blueprint('routes', __name__)
-route_optimizer = RouteOptimizer()
+route_planner = RoutePlanner()
 excel_service = ExcelExportService()
 
 @routes_bp.route('/', methods=['GET'])
@@ -138,6 +138,17 @@ def update_route(route_id):
 
         if 'route_order' in data:
             route.set_route_order(data['route_order'])
+            
+            # Check if route is empty
+            if not data['route_order'] or len(data['route_order']) == 0:
+                # Set empty values for empty route
+                route.polyline = None
+                route.total_distance = 0
+                route.total_duration = 0
+            else:
+                # Recalculate route using RoutePlanner
+                route_planner = RoutePlanner()
+                route_planner.plan_route(route.weekday, route.employee_id, optimize=False)
 
         if 'total_duration' in data:
             route.total_duration = data['total_duration']
@@ -195,8 +206,7 @@ def optimize_routes():
             return jsonify({'error': 'employee_id must be a number'}), 400
 
         # Optimize routes
-        optimizer = RouteOptimizer()
-        optimizer.optimize_routes(weekday.lower(), employee_id)
+        route_planner.plan_route(weekday.lower(), employee_id)
 
         return jsonify({'message': 'Routes optimized successfully'}), 200
 

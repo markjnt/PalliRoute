@@ -28,23 +28,14 @@ export interface MarkerGroup {
   count: number;
 }
 
-// Route path data for directions
+// Route path data for polylines
 export interface RoutePathData {
   employeeId: number;
   routeId: number;
   routeOrder: number[];
   color: string;
-  directions: google.maps.DirectionsResult | null;
-  loading: boolean;
-  error: boolean;
-  totalDistance?: string;
-  drivingTime?: string;
-  totalTime?: string;
-  visitTime?: string;
-  employeeName?: string;
-  appointments?: {
-    id: number;
-    visitType?: string;
-    duration: number;
-  }[];
+  polyline: string;
+  totalDistance: number;
+  totalDuration: number;
+  employeeName: string;
 } 

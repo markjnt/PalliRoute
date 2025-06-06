@@ -8,16 +8,20 @@ from ..models.appointment import Appointment
 from ..models.route import Route
 from .. import db
 
-class RouteOptimizer:
+class RoutePlanner:
     def __init__(self):
         api_key = os.getenv('GOOGLE_MAPS_API_KEY')
         if not api_key:
             raise ValueError("Google Maps API key not found in environment variables")
         self.gmaps = googlemaps.Client(key=api_key)
 
-    def optimize_routes(self, weekday: str, employee_id: int) -> None:
+    def plan_route(self, weekday: str, employee_id: int, optimize: bool = True) -> None:
         """
-        Optimize route for a single employee and weekday
+        Plan route for a single employee and weekday
+        Args:
+            weekday: Day of the week
+            employee_id: ID of the employee
+            optimize: Whether to optimize the route order (default: True)
         """
         # Get the calendar week from any patient
         patient = Patient.query.filter(Patient.calendar_week.isnot(None)).first()
@@ -93,12 +97,12 @@ class RouteOptimizer:
                 # Format waypoint as a tuple of (lat, lng)
                 waypoints.append((coords['lat'], coords['lng']))
 
-            # Calculate optimal route using Google Maps Routes API
+            # Calculate route using Google Maps Routes API
             result = self.gmaps.directions(
                 origin=employee_location,
                 destination=employee_location,  # Return to start
                 waypoints=waypoints,
-                optimize_waypoints=True,
+                optimize_waypoints=optimize,
                 departure_time=departure_time,
                 mode="driving"
             )
@@ -106,14 +110,43 @@ class RouteOptimizer:
             if not result:
                 raise Exception("Failed to calculate route")
 
-            # Update only the route_order
+            # Extract route information
+            route_info = result[0]
+            legs = route_info['legs']
+            
+            # Calculate total distance and duration
+            total_distance = sum(leg['distance']['value'] for leg in legs) / 1000  # Convert to kilometers
+            total_duration = sum(leg['duration']['value'] for leg in legs) // 60  # Convert to minutes
+            
+            # Add visit durations to total duration
+            visit_durations = {
+                'HB': 25,  # 25 minutes for Hausbesuch
+                'NA': 120  # 120 minutes for Nachtbesuch
+            }
+            
+            # Calculate total visit duration based on appointment types
+            total_visit_duration = sum(
+                visit_durations.get(appointment.visit_type, 0)
+                for appointment in appointments
+            )
+            
+            # Add visit durations to total duration
+            total_duration += total_visit_duration
+            
+            # Get the polyline
+            polyline = route_info['overview_polyline']['points']
+
+            # Update route information
             route.route_order = self._create_route_order(result[0], appointments)
+            route.total_distance = total_distance
+            route.total_duration = total_duration
+            route.polyline = polyline
             route.updated_at = datetime.utcnow()
             db.session.commit()
 
         except Exception as e:
             db.session.rollback()
-            raise Exception(f'Failed to optimize route for employee {employee.id}: {str(e)}')
+            raise Exception(f'Failed to plan route for employee {employee.id}: {str(e)}')
 
     def _get_coordinates(self, address: str) -> Dict[str, float]:
         """Get coordinates for an address using Google Maps Geocoding"""

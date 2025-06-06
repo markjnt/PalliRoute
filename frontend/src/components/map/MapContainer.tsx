@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Box, CircularProgress, Alert, Button, Typography } from '@mui/material';
+import { Box, CircularProgress, Alert, Button } from '@mui/material';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { MapContainerProps } from '../../types/mapTypes';
 import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries } from '../../utils/mapUtils';
 import { useMapData } from '../../hooks/useMapData';
-import { useRouteCalculator } from '../../hooks/useRouteCalculator';
 import { useMarkerGroups } from '../../hooks/useMarkerGroups';
 import { MapMarkers } from './MapMarkers';
-import { RouteDirections } from './RouteDirections';
+import { RoutePolylines } from './RoutePolylines';
+import { routeLineColors } from '../../utils/colors';
+import { parseRouteOrder } from '../../utils/mapUtils';
 
 /**
  * Main container component for the map that integrates all map features
@@ -41,18 +42,25 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     error: dataError
   } = useMapData(selectedWeekday);
   
-  const {
-    routePaths,
-    calculateRoutes,
-    isCalculating
-  } = useRouteCalculator(
-    map, 
-    markers, 
-    filteredRoutes, 
-    appointments, 
-    employees, 
-    selectedWeekday
-  );
+  // Process routes to create route paths
+  const routePaths = useMemo(() => {
+    return filteredRoutes.map(route => {
+      const employee = employees.find(e => e.id === route.employee_id);
+      const tourNumber = employee?.tour_number;
+      const color = tourNumber ? routeLineColors[(Math.abs(tourNumber) - 1) % routeLineColors.length] : '#9E9E9E';
+
+      return {
+        employeeId: route.employee_id,
+        routeId: route.id,
+        routeOrder: parseRouteOrder(route.route_order),
+        color,
+        polyline: route.polyline,
+        totalDistance: route.total_distance || 0,
+        totalDuration: route.total_duration || 0,
+        employeeName: employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee'
+      };
+    });
+  }, [filteredRoutes, employees]);
   
   const {
     markerGroups,
@@ -68,20 +76,6 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   // Memoize map callbacks
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
-    
-    // Add custom styles for map markers
-    const customLabelStyle = document.createElement('style');
-    customLabelStyle.textContent = `
-      .gm-style .gm-style-iw {
-        font-weight: bold;
-      }
-      .gm-style-mtvbg {
-        color: white !important;
-        font-weight: bold !important;
-        font-family: Arial, sans-serif !important;
-      }
-    `;
-    document.head.appendChild(customLabelStyle);
   }, []);
   
   const onUnmount = useCallback(() => {
@@ -133,25 +127,6 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       flexDirection: 'column',
       position: 'relative',
     }}>
-      {/* Loading overlay */}
-      {isCalculating && (
-        <Box sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(255,255,255,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10,
-        }}>
-          <CircularProgress />
-        </Box>
-      )}
-      
-      {/* Google Map */}
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={defaultCenter}
@@ -160,13 +135,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         onUnmount={onUnmount}
         options={mapOptions}
       >
-        {/* Route Directions */}
-        <RouteDirections 
-          routePaths={routePaths} 
-          selectedWeekday={selectedWeekday} 
-        />
+        <RoutePolylines routes={routePaths} />
         
-        {/* Map Markers */}
         <MapMarkers 
           markerGroups={markerGroups}
           activeGroup={activeGroup}

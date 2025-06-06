@@ -3,7 +3,7 @@ import { Route, Employee, Patient, Appointment } from '../types/models';
 import { appointmentTypeColors, employeeTypeColors } from '../utils/colors';
 
 // Constants
-export const libraries: ("places" | "geocoding")[] = ['places', 'geocoding'];
+export const libraries: ("places" | "geocoding" | "geometry")[] = ['places', 'geocoding', 'geometry'];
 
 export const containerStyle = {
   width: '100%',
