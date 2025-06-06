@@ -25,7 +25,7 @@ import {
 import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientImport';
-import { useWeekdayStore, useMapResetStore } from '../../stores';
+import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport, useClearAllData } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
@@ -47,7 +47,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const [clearDialogOpen, setClearDialogOpen] = useState(false);
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
-    const { resetMap } = useMapResetStore();
     const queryClient = useQueryClient();
 
     // React Query Hooks
@@ -178,9 +177,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             const result = await clearAllDataMutation.mutateAsync();
             setCalendarWeek(null);
             setClearDialogOpen(false);
-            
-            // Reset map to clear directions
-            resetMap();
             
             // Invalidate all queries to refresh data
             await queryClient.invalidateQueries();

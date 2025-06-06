@@ -103,7 +103,7 @@ export const useAssignPatientStore = create<DragState>((set, get) => ({
       
       // Sende die Route-Aktualisierung an das Backend
       const result = await routesApi.updateRoute(routeId, { 
-        route_order: validRouteOrder 
+        route_order: JSON.stringify(validRouteOrder)
       });
       
       console.log('Route-Aktualisierung erfolgreich', result);
@@ -153,7 +153,7 @@ export const useAssignPatientStore = create<DragState>((set, get) => ({
       console.log('Neue Route-Reihenfolge nach Entfernen:', newRouteOrder);
       
       // Aktualisiere die Route
-      const result = await routesApi.updateRoute(routeId, { route_order: newRouteOrder });
+      const result = await routesApi.updateRoute(routeId, { route_order: JSON.stringify(newRouteOrder) });
       console.log('Route-Aktualisierung nach Entfernen erfolgreich', result);
       
       return result;
