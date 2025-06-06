@@ -12,6 +12,7 @@ import {
   isValidRoute,
   parseRouteOrder 
 } from '../utils/mapUtils';
+import { routesApi } from '../services/api/routes';
 
 /**
  * Custom hook to manage map data
@@ -50,12 +51,51 @@ export const useMapData = (selectedWeekday: string) => {
     refetch: refetchRoutes
   } = useRoutes({ weekday: selectedWeekday as Weekday });
 
-  // Memoize filtered routes to prevent unnecessary recalculations
+  // Function to update route when it has no valid appointments
+  const updateEmptyRoute = useCallback(async (route: any) => {
+    try {
+      await routesApi.updateRoute(route.id, {
+        route_order: JSON.stringify([]),
+        polyline: '',
+        total_distance: 0,
+        total_duration: 0
+      });
+      await refetchRoutes();
+    } catch (error) {
+      console.error('Error updating empty route:', error);
+      setError('Fehler beim Aktualisieren der Route');
+    }
+  }, [refetchRoutes]);
+
+  // Memoize filtered routes and update empty routes
   const filteredRoutes = useMemo(() => {
-    return routes.filter(route => 
-      route.weekday === selectedWeekday && isValidRoute(route)
-    );
-  }, [routes, selectedWeekday]);
+    return routes.filter(route => {
+      // Check if route is for the selected weekday
+      if (route.weekday !== selectedWeekday) return false;
+      
+      // Check if route has valid appointments
+      const routeOrder = parseRouteOrder(route.route_order);
+      if (!routeOrder || routeOrder.length === 0) return false;
+      
+      // Check if all appointments in route_order still exist and belong to this employee
+      const hasValidAppointments = routeOrder.every(appointmentId => {
+        return appointments.some(appointment => 
+          appointment.id === appointmentId && 
+          appointment.weekday === selectedWeekday &&
+          appointment.employee_id === route.employee_id &&
+          appointment.visit_type === 'HB'
+        );
+      });
+
+      // If route has no valid appointments, update it in the database
+      if (!hasValidAppointments) {
+        updateEmptyRoute(route);
+        return false;
+      }
+      
+      return true;
+    });
+  }, [routes, selectedWeekday, appointments, updateEmptyRoute]);
 
   // Create markers from employees and patients
   const createMarkers = useCallback(async () => {
