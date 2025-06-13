@@ -55,7 +55,7 @@ export const useMapData = (selectedWeekday: string) => {
   const updateEmptyRoute = useCallback(async (route: any) => {
     try {
       await routesApi.updateRoute(route.id, {
-        route_order: JSON.stringify([]),
+        route_order: [],
         polyline: '',
         total_distance: 0,
         total_duration: 0

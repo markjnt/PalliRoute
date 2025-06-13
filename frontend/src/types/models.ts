@@ -88,7 +88,7 @@ export interface Route {
     id: number;
     employee_id: number;
     weekday: string;
-    route_order: string;
+    route_order: number[];
     total_duration: number;
     total_distance: number;
     polyline: string;

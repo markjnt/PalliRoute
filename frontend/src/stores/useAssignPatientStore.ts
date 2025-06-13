@@ -98,12 +98,10 @@ export const useAssignPatientStore = create<DragState>((set, get) => ({
       const validRouteOrder = newRouteOrder
         .filter(id => typeof id === 'number' && !isNaN(id) && id > 0)
         .map(id => parseInt(id.toString(), 10)); // Sichere Konvertierung zu Ganzzahlen
-      
-      console.log(`Sende gültige Route-Reihenfolge an Backend:`, validRouteOrder);
-      
+            
       // Sende die Route-Aktualisierung an das Backend
       const result = await routesApi.updateRoute(routeId, { 
-        route_order: JSON.stringify(validRouteOrder)
+        route_order: validRouteOrder // Sende direkt das Array
       });
       
       console.log('Route-Aktualisierung erfolgreich', result);
@@ -153,7 +151,7 @@ export const useAssignPatientStore = create<DragState>((set, get) => ({
       console.log('Neue Route-Reihenfolge nach Entfernen:', newRouteOrder);
       
       // Aktualisiere die Route
-      const result = await routesApi.updateRoute(routeId, { route_order: JSON.stringify(newRouteOrder) });
+      const result = await routesApi.updateRoute(routeId, { route_order: newRouteOrder });
       console.log('Route-Aktualisierung nach Entfernen erfolgreich', result);
       
       return result;

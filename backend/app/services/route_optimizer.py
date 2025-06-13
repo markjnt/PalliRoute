@@ -1,7 +1,5 @@
-import os
-from datetime import datetime, timedelta, date
-from typing import List, Dict, Any, Optional
-import googlemaps
+from datetime import datetime
+from typing import List, Dict, Any
 from ..models.employee import Employee
 from ..models.patient import Patient
 from ..models.appointment import Appointment
@@ -15,13 +13,19 @@ from .route_utils import (
     get_gmaps_client
 )
 
-class RoutePlanner:
+class RouteOptimizer:
     def __init__(self):
         self.gmaps = get_gmaps_client()
 
-    def plan_route(self, weekday: str, employee_id: int) -> None:
+    def _create_route_order(self, route_result: Dict[str, Any], appointments: List[Appointment]) -> str:
+        """Create JSON array of appointment IDs in optimized order"""
+        waypoint_order = route_result.get('waypoint_order', [])
+        ordered_appointments = [appointments[i].id for i in waypoint_order]
+        return str(ordered_appointments)
+
+    def optimize_route(self, weekday: str, employee_id: int) -> None:
         """
-        Plan route for a single employee and weekday using existing route order
+        Optimize route for a single employee and weekday
         Args:
             weekday: Day of the week
             employee_id: ID of the employee
@@ -59,7 +63,7 @@ class RoutePlanner:
                 f"{employee.street}, {employee.zip_code} {employee.city}"
             )
 
-            # Get coordinates for appointments in route order
+            # Get coordinates for appointments
             waypoints = []
             for appointment in appointments:
                 patient = appointment.patient
@@ -72,18 +76,18 @@ class RoutePlanner:
             # Calculate departure time
             departure_time = get_departure_time(weekday, patient.calendar_week)
 
-            # Calculate route
+            # Calculate optimized route
             result = self.gmaps.directions(
                 origin=employee_location,
                 destination=employee_location,
                 waypoints=waypoints,
-                optimize_waypoints=False,  # Don't optimize, use existing order
+                optimize_waypoints=True,  # Enable optimization
                 departure_time=departure_time,
                 mode="driving"
             )
 
             if not result:
-                raise Exception("Failed to calculate route")
+                raise Exception("Failed to calculate optimized route")
 
             # Get route information
             route_info = result[0]
@@ -96,9 +100,10 @@ class RoutePlanner:
             route.polyline = route_info['overview_polyline']['points']
             route.total_distance = total_distance
             route.total_duration = total_duration + total_visit_duration
+            route.route_order = self._create_route_order(route_info, appointments)
             route.updated_at = datetime.utcnow()
             db.session.commit()
 
         except Exception as e:
             db.session.rollback()
-            raise Exception(f'Failed to plan route for employee {employee_id}: {str(e)}')
+            raise Exception(f'Failed to optimize route for employee {employee_id}: {str(e)}') 

@@ -225,7 +225,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                                                     await routesApi.updateRoute(sourceRoute.id, {
                                                         total_distance: 0,
                                                         total_duration: 0,
-                                                        route_order: JSON.stringify([])
+                                                        route_order: []
                                                     });
                                                 } catch (error) {
                                                     console.error('Fehler beim Zurücksetzen der leeren Route:', error);
@@ -301,7 +301,7 @@ export const ToursView: React.FC<ToursViewProps> = ({
                                     ...route,
                                     total_distance: 0,
                                     total_duration: 0,
-                                    route_order: JSON.stringify([])
+                                    route_order: []
                                 };
                             }
                         }
