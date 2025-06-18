@@ -8,7 +8,8 @@ import { getColorForVisitType, getColorForEmployeeType } from '../../utils/mapUt
 import { getColorForTour } from '../../utils/colors';
 
 interface MarkerInfoWindowProps {
-  marker: MarkerData;
+  markerList: MarkerData[];
+  position: google.maps.LatLng;
   onClose: () => void;
   patients: Patient[];
   employees: Employee[];
@@ -16,44 +17,34 @@ interface MarkerInfoWindowProps {
 }
 
 /**
- * Component for displaying info windows when markers are clicked
+ * Component for displaying info windows for multiple markers at a position
  */
 export const MarkerInfoWindow: React.FC<MarkerInfoWindowProps> = ({
-  marker,
+  markerList,
+  position,
   onClose,
   patients,
   employees,
   appointments
 }) => {
-  const isPatient = marker.type === 'patient';
-  
   return (
     <InfoWindow
-      position={marker.displayPosition || marker.position}
+      position={position}
       onCloseClick={onClose}
       options={{
         pixelOffset: new google.maps.Size(0, -10)
       }}
     >
-      <Box sx={{ 
-        padding: 1.5, 
-        maxWidth: 280,
-        borderRadius: 1,
-        bgcolor: 'background.paper',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        {isPatient ? (
-          <PatientInfoContent 
-            marker={marker} 
-            patients={patients}
-            appointments={appointments}
-          />
-        ) : (
-          <EmployeeInfoContent 
-            marker={marker} 
-            employees={employees}
-          />
-        )}
+      <Box sx={{ padding: 1.5, maxWidth: 320, borderRadius: 1, bgcolor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+        {markerList.map((marker, idx) => (
+          <Box key={idx} sx={{ mb: idx < markerList.length - 1 ? 2 : 0, pb: 1, borderBottom: idx < markerList.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+            {marker.type === 'patient' ? (
+              <PatientInfoContent marker={marker} patients={patients} appointments={appointments} />
+            ) : (
+              <EmployeeInfoContent marker={marker} employees={employees} />
+            )}
+          </Box>
+        ))}
       </Box>
     </InfoWindow>
   );

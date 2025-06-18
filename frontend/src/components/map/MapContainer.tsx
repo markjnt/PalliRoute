@@ -7,7 +7,6 @@ import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes } from '../../services/queries/useRoutes';
-import { useMarkerGroups } from '../../hooks/useMarkerGroups';
 import { MapMarkers } from './MapMarkers';
 import { RoutePolylines } from './RoutePolylines';
 import { routeLineColors } from '../../utils/colors';
@@ -94,18 +93,6 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     });
   }, [dayRoutes, employees]);
 
-  // Marker-Gruppen
-  const {
-    markerGroups,
-    activeGroup,
-    selectedMarker,
-    isGroupActive,
-    handleMarkerClick,
-    handleExpandedMarkerClick,
-    handleInfoWindowClose,
-    handleMapClick
-  } = useMarkerGroups(markers);
-
   // Fehler- und Ladezustände
   const isLoading = employeesLoading || patientsLoading || appointmentsLoading || routesLoading || !isLoaded;
   const error = mapError || (patientsError instanceof Error ? patientsError.message : null) || (appointmentsError instanceof Error ? appointmentsError.message : null) || (routesError instanceof Error ? routesError.message : null);
@@ -129,15 +116,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         options={mapOptions}
       >
         <RoutePolylines routes={routePaths} />
-        <MapMarkers 
-          markerGroups={markerGroups}
-          activeGroup={activeGroup}
-          selectedMarker={selectedMarker}
-          isGroupActive={isGroupActive}
-          handleMarkerClick={handleMarkerClick}
-          handleExpandedMarkerClick={handleExpandedMarkerClick}
-          handleInfoWindowClose={handleInfoWindowClose}
-          handleMapClick={handleMapClick}
+        <MapMarkers
+          markers={markers}
           patients={patients}
           employees={employees}
           appointments={appointments}
