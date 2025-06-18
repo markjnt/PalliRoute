@@ -145,6 +145,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             );
 
             await Promise.all(optimizationPromises);
+            await queryClient.invalidateQueries();
+
             setNotification('Alle Routen wurden erfolgreich optimiert', 'success');
         } catch (error) {
             setNotification('Fehler beim Optimieren der Routen', 'error');

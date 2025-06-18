@@ -740,11 +740,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             
             {!expanded && (
                 <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Text für Gesamtanzahl der Patienten */}
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'medium' }}>
-                        {tourPatients.length} Patienten
-                    </Typography>
-                    
                     {/* Icons für die verschiedenen Besuchstypen */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
                         {hbPatients.length > 0 && (
@@ -914,7 +909,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                 >
                                     <SectionTitle 
                                         icon={<PersonIcon color="action" />} 
-                                        title="Patienten ohne geplanten Besuch" 
+                                        title="Ohne Besuch" 
                                         count={emptyTypePatients.length}
                                         color="text.secondary"
                                     />

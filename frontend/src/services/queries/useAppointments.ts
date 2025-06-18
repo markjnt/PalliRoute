@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Weekday } from '../../types/models';
 import { appointmentsApi } from '../api/appointments';
 import { routeKeys } from './useRoutes';
+import { patientKeys } from './usePatients';
 
 // Keys für React Query Cache
 export const appointmentKeys = {
@@ -63,6 +64,7 @@ export const useMoveAppointment = () => {
       // Invalidate all appointment queries to refetch data
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      queryClient.invalidateQueries({ queryKey: patientKeys.all });
     }
   });
 };
@@ -80,6 +82,8 @@ export const useBatchMoveAppointments = () => {
       // Invalidate all appointment queries to refetch data
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      queryClient.invalidateQueries({ queryKey: patientKeys.all });
+
     }
   });
 };

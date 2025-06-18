@@ -207,12 +207,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 return;
             }
 
-            // Prevent assigning to the same tour
-            if (patient.tour === targetEmployee.tour_number) {
-                setNotification('Patient ist bereits dieser Tour zugewiesen', 'error');
-                return;
-            }
-
             // Prevent assigning to a deactivated employee
             if (!targetEmployee.is_active) {
                 setNotification('Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter.', 'error');
