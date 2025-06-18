@@ -46,34 +46,27 @@ export const appointmentsApi = {
         }
     },
 
-    // Create new appointment
-    async create(appointmentData: Partial<Appointment>): Promise<Appointment> {
+    async moveAppointment(appointmentId: number, sourceEmployeeId: number, targetEmployeeId: number): Promise<void> {
         try {
-            const response = await axios.post('/appointments', appointmentData);
-            return response.data;
+            await axios.post('/appointments/move', {
+                appointment_id: appointmentId,
+                source_employee_id: sourceEmployeeId,
+                target_employee_id: targetEmployeeId
+            });
         } catch (error) {
-            console.error('Failed to create appointment:', error);
+            console.error('Fehler beim Verschieben des Termins:', error);
             throw error;
         }
     },
 
-    // Update existing appointment
-    async update(id: number, appointmentData: Partial<Appointment>): Promise<Appointment> {
+    async batchMoveAppointments(sourceEmployeeId: number, targetEmployeeId: number): Promise<void> {
         try {
-            const response = await axios.put(`/appointments/${id}`, appointmentData);
-            return response.data;
+            await axios.post('/appointments/batchmove', {
+                source_employee_id: sourceEmployeeId,
+                target_employee_id: targetEmployeeId
+            });
         } catch (error) {
-            console.error(`Failed to update appointment with ID ${id}:`, error);
-            throw error;
-        }
-    },
-
-    // Delete appointment
-    async delete(id: number): Promise<void> {
-        try {
-            await axios.delete(`/appointments/${id}`);
-        } catch (error) {
-            console.error(`Failed to delete appointment with ID ${id}:`, error);
+            console.error('Fehler beim Batch-Verschieben der Termine:', error);
             throw error;
         }
     }

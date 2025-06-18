@@ -65,12 +65,6 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
             if (result.calendar_week) {
                 result.message += ` (KW ${result.calendar_week})`;
             }
-
-            // Invalidate queries
-            await queryClient.invalidateQueries({ queryKey: ['employees'] });
-            await queryClient.invalidateQueries({ queryKey: ['patients'] });
-            await queryClient.invalidateQueries({ queryKey: ['appointments'] });
-            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
             onSuccess(result);
             handleClose();

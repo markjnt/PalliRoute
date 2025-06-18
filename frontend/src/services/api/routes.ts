@@ -43,38 +43,6 @@ export const routesApi = {
         }
     },
 
-    // Create a new route
-    async createRoute(routeData: Partial<Route>): Promise<Route> {
-        try {
-            const response = await axios.post('/routes', routeData);
-            return response.data.route;
-        } catch (error) {
-            console.error('Failed to create route:', error);
-            throw error;
-        }
-    },
-
-    // Update an existing route
-    async updateRoute(id: number, routeData: Partial<Route>): Promise<Route> {
-        try {
-            const response = await axios.put(`/routes/${id}`, routeData);
-            return response.data.route;
-        } catch (error) {
-            console.error(`Failed to update route with ID ${id}:`, error);
-            throw error;
-        }
-    },
-
-    // Delete a route
-    async deleteRoute(id: number): Promise<void> {
-        try {
-            await axios.delete(`/routes/${id}`);
-        } catch (error) {
-            console.error(`Failed to delete route with ID ${id}:`, error);
-            throw error;
-        }
-    },
-
     // Optimize routes for a specific day and employee
     async optimizeRoutes(weekday: string, employeeId: number): Promise<void> {
         try {
@@ -91,6 +59,29 @@ export const routesApi = {
                     throw new Error(error.response.data.error || 'Server error occurred');
                 }
             }
+            throw error;
+        }
+    },
+
+    // Reorder an appointment up or down in a route
+    async reorderAppointment(routeId: number, appointmentId: number, direction: 'up' | 'down'): Promise<Route> {
+        try {
+            const response = await axios.put(`/routes/${routeId}`, {
+                appointment_id: appointmentId,
+                direction: direction
+            });
+            return response.data.route;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 400) {
+                    throw new Error(error.response.data.error || 'Invalid request');
+                } else if (error.response?.status === 404) {
+                    throw new Error('Route or appointment not found');
+                } else if (error.response?.status === 500) {
+                    throw new Error(error.response.data.error || 'Server error occurred');
+                }
+            }
+            console.error(`Failed to reorder appointment in route ${routeId}:`, error);
             throw error;
         }
     }

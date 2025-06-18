@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Employee, EmployeeFormData, EmployeeImportResponse } from '../../types/models';
 import { employeesApi } from '../api/employees';
+import { patientKeys } from './usePatients';
+import { appointmentKeys } from './useAppointments';
+import { routeKeys } from './useRoutes';
 
 // Keys for React Query cache
 export const employeeKeys = {
@@ -121,7 +124,10 @@ export const useImportEmployees = () => {
     mutationFn: (file: File) => employeesApi.import(file),
     onSuccess: () => {
       // Invalidate employees list to refresh after import
-      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      queryClient.invalidateQueries({ queryKey: patientKeys.all });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      queryClient.invalidateQueries({ queryKey: routeKeys.all });
     },
   });
 }; 

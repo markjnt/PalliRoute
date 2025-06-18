@@ -5,7 +5,6 @@ import {
     Typography, 
     Box, 
     Chip,
-    Badge,
     Grid,
     Tooltip,
     IconButton,
@@ -13,34 +12,25 @@ import {
     MenuItem,
     ListItemIcon,
     ListItemText,
-    Popper,
-    Paper,
-    ClickAwayListener,
-    Divider,
-    Button
+    Divider
 } from '@mui/material';
 import { 
     Phone as PhoneIcon,
     Home as HomeIcon,
     Info as InfoIcon,
     Navigation as NavigationIcon,
-    MoreVert as MoreVertIcon,
     SwapHoriz as SwapHorizIcon,
-    ChevronRight as ChevronRightIcon,
     Person as PersonIcon,
     ArrowUpward as ArrowUpwardIcon,
     ArrowDownward as ArrowDownwardIcon
 } from '@mui/icons-material';
 import { useDrag } from 'react-dnd';
-import { Patient, Appointment, Weekday, Employee } from '../../types/models';
+import { Patient, Appointment, Weekday} from '../../types/models';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
-import { appointmentsApi } from '../../services/api/appointments';
-import { useAssignPatientStore } from '../../stores/useAssignPatientStore';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { getColorForTour } from '../../utils/colors';
 import { useNotificationStore } from '../../stores/useNotificationStore';
-import { useQueryClient } from '@tanstack/react-query';
-import { useRoutes } from '../../services/queries/useRoutes';
+import { useMoveAppointment, useAppointmentsByPatient } from '../../services/queries/useAppointments';
 
 interface PatientCardProps {
     patient: Patient;
@@ -70,14 +60,15 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     isLast = false
 }) => {
     const cardRef = useRef<HTMLDivElement>(null);
-    const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const { updatePatientTour, updateAppointmentEmployee } = useAssignPatientStore();
     const { data: employees = [] } = useEmployees();
     const { setNotification } = useNotificationStore();
-    const queryClient = useQueryClient();
-    const { refetch: refetchRoutes } = useRoutes({ weekday: selectedDay });
+    const moveAppointment = useMoveAppointment();
+    const { data: patientAppointments = [], isLoading, error } = useAppointmentsByPatient(patient.id ?? 0);
     
+    // Get current employee ID from appointments
+    const currentEmployeeId = patientAppointments[0]?.employee_id;
+
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
     };
@@ -85,22 +76,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     const handleMenuClose = () => {
         setAnchorEl(null);
     };
-    
-    // Lade alle Termine des Patienten
-    useEffect(() => {
-        const fetchAppointments = async () => {
-            try {
-                if (patient.id) {
-                    const allAppointments = await appointmentsApi.getByPatientId(patient.id);
-                    setPatientAppointments(allAppointments);
-                }
-            } catch (error) {
-                console.error('Fehler beim Laden der Termine:', error);
-            }
-        };
-        
-        fetchAppointments();
-    }, [patient.id]);
     
     // Configure drag and drop
     const [{ isDragging }, drag] = useDrag<PatientDragItem, unknown, { isDragging: boolean }>({
@@ -244,36 +219,36 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 return;
             }
 
-            // Schritt 1: Aktualisiere die Tour-Nummer des Patienten im Backend
-            await updatePatientTour(patient.id || 0, targetEmployee.tour_number);
-            
-            // Schritt 2: Finde ALLE Termine dieses Patienten (über ALLE Tage hinweg)
-            const allPatientAppointments = await appointmentsApi.getByPatientId(patient.id || 0);
-            
-            // Schritt 3: Aktualisiere alle Termine mit dem neuen Mitarbeiter im Backend
-            for (const appt of allPatientAppointments) {
+            // Get current employee ID from appointments
+            const currentEmployeeId = patientAppointments[0]?.employee_id;
+            if (!currentEmployeeId) {
+                setNotification('Kein aktueller Mitarbeiter gefunden', 'error');
+                return;
+            }
+
+            // Move all appointments for this patient
+            for (const appt of patientAppointments) {
                 if (appt.id) {
-                    await updateAppointmentEmployee(appt.id, targetEmployee.id);
+                    await moveAppointment.mutateAsync({
+                        appointmentId: appt.id,
+                        sourceEmployeeId: currentEmployeeId,
+                        targetEmployeeId: employeeId
+                    });
                 }
             }
             
-            // Extrahiere nur die HB-Termine, die für Routenaktualisierungen relevant sind
-            const hbAppointments = allPatientAppointments.filter(a => a.visit_type === 'HB');
-            
-            // Übergebe die Kontrolle an die übergeordnete Komponente für UI-Updates
+            // Update patient tour
             if (onPatientMoved) {
-                onPatientMoved(patient, targetEmployee.tour_number, hbAppointments);
+                onPatientMoved(patient, targetEmployee.tour_number, patientAppointments.filter(a => a.visit_type === 'HB'));
             }
             
             handleMenuClose();
+            setNotification('Patient erfolgreich zugewiesen', 'success');
         } catch (error) {
             console.error('Fehler beim Zuweisen des Patienten:', error);
             setNotification('Fehler beim Zuweisen des Patienten', 'error');
         }
     };
-
-    // Get current employee ID from appointments
-    const currentEmployeeId = patientAppointments[0]?.employee_id;
 
     // Handle move up/down actions
     const handleMoveUp = () => {

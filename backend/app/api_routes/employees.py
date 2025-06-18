@@ -1,12 +1,9 @@
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify
 from app import db
 from app.models.employee import Employee
 from app.models.route import Route
 from app.models.appointment import Appointment
 from app.services.excel_import_service import ExcelImportService
-import pandas as pd
-from io import BytesIO
-import openpyxl
 
 employees_bp = Blueprint('employees', __name__)
 
@@ -155,37 +152,3 @@ def import_employees():
         }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-
-@employees_bp.route('/export', methods=['GET'])
-def export_employees():
-    employees = Employee.query.all()
-    
-    # Create DataFrame
-    data = []
-    for emp in employees:
-        data.append({
-            'Vorname': emp.first_name,
-            'Nachname': emp.last_name,
-            'Straße': emp.street,
-            'PLZ': emp.zip_code,
-            'Ort': emp.city,
-            'Funktion': emp.function,
-            'Stellenumfang': f'{emp.work_hours}%',
-            'Tournummer': emp.tour_number if emp.tour_number is not None else '',
-            'Aktiv': 'Ja' if emp.is_active else 'Nein'
-        })
-    
-    df = pd.DataFrame(data)
-    
-    # Create Excel file in memory
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
-    
-    output.seek(0)
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name='employees.xlsx'
-    )

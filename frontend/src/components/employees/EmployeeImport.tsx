@@ -65,12 +65,6 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
-
-            // Invalidate queries
-            await queryClient.invalidateQueries({ queryKey: ['employees'] });
-            await queryClient.invalidateQueries({ queryKey: ['patients'] });
-            await queryClient.invalidateQueries({ queryKey: ['appointments'] });
-            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             
             setTimeout(onClose, 1500);
         } catch (error: any) {

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Patient } from '../../types/models';
 import { patientsApi } from '../api/patients';
+import { appointmentKeys } from './useAppointments';
+import { routeKeys } from './useRoutes';
+import { employeeKeys } from './useEmployees';
 
 // Keys für React Query Cache
 export const patientKeys = {
@@ -28,69 +30,6 @@ export const usePatient = (id: number) => {
   });
 };
 
-// Hook zum Erstellen eines Patienten
-export const useCreatePatient = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (patientData: Partial<Patient>) => patientsApi.create(patientData),
-    onSuccess: (newPatient) => {
-      // Cache invalidieren und neu laden
-      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
-      
-      // Optional den Cache direkt aktualisieren
-      queryClient.setQueryData(
-        patientKeys.lists(),
-        (oldPatients: Patient[] = []) => [...oldPatients, newPatient]
-      );
-    },
-  });
-};
-
-// Hook zum Aktualisieren eines Patienten
-export const useUpdatePatient = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ id, patientData }: { id: number; patientData: Partial<Patient> }) => 
-      patientsApi.update(id, patientData),
-    onSuccess: (updatedPatient) => {
-      // Cache invalidieren und neu laden
-      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: patientKeys.detail(updatedPatient.id as number) });
-      
-      // Optional den Cache direkt aktualisieren
-      queryClient.setQueryData(
-        patientKeys.lists(),
-        (oldPatients: Patient[] = []) => 
-          oldPatients.map(patient => (patient.id === updatedPatient.id ? updatedPatient : patient))
-      );
-    },
-  });
-};
-
-// Hook zum Löschen eines Patienten
-export const useDeletePatient = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (id: number) => patientsApi.delete(id),
-    onSuccess: (_, id) => {
-      // Cache invalidieren und neu laden
-      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
-      
-      // Aus dem Cache entfernen
-      queryClient.removeQueries({ queryKey: patientKeys.detail(id) });
-      
-      // Optional den Listen-Cache direkt aktualisieren
-      queryClient.setQueryData(
-        patientKeys.lists(),
-        (oldPatients: Patient[] = []) => oldPatients.filter(patient => patient.id !== id)
-      );
-    },
-  });
-};
-
 // Hook für Excel-Import von Patienten
 export const usePatientImport = () => {
   const queryClient = useQueryClient();
@@ -99,7 +38,10 @@ export const usePatientImport = () => {
     mutationFn: (file: File) => patientsApi.import(file),
     onSuccess: () => {
       // Patienten-Daten im Cache invalidieren
-      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: patientKeys.all });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all});
+      queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
     },
   });
 };
@@ -112,10 +54,7 @@ export const useClearAllData = () => {
     mutationFn: () => patientsApi.clearAll(),
     onSuccess: () => {
       // Invalidate all queries to force refetch
-      queryClient.invalidateQueries({ queryKey: patientKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      queryClient.invalidateQueries({ queryKey: ['routes'] });
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries()
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to clear all data';

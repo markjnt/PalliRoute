@@ -38,7 +38,6 @@ interface TourPlanSidebarProps {
 }
 
 export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
-    width = 400
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
@@ -71,22 +70,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         data: routes = [],
         isLoading: loadingRoutes,
         error: routesError,
-        refetch
     } = useRoutes({ weekday: selectedWeekday });
     
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
     const clearAllDataMutation = useClearAllData();
-
-    // Memoize calendar week calculation
-    const calculateCalendarWeek = useCallback(() => {
-        if (patients && patients.length > 0) {
-            const patientWithWeek = patients.find(p => p.calendar_week);
-            if (patientWithWeek?.calendar_week) {
-                setCalendarWeek(patientWithWeek.calendar_week);
-            }
-        }
-    }, [patients]);
 
     // Handle weekday change
     const handleDayChange = useCallback((event: SelectChangeEvent) => {
@@ -135,35 +123,28 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         return null;
     }, [patientsError, appointmentsError, routesError]);
 
-    // Memoize ToursView props
-    const toursViewProps = useMemo(() => ({
-        employees,
-        patients,
-        appointments: dayAppointments,
-        routes,
-        selectedDay: selectedWeekday,
-        loading: isLoading,
-        error
-    }), [employees, patients, dayAppointments, routes, selectedWeekday, isLoading, error]);
-
     const handleOptimizeAllRoutes = async () => {
-        if (!employees.length) return;
-        
+        if (!employees.length || !routes.length) return;
+
+        // Nur Mitarbeiter, die eine Route für den Tag haben
+        const employeeIdsWithRoute = routes
+            .filter(route => route.employee_id !== undefined && route.employee_id !== null)
+            .map(route => route.employee_id);
+
+        const employeesWithRoute = employees.filter(
+            emp => emp.id !== undefined && employeeIdsWithRoute.includes(emp.id)
+        );
+
         setIsOptimizing(true);
         try {
-            const optimizationPromises = employees
-                .filter(employee => employee.id !== undefined)
-                .map(employee => 
-                    optimizeRoutesMutation.mutateAsync({
-                        date: selectedWeekday.toLowerCase(),
-                        employeeId: employee.id as number
-                    })
-                );
-            
+            const optimizationPromises = employeesWithRoute.map(employee =>
+                optimizeRoutesMutation.mutateAsync({
+                    weekday: selectedWeekday.toLowerCase(),
+                    employeeId: employee.id as number
+                })
+            );
+
             await Promise.all(optimizationPromises);
-            
-            // Invalidate routes query to trigger a refetch
-            await queryClient.invalidateQueries({ queryKey: ['routes'] });
             setNotification('Alle Routen wurden erfolgreich optimiert', 'success');
         } catch (error) {
             setNotification('Fehler beim Optimieren der Routen', 'error');
@@ -177,9 +158,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             const result = await clearAllDataMutation.mutateAsync();
             setCalendarWeek(null);
             setClearDialogOpen(false);
-            
-            // Invalidate all queries to refresh data
-            await queryClient.invalidateQueries();
             
             setNotification(
                 `Alle Daten wurden gelöscht: ${result.deleted_count.patients} Patienten, ${result.deleted_count.appointments} Termine, ${result.deleted_count.routes} Routen`,
@@ -286,7 +264,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             <Divider />
 
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-                <ToursView {...toursViewProps} />
+                <ToursView selectedDay={selectedWeekday} />
             </Box>
 
             <PatientExcelImport

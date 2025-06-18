@@ -30,7 +30,6 @@ import {
     ExitToApp as LogoutIcon,
     Upload as UploadIcon,
     Add as AddIcon,
-    MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
@@ -89,7 +88,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const { currentUser, setCurrentUser } = useUserStore();
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState<null | HTMLElement>(null);
 
     // React Query hooks
     const { data: employees = [], isLoading, error } = useEmployees();
@@ -103,10 +101,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 
     const handleMenuClose = () => {
         setAnchorEl(null);
-    };
-
-    const handleStatusMenuClose = () => {
-        setStatusMenuAnchorEl(null);
     };
 
     const handleEdit = (employee: Employee) => {

@@ -35,15 +35,26 @@ class RouteOptimizer:
             patient = Patient.query.filter(Patient.calendar_week.isnot(None)).first()
             if not patient:
                 raise ValueError("No patients found with calendar week information")
-            
+                        
             # Get route from database
             route = Route.query.filter_by(
                 employee_id=employee_id,
                 weekday=weekday.lower()
             ).first()
 
-            if not route or not route.route_order:
-                raise ValueError(f"No route or route order found for employee {employee_id} on {weekday}")
+            print(route, 'employee', employee_id)
+
+            if not route:
+                raise ValueError(f"No route found for employee {employee_id} on {weekday}")
+
+            # If route order is empty, set distance and duration to 0
+            if not route.get_route_order():
+                route.polyline = ""
+                route.total_distance = 0
+                route.total_duration = 0
+                route.updated_at = datetime.utcnow()
+                db.session.commit()
+                return
 
             # Get employee
             employee = Employee.query.filter_by(id=employee_id).first()
@@ -105,5 +116,6 @@ class RouteOptimizer:
             db.session.commit()
 
         except Exception as e:
+            print(e)
             db.session.rollback()
             raise Exception(f'Failed to optimize route for employee {employee_id}: {str(e)}') 

@@ -32,58 +32,6 @@ def get_patient(id):
     patient = Patient.query.get_or_404(id)
     return jsonify(patient.to_dict()), 200
 
-@patients_bp.route('/', methods=['POST'])
-def create_patient():
-    data = request.get_json()
-    
-    required_fields = ['first_name', 'last_name', 'street', 'zip_code', 'city']
-    missing_fields = [field for field in required_fields if field not in data]
-    
-    if missing_fields:
-        return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
-    
-    new_patient = Patient(
-        first_name=data['first_name'],
-        last_name=data['last_name'],
-        street=data['street'],
-        zip_code=data['zip_code'],
-        city=data['city'],
-        phone1=data.get('phone1'),
-        phone2=data.get('phone2'),
-        calendar_week=data.get('calendar_week'),
-        area=data.get('area'),
-        tour=data.get('tour')
-    )
-    
-    db.session.add(new_patient)
-    db.session.commit()
-    
-    return jsonify(new_patient.to_dict()), 201
-
-@patients_bp.route('/<int:id>', methods=['PUT'])
-def update_patient(id):
-    patient = Patient.query.get_or_404(id)
-    data = request.get_json()
-    
-    fields = ['first_name', 'last_name', 'street', 'zip_code', 'city', 
-              'phone1', 'phone2', 'calendar_week', 'area', 'tour']
-    
-    for field in fields:
-        if field in data:
-            setattr(patient, field, data[field])
-    
-    db.session.commit()
-    return jsonify(patient.to_dict()), 200
-
-@patients_bp.route('/<int:id>', methods=['DELETE'])
-def delete_patient(id):
-    patient = Patient.query.get_or_404(id)
-    # Also delete related appointments
-    Appointment.query.filter_by(patient_id=id).delete()
-    db.session.delete(patient)
-    db.session.commit()
-    return jsonify({"message": "Patient deleted successfully"}), 200
-
 @patients_bp.route('/import', methods=['POST'])
 def import_patients():
     """

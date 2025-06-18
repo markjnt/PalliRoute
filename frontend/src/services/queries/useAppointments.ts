@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Appointment, Weekday } from '../../types/models';
+import { Weekday } from '../../types/models';
 import { appointmentsApi } from '../api/appointments';
+import { routeKeys } from './useRoutes';
 
 // Keys für React Query Cache
 export const appointmentKeys = {
@@ -48,101 +49,38 @@ export const useAppointment = (id: number) => {
   });
 };
 
-// Hook zum Erstellen eines Termins
-export const useCreateAppointment = () => {
+// Hook zum Verschieben eines einzelnen Termins
+export const useMoveAppointment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (appointmentData: Partial<Appointment>) => appointmentsApi.create(appointmentData),
-    onSuccess: (newAppointment) => {
-      // Cache invalidieren und neu laden
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
-      
-      // Optional den Cache direkt aktualisieren
-      queryClient.setQueryData(
-        appointmentKeys.lists(),
-        (oldAppointments: Appointment[] = []) => [...oldAppointments, newAppointment]
-      );
-      
-      // Wenn der Termin einem Wochentag zugeordnet ist, diesen Wochentag-Cache aktualisieren
-      if (newAppointment.weekday) {
-        queryClient.invalidateQueries({ 
-          queryKey: appointmentKeys.byWeekday(newAppointment.weekday) 
-        });
-      }
-      
-      // Wenn der Termin einem Patienten zugeordnet ist, diesen Patienten-Cache aktualisieren
-      if (newAppointment.patient_id) {
-        queryClient.invalidateQueries({ 
-          queryKey: appointmentKeys.byPatient(newAppointment.patient_id) 
-        });
-      }
-    },
+    mutationFn: ({ appointmentId, sourceEmployeeId, targetEmployeeId }: { 
+      appointmentId: number; 
+      sourceEmployeeId: number; 
+      targetEmployeeId: number; 
+    }) => appointmentsApi.moveAppointment(appointmentId, sourceEmployeeId, targetEmployeeId),
+    onSuccess: () => {
+      // Invalidate all appointment queries to refetch data
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      queryClient.invalidateQueries({ queryKey: routeKeys.all });
+    }
   });
 };
 
-// Hook zum Aktualisieren eines Termins
-export const useUpdateAppointment = () => {
+// Hook zum Verschieben aller Termine eines Mitarbeiters
+export const useBatchMoveAppointments = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, appointmentData }: { id: number; appointmentData: Partial<Appointment> }) => 
-      appointmentsApi.update(id, appointmentData),
-    onSuccess: (updatedAppointment, { id }) => {
-      // Cache invalidieren und neu laden
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.detail(id) });
-      
-      // Optional den Cache direkt aktualisieren
-      queryClient.setQueryData(
-        appointmentKeys.lists(),
-        (oldAppointments: Appointment[] = []) => 
-          oldAppointments.map(appointment => (appointment.id === id ? updatedAppointment : appointment))
-      );
-      
-      // Wenn der Termin einem Wochentag zugeordnet ist, diesen Wochentag-Cache aktualisieren
-      if (updatedAppointment.weekday) {
-        queryClient.invalidateQueries({ 
-          queryKey: appointmentKeys.byWeekday(updatedAppointment.weekday) 
-        });
-      }
-      
-      // Wenn der Termin einem Patienten zugeordnet ist, diesen Patienten-Cache aktualisieren
-      if (updatedAppointment.patient_id) {
-        queryClient.invalidateQueries({ 
-          queryKey: appointmentKeys.byPatient(updatedAppointment.patient_id) 
-        });
-      }
-    },
+    mutationFn: ({ sourceEmployeeId, targetEmployeeId }: { 
+      sourceEmployeeId: number; 
+      targetEmployeeId: number; 
+    }) => appointmentsApi.batchMoveAppointments(sourceEmployeeId, targetEmployeeId),
+    onSuccess: () => {
+      // Invalidate all appointment queries to refetch data
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      queryClient.invalidateQueries({ queryKey: routeKeys.all });
+    }
   });
 };
 
-// Hook zum Löschen eines Termins
-export const useDeleteAppointment = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (id: number) => appointmentsApi.delete(id),
-    onSuccess: (_, id) => {
-      // Cache invalidieren und neu laden
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.lists() });
-      
-      // Aus dem Cache entfernen
-      queryClient.removeQueries({ queryKey: appointmentKeys.detail(id) });
-      
-      // Optional den Listen-Cache direkt aktualisieren
-      queryClient.setQueryData(
-        appointmentKeys.lists(),
-        (oldAppointments: Appointment[] = []) => oldAppointments.filter(appointment => appointment.id !== id)
-      );
-      
-      // Für die anderen spezifischen Caches (byWeekday, byPatient) ist es am besten,
-      // sie zu invalidieren, da wir hier nicht wissen, zu welchem Wochentag oder Patienten
-      // der gelöschte Termin gehörte
-      queryClient.invalidateQueries({ 
-        queryKey: appointmentKeys.lists(),
-        exact: false // Alle Unterschlüssel invalidieren, einschließlich byWeekday und byPatient
-      });
-    },
-  });
-}; 

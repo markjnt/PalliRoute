@@ -38,8 +38,17 @@ class RoutePlanner:
                 weekday=weekday.lower()
             ).first()
 
-            if not route or not route.route_order:
-                raise ValueError(f"No route or route order found for employee {employee_id} on {weekday}")
+            if not route:
+                raise ValueError(f"No route found for employee {employee_id} on {weekday}")
+
+            # If route order is empty, set distance and duration to 0
+            if not route.get_route_order():
+                route.polyline = ""
+                route.total_distance = 0
+                route.total_duration = 0
+                route.updated_at = datetime.utcnow()
+                db.session.commit()
+                return
 
             # Get employee
             employee = Employee.query.filter_by(id=employee_id).first()
