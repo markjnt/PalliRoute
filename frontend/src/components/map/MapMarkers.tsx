@@ -30,7 +30,7 @@ function groupMarkersByLatLng(markers: MarkerData[]) {
 // Offset marker positions in a circle if overlapping
 function offsetLatLng(lat: number, lng: number, index: number, total: number) {
   if (total === 1) return { lat, lng };
-  const offset = 0.00005; // ~5 meters
+  const offset = 0.0001;
   const angle = (2 * Math.PI / total) * index;
   return {
     lat: lat + Math.sin(angle) * offset,
