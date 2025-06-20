@@ -104,7 +104,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const [optimizeState, setOptimizeState] = useState<OptimizeState>({
         isOptimizing: false
     });
-    const { setNotification } = useNotificationStore();
+    const { setNotification, setLoading, resetLoading } = useNotificationStore();
     const queryClient = useQueryClient();
     const optimizeRoutes = useOptimizeRoutes();
     const { data: employeesData = [] } = useEmployees();
@@ -188,6 +188,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     };
 
     const handleMoveAllPatients = async (targetEmployeeId: number) => {
+        setLoading('Alle Patienten werden zugewiesen...');
         try {
             await batchMoveAppointments.mutateAsync({
                 sourceEmployeeId: employee.id || 0,
@@ -195,14 +196,15 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             });
             
             handleMenuClose();
-            setNotification('Alle Patienten erfolgreich verschoben', 'success');
+            resetLoading();
+            setNotification('Alle Patienten erfolgreich zugewiesen', 'success');
         } catch (error) {
             console.error('Fehler beim Verschieben aller Patienten:', error);
             setNotification('Fehler beim Verschieben aller Patienten', 'error');
         }
     };
 
-    const handleMoveUp = (patientId: number) => {
+    const handleMoveUp = async (patientId: number) => {
         // Find the route for this employee and day
         const route = routes.find(r => 
             r.employee_id === employee.id && 
@@ -216,14 +218,20 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         if (!appointment || !appointment.id) return;
         
         // Call the reorder mutation
-        reorderAppointment.mutate({
-            routeId: route.id,
-            appointmentId: appointment.id,
-            direction: 'up'
-        });
+        setLoading('Patient wird verschoben...');
+        try {
+            await reorderAppointment.mutateAsync({
+                routeId: route.id,
+                appointmentId: appointment.id,
+                direction: 'up'
+            });
+        } finally {
+            resetLoading();
+            setNotification('Patient verschoben', 'success');
+        }
     };
 
-    const handleMoveDown = (patientId: number) => {
+    const handleMoveDown = async (patientId: number) => {
         // Find the route for this employee and day
         const route = routes.find(r => 
             r.employee_id === employee.id && 
@@ -237,11 +245,17 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         if (!appointment || !appointment.id) return;
         
         // Call the reorder mutation
-        reorderAppointment.mutate({
-            routeId: route.id,
-            appointmentId: appointment.id,
-            direction: 'down'
-        });
+        setLoading('Patient wird verschoben...');
+        try {
+            await reorderAppointment.mutateAsync({
+                routeId: route.id,
+                appointmentId: appointment.id,
+                direction: 'down'
+            });
+        } finally {
+            resetLoading();
+            setNotification('Patient verschoben', 'success');
+        }
     };
 
     // Filter active employees with tour numbers

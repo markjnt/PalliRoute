@@ -39,7 +39,6 @@ interface PatientCardProps {
     index?: number;  // For numbered list of HB visits
     compact?: boolean; // For more compact display in TK, NA, and no-appointment sections
     selectedDay: Weekday; // Der ausgewählte Wochentag
-    onPatientMoved?: (patient: Patient, newTourNumber: number, hbAppointments?: Appointment[]) => void;
     onMoveUp?: (patientId: number) => void; // New prop for moving patient up
     onMoveDown?: (patientId: number) => void; // New prop for moving patient down
     isFirst?: boolean; // New prop to indicate if this is the first patient in the list
@@ -53,7 +52,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     index,
     compact = false,
     selectedDay,
-    onPatientMoved,
     onMoveUp,
     onMoveDown,
     isFirst = false,
@@ -62,7 +60,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     const cardRef = useRef<HTMLDivElement>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const { data: employees = [] } = useEmployees();
-    const { setNotification } = useNotificationStore();
+    const { setNotification, setLoading, resetLoading } = useNotificationStore();
     const moveAppointment = useMoveAppointment();
     const { data: patientAppointments = [], isLoading, error } = useAppointmentsByPatient(patient.id ?? 0);
     
@@ -201,6 +199,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
 
     const handleAssignEmployee = async (employeeId: number) => {
         try {
+            setLoading('Patient wird zugewiesen...');
             const targetEmployee = employees.find(e => e.id === employeeId);
             if (!targetEmployee || !targetEmployee.tour_number) {
                 setNotification('Ungültiger Mitarbeiter oder keine Tour-Nummer zugewiesen', 'error');
@@ -220,23 +219,16 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 return;
             }
 
-            // Move all appointments for this patient
-            for (const appt of patientAppointments) {
-                if (appt.id) {
-                    await moveAppointment.mutateAsync({
-                        appointmentId: appt.id,
-                        sourceEmployeeId: currentEmployeeId,
-                        targetEmployeeId: employeeId
-                    });
-                }
+            // Nur ein Request nötig, Backend verschiebt alle Termine des Patienten
+            if (patientAppointments.length > 0 && typeof patientAppointments[0].id === 'number') {
+                await moveAppointment.mutateAsync({
+                    appointmentId: patientAppointments[0].id, // irgendein Termin des Patienten reicht
+                    sourceEmployeeId: currentEmployeeId,
+                    targetEmployeeId: employeeId
+                });
             }
-            
-            // Update patient tour
-            if (onPatientMoved) {
-                onPatientMoved(patient, targetEmployee.tour_number, patientAppointments.filter(a => a.visit_type === 'HB'));
-            }
-            
             handleMenuClose();
+            resetLoading();
             setNotification('Patient erfolgreich zugewiesen', 'success');
         } catch (error) {
             console.error('Fehler beim Zuweisen des Patienten:', error);

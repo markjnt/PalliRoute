@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Drawer, useTheme, useMediaQuery, Snackbar, Alert } from '@mui/material';
+import { Box, IconButton, Drawer, useTheme, useMediaQuery, Snackbar, Alert, LinearProgress, CircularProgress } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 import { useLayoutStore, useUserStore } from '../../stores';
 import { useNotificationStore } from '../../stores/useNotificationStore';
@@ -47,7 +47,7 @@ export const MainLayout: React.FC = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const { currentUser } = useUserStore();
     const navigate = useNavigate();
-    const { notification, closeNotification } = useNotificationStore();
+    const { notification, closeNotification, loading } = useNotificationStore();
 
     // Redirect to user selection if no user is selected
     React.useEffect(() => {
@@ -442,6 +442,21 @@ export const MainLayout: React.FC = () => {
                     sx={{ width: '100%' }}
                 >
                     {notification.message}
+                </Alert>
+            </Snackbar>
+
+            {/* Global Loading Snackbar */}
+            <Snackbar
+                open={loading.active}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert
+                    icon={<CircularProgress size={20} color="inherit" />}
+                    severity="info"
+                    variant="filled"
+                    sx={{ width: '100%' }}
+                >
+                    {loading.message || 'Vorgang läuft ...'}
                 </Alert>
             </Snackbar>
         </Box>
