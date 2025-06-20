@@ -27,7 +27,9 @@ import {
     CheckCircle,
     Cancel,
     Route as RouteIcon,
-    SwapHoriz as SwapHorizIcon
+    SwapHoriz as SwapHorizIcon,
+    Straighten as StraightenIcon,
+    AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
@@ -489,6 +491,54 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                             </Box>
                         </Tooltip>
                     </Box>
+
+                    {/* Dauer und Strecke nebeneinander anzeigen */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
+                        {/* Dauer (mit Farblogik) */}
+                        {(() => {
+                            const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
+                            const duration = route && typeof route.total_duration === 'number' ? route.total_duration : null;
+                            let durationStr = '-';
+                            let durationMinutes = null;
+                            if (duration !== null) {
+                                const hours = Math.floor(duration / 60);
+                                const minutes = duration % 60;
+                                durationStr = `${hours}:${minutes.toString().padStart(2, '0')}`;
+                                durationMinutes = duration;
+                            }
+                            // Soll-Arbeitszeit berechnen: 7h = 420min * (work_hours / 100)
+                            const targetMinutes = Math.round(420 * ((employee.work_hours || 0) / 100));
+                            const targetHours = Math.floor(targetMinutes / 60);
+                            const targetMins = targetMinutes % 60;
+                            const targetStr = `${targetHours}:${targetMins.toString().padStart(2, '0')}`;
+                            // Farbe bestimmen
+                            let durationColor = 'success.main';
+                            if (durationMinutes !== null && durationMinutes > targetMinutes) {
+                                durationColor = 'error.main';
+                            }
+                            return (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <AccessTimeIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                                    <Typography variant="body2" sx={{ color: durationMinutes !== null ? durationColor : 'text.secondary', fontWeight: durationMinutes !== null ? 'bold' : 'normal' }}>
+                                        {durationStr} / {targetStr}
+                                    </Typography>
+                                </Box>
+                            );
+                        })()}
+                        {/* Strecke */}
+                        {(() => {
+                            const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
+                            const distance = route && typeof route.total_distance === 'number' ? route.total_distance : null;
+                            return (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <StraightenIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                                    <Typography variant="body2" color="text.secondary">
+                                        {distance !== null ? distance.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km' : '-'}
+                                    </Typography>
+                                </Box>
+                            );
+                        })()}
+                    </Box>
                     
                     {/* Anzeige der Strecke und Gesamtzeit */}
                     <Box sx={{ 
@@ -635,92 +685,89 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                     })}
                                     
                                     {/* Show inactive employees if there are any */}
-                                    {inactiveEmployees.length > 0 && (
-                                        <>
-                                            <Divider sx={{ my: 1 }} />
-                                            <Typography 
-                                                variant="subtitle2" 
-                                                sx={{ px: 2, py: 1, bgcolor: 'background.default', fontWeight: 'bold', color: 'error.main' }}
-                                            >
-                                                Inaktive Touren
-                                            </Typography>
-                                            
-                                            {inactiveEmployees.map((emp) => {
-                                                const patientCount = patientCountByTour.get(emp.tour_number!) || 0;
-                                                const isEmpty = patientCount === 0;
-                                                
-                                                return (
-                                                    <MenuItem 
-                                                        key={emp.id}
-                                                        onClick={() => emp.id && handleMoveAllPatients(emp.id)}
-                                                        disabled={true}
-                                                        sx={{
-                                                            backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                                            opacity: 0.7,
-                                                            py: 1
-                                                        }}
-                                                    >
-                                                        <ListItemIcon>
-                                                            <PersonIcon 
-                                                                fontSize="small" 
-                                                                sx={{ 
-                                                                    color: 'error.main',
-                                                                    opacity: 0.7
-                                                                }} 
+                                    {inactiveEmployees.length > 0 && [
+                                        <Divider key="divider-inactive" sx={{ my: 1 }} />, 
+                                        <Typography 
+                                            key="inactive-title"
+                                            variant="subtitle2" 
+                                            sx={{ px: 2, py: 1, bgcolor: 'background.default', fontWeight: 'bold', color: 'error.main' }}
+                                        >
+                                            Inaktive Touren
+                                        </Typography>,
+                                        ...inactiveEmployees.map((emp) => {
+                                            const patientCount = patientCountByTour.get(emp.tour_number!) || 0;
+                                            const isEmpty = patientCount === 0;
+                                            return (
+                                                <MenuItem 
+                                                    key={emp.id}
+                                                    onClick={() => emp.id && handleMoveAllPatients(emp.id)}
+                                                    disabled={true}
+                                                    sx={{
+                                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                                        opacity: 0.7,
+                                                        py: 1
+                                                    }}
+                                                >
+                                                    <ListItemIcon>
+                                                        <PersonIcon 
+                                                            fontSize="small" 
+                                                            sx={{ 
+                                                                color: 'error.main',
+                                                                opacity: 0.7
+                                                            }} 
+                                                        />
+                                                    </ListItemIcon>
+                                                    <ListItemText>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Typography 
+                                                                variant="body2"
+                                                                sx={{ opacity: 0.7 }}
+                                                            >
+                                                                {emp.first_name} {emp.last_name}
+                                                            </Typography>
+                                                            <Chip
+                                                                label={`Tour ${emp.tour_number}`}
+                                                                size="small"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    bgcolor: 'error.light',
+                                                                    color: 'white',
+                                                                    opacity: 0.7,
+                                                                    '& .MuiChip-label': {
+                                                                        px: 1,
+                                                                        fontSize: '0.75rem'
+                                                                    }
+                                                                }}
                                                             />
-                                                        </ListItemIcon>
-                                                        <ListItemText>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Chip
+                                                                label="Inaktiv"
+                                                                size="small"
+                                                                variant="outlined"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    fontSize: '0.7rem',
+                                                                    borderColor: 'error.main',
+                                                                    color: 'error.main'
+                                                                }}
+                                                            />
+                                                            {!isEmpty && (
                                                                 <Typography 
-                                                                    variant="body2"
-                                                                    sx={{ opacity: 0.7 }}
-                                                                >
-                                                                    {emp.first_name} {emp.last_name}
-                                                                </Typography>
-                                                                <Chip
-                                                                    label={`Tour ${emp.tour_number}`}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        height: 20,
-                                                                        bgcolor: 'error.light',
-                                                                        color: 'white',
-                                                                        opacity: 0.7,
-                                                                        '& .MuiChip-label': {
-                                                                            px: 1,
-                                                                            fontSize: '0.75rem'
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <Chip
-                                                                    label="Inaktiv"
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    sx={{
-                                                                        height: 20,
+                                                                    variant="caption" 
+                                                                    sx={{ 
+                                                                        color: 'error.main',
                                                                         fontSize: '0.7rem',
-                                                                        borderColor: 'error.main',
-                                                                        color: 'error.main'
+                                                                        fontWeight: 'bold'
                                                                     }}
-                                                                />
-                                                                {!isEmpty && (
-                                                                    <Typography 
-                                                                        variant="caption" 
-                                                                        sx={{ 
-                                                                            color: 'error.main',
-                                                                            fontSize: '0.7rem',
-                                                                            fontWeight: 'bold'
-                                                                        }}
-                                                                    >
-                                                                        {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'}
-                                                                    </Typography>
-                                                                )}
-                                                            </Box>
-                                                        </ListItemText>
-                                                    </MenuItem>
-                                                );
-                                            })}
-                                        </>
-                                    )}
+                                                                >
+                                                                    {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    </ListItemText>
+                                                </MenuItem>
+                                            );
+                                        })
+                                    ]}
                                 </Menu>
                             </Box>
                         )}
