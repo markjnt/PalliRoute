@@ -99,7 +99,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
             )}
 
             {/* Display tour containers for active employees with tour numbers and patients */}
-            {activeEmployeesWithPatientsInTours.length > 0 ? (
+            {activeEmployeesWithPatientsInTours.length > 0 && (
                 <Box sx={{ 
                     display: 'flex', 
                     flexWrap: 'wrap', 
@@ -140,10 +140,6 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                         />
                     ))}
                 </Box>
-            ) : (
-                <Alert severity="info" sx={{ my: 2 }}>
-                    Keine Touren mit aktiven Mitarbeitern und Patienten gefunden.
-                </Alert>
             )}
             
             {/* Display tours with inactive employees and patients */}
