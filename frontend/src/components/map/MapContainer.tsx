@@ -44,9 +44,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     if (!isLoaded) return [];
     const newMarkers = [];
     // Employees NUR mit tour_number
-    for (const employee of employees) {
-      if (employee.tour_number !== undefined && employee.tour_number !== null) {
-        const marker = createEmployeeMarkerData(employee);
+    for (const route of routes) {
+      const employee = employees.find(e => e.id === route.employee_id);
+      if (employee && employee.tour_number !== undefined && employee.tour_number !== null) {
+        const marker = createEmployeeMarkerData(employee, route.id);
         if (marker) newMarkers.push(marker);
       }
     }
@@ -58,14 +59,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       routes.forEach(route => {
         const routeOrder = parseRouteOrder(route.route_order);
         routeOrder.forEach((appointmentId, idx) => {
-          appointmentPositions.set(appointmentId, idx + 1);
+          appointmentPositions.set(appointmentId, { position: idx + 1, routeId: route.id });
         });
       });
       for (const appointment of appointmentsForDay) {
         const patient = patients.find(p => p.id === appointment.patient_id);
         if (patient) {
-          const position = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
-          const marker = createPatientMarkerData(patient, appointment, position);
+          const posInfo = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
+          const position = posInfo ? posInfo.position : undefined;
+          const routeId = posInfo ? posInfo.routeId : undefined;
+          const marker = createPatientMarkerData(patient, appointment, position, routeId);
           if (marker) newMarkers.push(marker);
         }
       }

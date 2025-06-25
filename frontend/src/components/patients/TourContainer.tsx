@@ -121,13 +121,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     // 3. Patients for this tour (based on tour assignment)
     const tourPatients = patients.filter(p => p.tour === employee.tour_number);
 
-    // Sichtbarkeit automatisch zurücksetzen, wenn Route leer wird
-    useEffect(() => {
-      if (routeId !== undefined && tourPatients.length === 0 && polylineVisibility.hiddenIds.has(routeId)) {
-        polylineVisibility.toggleVisibility(routeId);
-      }
-    }, [routeId, tourPatients.length, polylineVisibility]);
-
     const handleDropPatient = async (item: PatientDragItem) => {
         try {
             setLoading('Patient wird zugewiesen...');
@@ -799,7 +792,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                 variant="outlined"
                                                 size="small"
                                                 onClick={() => polylineVisibility.toggleVisibility(routeId)}
-                                                disabled={tourPatients.length === 0}
                                                 sx={{
                                                     minWidth: '40px',
                                                     width: '40px',

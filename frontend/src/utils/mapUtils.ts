@@ -86,34 +86,6 @@ export const hasValidRouteOrder = (route: Route, appointments: Appointment[], se
   return appointmentsExist;
 };
 
-// Group markers that are at the same position
-export const groupMarkersByPosition = (markers: MarkerData[]): MarkerGroup[] => {
-  // Create a map to track positions and markers at each position
-  const positionGroups = new Map<string, MarkerGroup>();
-  
-  // Group markers by exact position
-  markers.forEach(marker => {
-    const posKey = `${marker.position.lat()},${marker.position.lng()}`;
-    
-    if (positionGroups.has(posKey)) {
-      // Add marker to existing group
-      const group = positionGroups.get(posKey)!;
-      group.markers.push(marker);
-      group.count += 1;
-    } else {
-      // Create new group for this position
-      positionGroups.set(posKey, {
-        markers: [marker],
-        position: marker.position,
-        count: 1
-      });
-    }
-  });
-  
-  // Convert map to array of groups
-  return Array.from(positionGroups.values());
-};
-
 // Get color for appointment type
 export const getColorForVisitType = (visitType?: string): string => {
   if (!visitType) return appointmentTypeColors.default;
@@ -134,7 +106,7 @@ export const getColorForEmployeeType = (employeeType?: string): string => {
 };
 
 // Create employee marker data
-export const createEmployeeMarkerData = (employee: Employee): MarkerData | null => {
+export const createEmployeeMarkerData = (employee: Employee, routeId?: number): MarkerData | null => {
   // Check if we have latitude and longitude from the backend
   if (employee.latitude && employee.longitude) {
     // Create position using coordinates from backend
@@ -145,7 +117,8 @@ export const createEmployeeMarkerData = (employee: Employee): MarkerData | null 
       title: `${employee.first_name} ${employee.last_name} - ${employee.function || 'Mitarbeiter'}`,
       type: 'employee',
       employeeType: employee.function,
-      employeeId: employee.id
+      employeeId: employee.id,
+      routeId,
     };
   } else {
     // If no coordinates, log warning and skip
@@ -155,7 +128,7 @@ export const createEmployeeMarkerData = (employee: Employee): MarkerData | null 
 };
 
 // Create patient marker data
-export const createPatientMarkerData = (patient: Patient, appointment: Appointment, position?: number): MarkerData | null => {
+export const createPatientMarkerData = (patient: Patient, appointment: Appointment, position?: number, routeId?: number): MarkerData | null => {
   // Check if we have latitude and longitude from the backend
   if (patient.latitude && patient.longitude) {
     // Create position using coordinates from backend
@@ -172,7 +145,8 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
       visitType: appointment.visit_type,
       patientId: patient.id,
       appointmentId: appointment.id,
-      routePosition: position
+      routePosition: position,
+      routeId,
     };
   } else {
     // If no coordinates, log warning and skip

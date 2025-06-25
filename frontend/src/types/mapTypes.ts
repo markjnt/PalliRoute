@@ -19,6 +19,7 @@ export interface MarkerData {
   employeeId?: number;
   routePosition?: number; // Position in the route (1-based index)
   displayPosition?: google.maps.LatLng; // Position to show InfoWindow at (for expanded markers)
+  routeId?: number; // ID der zugehörigen Route (für Sichtbarkeit)
 }
 
 // Group of markers at the same location

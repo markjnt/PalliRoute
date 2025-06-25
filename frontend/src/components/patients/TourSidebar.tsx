@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -20,7 +20,9 @@ import {
     Upload as UploadIcon,
     Event as CalendarIcon,
     Route as RouteIcon,
-    DeleteForever as DeleteForeverIcon
+    DeleteForever as DeleteForeverIcon,
+    Visibility as VisibilityIcon,
+    VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
 import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
@@ -32,6 +34,7 @@ import { useAppointmentsByWeekday } from '../../services/queries/useAppointments
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -47,6 +50,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const queryClient = useQueryClient();
+    const { hiddenIds, hideAll, showAll } = usePolylineVisibility();
 
     // React Query Hooks
     const { 
@@ -173,6 +177,23 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     // Check if there's any data
     const hasData = patients.length > 0 || dayAppointments.length > 0 || routes.length > 0;
 
+    // Toggle all polylines visibility
+    const allRouteIds = useMemo(() => routes.map(r => r.id), [routes]);
+    const allHidden = allRouteIds.length > 0 && allRouteIds.every(id => hiddenIds.has(id));
+    const noneHidden = allRouteIds.length > 0 && allRouteIds.every(id => !hiddenIds.has(id));
+    const handleToggleAllPolylines = () => {
+      if (!allRouteIds.length) return;
+      if (!allHidden) {
+        hideAll(allRouteIds);
+      } else {
+        showAll(allRouteIds);
+      }
+    };
+
+    useEffect(() => {
+        showAll([]);
+    }, [selectedWeekday, showAll]);
+
     return (
         <Box
             sx={{
@@ -252,15 +273,26 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         </Button>
                     )}
                 </Box>
-                <Button
-                    variant="outlined"
-                    fullWidth
-                    startIcon={<RouteIcon />}
-                    onClick={handleOptimizeAllRoutes}
-                    disabled={isOptimizing || !employees.length}
-                >
-                    {isOptimizing ? 'Optimierung läuft...' : 'Alle Routen optimieren'}
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<RouteIcon />}
+                        onClick={handleOptimizeAllRoutes}
+                        disabled={isOptimizing || !employees.length}
+                    >
+                        {isOptimizing ? 'Optimierung läuft...' : 'Alle Routen optimieren'}
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        fullWidth
+                        startIcon={allHidden ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                        onClick={handleToggleAllPolylines}
+                        disabled={!routes.length}
+                    >
+                        {allHidden ? 'Alle Routen einblenden' : 'Alle Routen ausblenden'}
+                    </Button>
+                </Box>
             </Box>
 
             <Divider />
