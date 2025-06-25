@@ -5,7 +5,7 @@ import { useLayoutStore, useUserStore } from '../../stores';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
-import { TourPlanSidebar } from '../patients/TourPlanSidebar';
+import { TourPlanSidebar } from '../patients/TourSidebar';
 
 const MIN_MAIN_CONTENT_WIDTH = 100;
 const COLLAPSED_WIDTH = 0;

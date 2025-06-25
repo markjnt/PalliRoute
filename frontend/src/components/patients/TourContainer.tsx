@@ -4,8 +4,6 @@ import {
     Typography, 
     Paper,
     Divider,
-    List,
-    ListItem,
     IconButton,
     Collapse,
     Chip,
@@ -33,14 +31,12 @@ import {
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
-import { PatientCard } from './PatientCard';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEmployees } from '../../services/queries/useEmployees';
 import { useBatchMoveAppointments, useMoveAppointment } from '../../services/queries/useAppointments';
 import { useReorderAppointment, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
+import TourSections from './TourSections';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -69,6 +65,7 @@ const SectionTitle = ({
 
 interface TourContainerProps {
     employee: Employee;
+    employees: Employee[];
     patients: Patient[];
     appointments: Appointment[];
     selectedDay: Weekday;
@@ -91,6 +88,7 @@ interface OptimizeState {
 
 export const TourContainer: React.FC<TourContainerProps> = ({
     employee,
+    employees,
     patients,
     appointments,
     selectedDay,
@@ -105,9 +103,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         isOptimizing: false
     });
     const { setNotification, setLoading, resetLoading } = useNotificationStore();
-    const queryClient = useQueryClient();
     const optimizeRoutes = useOptimizeRoutes();
-    const { data: employeesData = [] } = useEmployees();
     const batchMoveAppointments = useBatchMoveAppointments();
     const moveAppointment = useMoveAppointment();
     const reorderAppointment = useReorderAppointment();
@@ -260,7 +256,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     };
 
     // Filter active employees with tour numbers
-    const availableEmployees = employeesData
+    const availableEmployees = employees
         .filter(emp => emp.is_active && 
                 emp.tour_number !== undefined && 
                 emp.tour_number !== null && 
@@ -268,7 +264,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
 
     // Get inactive employees with tour numbers
-    const inactiveEmployees = employeesData
+    const inactiveEmployees = employees
         .filter(emp => !emp.is_active && 
                 emp.tour_number !== undefined && 
                 emp.tour_number !== null && 
@@ -278,25 +274,18 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     // Count patients in each tour
     const patientCountByTour = React.useMemo(() => {
         const counts = new Map<number, number>();
-        
-        // Initialize counts for all tours
-        employeesData.forEach(emp => {
+        employees.forEach(emp => {
             if (emp.tour_number !== undefined && emp.tour_number !== null) {
                 counts.set(emp.tour_number, 0);
             }
         });
-        
-        // Use the patients prop passed to this component
-        const allPatients = queryClient.getQueryData<Patient[]>(['patients']) || patients;
-        
-        allPatients.forEach((p: Patient) => {
+        patients.forEach((p: Patient) => {
             if (p.tour !== undefined && p.tour !== null) {
                 counts.set(p.tour, (counts.get(p.tour) || 0) + 1);
             }
         });
-        
         return counts;
-    }, [employeesData, queryClient, patients]);
+    }, [employees, patients]);
 
     // Filtere Termine für den ausgewählten Tag und diesen Mitarbeiter
     const employeeAppointments = appointments.filter(a => 
@@ -828,177 +817,16 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 
                 {hasAppointmentsForDay ? (
                     <>
-                        {/* Home visits (HB) section */}
-                        <SectionTitle 
-                            icon={<HomeIcon color="primary" />} 
-                            title="Hausbesuche" 
-                            count={sortedHbPatients.length}
-                            color="primary.main"
+                        <TourSections
+                            sortedHbPatients={sortedHbPatients}
+                            tkPatients={tkPatients}
+                            naPatients={naPatients}
+                            emptyTypePatients={emptyTypePatients}
+                            getPatientAppointments={getPatientAppointments}
+                            selectedDay={selectedDay}
+                            onMoveUp={handleMoveUp}
+                            onMoveDown={handleMoveDown}
                         />
-                        
-                        {sortedHbPatients.length > 0 ? (
-                            <List dense disablePadding>
-                                {sortedHbPatients.map((patient, index) => (
-                                    <ListItem 
-                                        key={`hb-${patient.id}`} 
-                                        disablePadding 
-                                        sx={{ mb: 1 }}
-                                    >
-                                        <PatientCard
-                                            patient={patient}
-                                            appointments={getPatientAppointments(patient.id || 0)}
-                                            visitType="HB"
-                                            index={index + 1}
-                                            selectedDay={selectedDay}
-                                            onMoveUp={handleMoveUp}
-                                            onMoveDown={handleMoveDown}
-                                            isFirst={index === 0}
-                                            isLast={index === sortedHbPatients.length - 1}
-                                        />
-                                    </ListItem>
-                                ))}
-                            </List>
-                        ) : (
-                            <Typography variant="body2" color="text.secondary" sx={{ ml: 4, mb: 2 }}>
-                                Keine Hausbesuche für diesen Tag geplant.
-                            </Typography>
-                        )}
-                        
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
-                            {/* Phone contacts (TK) section */}
-                            <Paper 
-                                variant="outlined" 
-                                sx={{ 
-                                    flex: {
-                                        xs: '1 1 100%',
-                                        sm: '1 1 47%'
-                                    },
-                                    minWidth: {
-                                        xs: '100%',
-                                        sm: '300px'
-                                    },
-                                    p: 2,
-                                    bgcolor: 'rgba(76, 175, 80, 0.04)'
-                                }}
-                            >
-                                <SectionTitle 
-                                    icon={<PhoneIcon color="success" />} 
-                                    title="Telefonkontakte" 
-                                    count={tkPatients.length}
-                                    color="success.main"
-                                />
-                                
-                                {tkPatients.length > 0 ? (
-                                    <List dense disablePadding>
-                                        {tkPatients.map((patient) => (
-                                            <ListItem 
-                                                key={`tk-${patient.id}`} 
-                                                disablePadding 
-                                                sx={{ mb: 1 }}
-                                            >
-                                                <PatientCard
-                                                    patient={patient}
-                                                    appointments={getPatientAppointments(patient.id || 0)}
-                                                    visitType="TK"
-                                                    compact
-                                                    selectedDay={selectedDay}
-                                                />
-                                            </ListItem>
-                                        ))}
-                                    </List>
-                                ) : (
-                                    <Typography variant="body2" color="text.secondary">
-                                        Keine Telefonkontakte für diesen Tag geplant.
-                                    </Typography>
-                                )}
-                            </Paper>
-                            
-                            {/* New admissions (NA) section */}
-                            <Paper 
-                                variant="outlined" 
-                                sx={{ 
-                                    flex: {
-                                        xs: '1 1 100%',
-                                        sm: '1 1 47%'
-                                    },
-                                    minWidth: {
-                                        xs: '100%',
-                                        sm: '300px'
-                                    },
-                                    p: 2,
-                                    bgcolor: 'rgba(156, 39, 176, 0.04)'
-                                }}
-                            >
-                                <SectionTitle 
-                                    icon={<AddCircleIcon color="secondary" />} 
-                                    title="Neuaufnahmen" 
-                                    count={naPatients.length}
-                                    color="secondary.main"
-                                />
-                                
-                                {naPatients.length > 0 ? (
-                                    <List dense disablePadding>
-                                        {naPatients.map((patient) => (
-                                            <ListItem 
-                                                key={`na-${patient.id}`} 
-                                                disablePadding 
-                                                sx={{ mb: 1 }}
-                                            >
-                                                <PatientCard
-                                                    patient={patient}
-                                                    appointments={getPatientAppointments(patient.id || 0)}
-                                                    visitType="NA"
-                                                    compact
-                                                    selectedDay={selectedDay}
-                                                />
-                                            </ListItem>
-                                        ))}
-                                    </List>
-                                ) : (
-                                    <Typography variant="body2" color="text.secondary">
-                                        Keine Neuaufnahmen für diesen Tag geplant.
-                                    </Typography>
-                                )}
-                            </Paper>
-                        </Box>
-                        
-                        {/* Patients with empty visit type */}
-                        {emptyTypePatients.length > 0 && (
-                            <Box sx={{ mt: 2 }}>
-                                <Paper 
-                                    variant="outlined" 
-                                    sx={{ 
-                                        p: 2,
-                                        bgcolor: 'rgba(158, 158, 158, 0.04)'
-                                    }}
-                                >
-                                    <SectionTitle 
-                                        icon={<PersonIcon color="action" />} 
-                                        title="Ohne Besuch" 
-                                        count={emptyTypePatients.length}
-                                        color="text.secondary"
-                                    />
-                                    
-                                    <List dense disablePadding>
-                                        {emptyTypePatients.map((patient) => (
-                                            <ListItem 
-                                                key={`empty-${patient.id}`} 
-                                                disablePadding 
-                                                sx={{ width: '100%' }}
-                                            >
-                                                <PatientCard
-                                                    patient={patient}
-                                                    appointments={getPatientAppointments(patient.id || 0)}
-                                                    visitType="none"
-                                                    compact
-                                                    selectedDay={selectedDay}
-                                                />
-                                            </ListItem>
-                                        ))}
-                                    </List>
-                                </Paper>
-                            </Box>
-                        )}
                     </>
                 ) : (
                     <Alert severity="info" sx={{ mt: 2 }}>

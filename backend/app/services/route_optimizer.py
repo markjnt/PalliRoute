@@ -42,8 +42,6 @@ class RouteOptimizer:
                 weekday=weekday.lower()
             ).first()
 
-            print(route, 'employee', employee_id)
-
             if not route:
                 raise ValueError(f"No route found for employee {employee_id} on {weekday}")
 

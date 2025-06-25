@@ -5,6 +5,7 @@ from app.models.patient import Patient
 from app.models.route import Route
 from app.services.route_planner import RoutePlanner
 from datetime import datetime
+from app.models.employee import Employee
 
 appointments_bp = Blueprint('appointments', __name__)
 route_planner = RoutePlanner()
@@ -62,6 +63,13 @@ def move_appointment():
         
         # Get all appointments for this patient
         patient_appointments = Appointment.query.filter_by(patient_id=patient_id).all()
+        
+        # Get the patient object
+        patient = Patient.query.get(patient_id)
+        # Get the target employee and their tour_number
+        target_employee = Employee.query.get(target_employee_id)
+        if target_employee:
+            patient.tour = target_employee.tour_number
         
         # Get all routes for both employees for all weekdays
         weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -170,6 +178,14 @@ def batch_move_appointments():
         # Update all appointments to new employee
         for appointment in appointments:
             appointment.employee_id = target_employee_id
+        # Update tour only once per patient
+        patient_ids = set([appointment.patient_id for appointment in appointments])
+        target_employee = Employee.query.get(target_employee_id)
+        if target_employee:
+            for patient_id in patient_ids:
+                patient = Patient.query.get(patient_id)
+                if patient:
+                    patient.tour = target_employee.tour_number
         
         db.session.commit()
         return jsonify({'message': 'Appointments moved successfully'})

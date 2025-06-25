@@ -48,9 +48,6 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
     // Filter inactive employees with empty tours for additional warning
     const inactiveEmployeesWithEmptyTours = employeesWithEmptyTours.filter(e => !e.is_active);
     
-    // Filter active employees with empty tours
-    const activeEmployeesWithEmptyTours = employeesWithEmptyTours.filter(e => e.is_active);
-    
     // Filter employees with tours and patients
     const employeesWithPatientsInTours = employeesWithTours.filter(
         e => e.tour_number && hasPatientInTour(e.tour_number)
@@ -135,6 +132,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                         <TourContainer
                             key={employee.id}
                             employee={employee}
+                            employees={employees}
                             patients={patients}
                             appointments={appointments}
                             selectedDay={selectedDay}
@@ -197,6 +195,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                             <TourContainer
                                 key={`inactive-${employee.id}`}
                                 employee={employee}
+                                employees={employees}
                                 patients={patients}
                                 appointments={appointments}
                                 selectedDay={selectedDay}
@@ -254,6 +253,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                             <TourContainer
                                 key={`empty-${employee.id}`}
                                 employee={employee}
+                                employees={employees}
                                 patients={patients}
                                 appointments={appointments}
                                 selectedDay={selectedDay}

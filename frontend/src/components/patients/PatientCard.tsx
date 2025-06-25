@@ -31,6 +31,7 @@ import { useEmployees } from '../../services/queries/useEmployees';
 import { getColorForTour } from '../../utils/colors';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useMoveAppointment, useAppointmentsByPatient } from '../../services/queries/useAppointments';
+import WeekdayOverview from './WeekdayOverview';
 
 interface PatientCardProps {
     patient: Patient;
@@ -102,101 +103,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         }
     };
 
-    // Erstelle ein Mapping für alle Termine des Patienten nach Wochentag
-    const allWeekdays: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-    const weekdayLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr'];
-    
-    // Funktion zum Abrufen des Besuchstyps für einen bestimmten Wochentag
-    const getVisitTypeForWeekday = (weekday: Weekday): string | null => {
-        const appt = patientAppointments.find(a => a.weekday === weekday);
-        return appt?.visit_type || null;
-    };
-    
-    // Funktion zum Abrufen der Info für einen bestimmten Wochentag
-    const getInfoForWeekday = (weekday: Weekday): string | null => {
-        const appt = patientAppointments.find(a => a.weekday === weekday);
-        return appt?.info || null;
-    };
-    
-    // Funktion zum Übersetzen des englischen Wochentags in Deutsch
-    const getGermanWeekday = (weekday: Weekday): string => {
-        switch (weekday) {
-            case 'monday': return 'Montag';
-            case 'tuesday': return 'Dienstag';
-            case 'wednesday': return 'Mittwoch';
-            case 'thursday': return 'Donnerstag';
-            case 'friday': return 'Freitag';
-            default: return weekday; // Fallback
-        }
-    };
-    
-    // Funktion zum Erzeugen einer Stilfarbe basierend auf dem Besuchstyp
-    const getVisitTypeColor = (visitType: string | null): string => {
-        switch (visitType) {
-            case 'HB': return 'primary.main';  // Blau
-            case 'TK': return 'success.main';  // Grün
-            case 'NA': return 'secondary.main'; // Lila
-            default: return 'text.disabled';    // Grau für leere Felder
-        }
-    };
-    
-    // Funktion zum Erzeugen einer Stilfarbe für den Hintergrund basierend auf dem Besuchstyp
-    const getVisitTypeBgColor = (visitType: string | null): string => {
-        switch (visitType) {
-            case 'HB': return 'rgba(25, 118, 210, 0.1)';  // Helles Blau
-            case 'TK': return 'rgba(76, 175, 80, 0.1)';   // Helles Grün
-            case 'NA': return 'rgba(156, 39, 176, 0.1)';  // Helles Lila
-            default: return 'transparent';                // Transparent für leere Felder
-        }
-    };
-    
-    // Komponente für die Wochentagsübersicht
-    const WeekdayOverview = () => (
-        <Box sx={{ mt: 1, mb: 1 }}>
-            <Grid container spacing={0.5} sx={{ width: '100%' }}>
-                {allWeekdays.map((weekday, idx) => {
-                    const visit = getVisitTypeForWeekday(weekday);
-                    const isSelectedDay = weekday === selectedDay;
-                    return (
-                        <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
-                            <Tooltip title={`${getGermanWeekday(weekday)}: ${visit || 'Kein Besuch'}`}>
-                                <Box 
-                                    sx={{ 
-                                        display: 'flex', 
-                                        flexDirection: 'column', 
-                                        alignItems: 'center',
-                                        p: 0.5,
-                                        borderRadius: 1,
-                                        bgcolor: isSelectedDay 
-                                            ? visit ? getVisitTypeBgColor(visit) : 'rgba(0, 0, 0, 0.04)'
-                                            : 'transparent',
-                                        border: '1px solid',
-                                        borderColor: visit ? getVisitTypeColor(visit) : 'divider',
-                                    }}
-                                >
-                                    <Typography 
-                                        variant="caption" 
-                                        fontWeight="bold" 
-                                        color="text.secondary"
-                                    >
-                                        {weekdayLabels[idx]}
-                                    </Typography>
-                                    <Typography 
-                                        variant="caption" 
-                                        fontWeight={visit ? 'bold' : 'normal'}
-                                        color={getVisitTypeColor(visit)}
-                                    >
-                                        {visit || '–'}
-                                    </Typography>
-                                </Box>
-                            </Tooltip>
-                        </Grid>
-                    );
-                })}
-            </Grid>
-        </Box>
-    );
-
     const handleAssignEmployee = async (employeeId: number) => {
         try {
             setLoading('Patient wird zugewiesen...');
@@ -249,9 +155,9 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         }
     };
 
-    // Filter active employees with tour numbers
+    // Filter employees with tour numbers (auch inaktive)
     const availableEmployees = employees
-        .filter(emp => emp.is_active && emp.tour_number !== undefined && emp.tour_number !== null)
+        .filter(emp => emp.tour_number !== undefined && emp.tour_number !== null)
         .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
 
     return (
@@ -373,17 +279,19 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             >
                 {availableEmployees.map((employee) => {
                     const isCurrentEmployee = employee.id === currentEmployeeId;
-                    return (
+                    const isInactive = !employee.is_active;
+                    const disabled = isCurrentEmployee || isInactive;
+                    const menuItem = (
                         <MenuItem 
                             key={employee.id}
-                            onClick={() => employee.id && handleAssignEmployee(employee.id)}
-                            disabled={isCurrentEmployee}
+                            onClick={() => employee.id && !disabled && handleAssignEmployee(employee.id)}
+                            disabled={disabled}
                             sx={{
-                                backgroundColor: isCurrentEmployee ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
-                                opacity: isCurrentEmployee ? 0.7 : 1,
+                                backgroundColor: disabled ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
+                                opacity: disabled ? 0.7 : 1,
                                 py: 1,
                                 '&:hover': {
-                                    backgroundColor: isCurrentEmployee ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.04)'
+                                    backgroundColor: disabled ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.04)'
                                 }
                             }}
                         >
@@ -392,7 +300,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                     fontSize="small" 
                                     sx={{ 
                                         color: getColorForTour(employee.tour_number!),
-                                        opacity: isCurrentEmployee ? 0.7 : 1
+                                        opacity: disabled ? 0.7 : 1
                                     }} 
                                 />
                             </ListItemIcon>
@@ -401,7 +309,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                     <Typography 
                                         variant="body2"
                                         sx={{
-                                            opacity: isCurrentEmployee ? 0.7 : 1
+                                            opacity: disabled ? 0.7 : 1
                                         }}
                                     >
                                         {employee.first_name} {employee.last_name}
@@ -413,7 +321,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                             height: 20,
                                             bgcolor: getColorForTour(employee.tour_number!),
                                             color: 'white',
-                                            opacity: isCurrentEmployee ? 0.7 : 1,
+                                            opacity: disabled ? 0.7 : 1,
                                             '& .MuiChip-label': {
                                                 px: 1,
                                                 fontSize: '0.75rem'
@@ -424,6 +332,11 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             </ListItemText>
                         </MenuItem>
                     );
+                    return isInactive ? (
+                        <Tooltip key={employee.id} title="Mitarbeiter ist deaktiviert" arrow placement="left">
+                            <span style={{ display: 'block' }}>{menuItem}</span>
+                        </Tooltip>
+                    ) : menuItem;
                 })}
             </Menu>
             
@@ -505,17 +418,20 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                         )}
                         
                         {/* Info für den ausgewählten Tag anzeigen */}
-                        {getInfoForWeekday(selectedDay) && (
+                        {patientAppointments.find(a => a.weekday === selectedDay)?.info && (
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
                                 <InfoIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
                                 <Typography variant="body2" color="text.secondary">
-                                    {getInfoForWeekday(selectedDay)}
+                                    {patientAppointments.find(a => a.weekday === selectedDay)?.info}
                                 </Typography>
                             </Box>
                         )}
                         
                         {/* Wochentagsübersicht */}
-                        <WeekdayOverview />
+                        <WeekdayOverview
+                            appointments={patientAppointments}
+                            selectedDay={selectedDay}
+                        />
                     </Box>
                 </Box>
             </CardContent>
