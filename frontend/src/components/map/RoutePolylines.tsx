@@ -1,32 +1,77 @@
-import React from 'react';
-import { Polyline } from '@react-google-maps/api';
+import React, { useEffect, useRef } from 'react';
 import { RoutePathData } from '../../types/mapTypes';
+import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
 
 interface RoutePolylinesProps {
   routes: RoutePathData[];
+  map: google.maps.Map | null;
 }
 
 /**
  * Renders route polylines on the map
  * Each route is rendered as a polyline with its specific color
  */
-export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes }) => {
-  // Filter out routes without polylines
-  const validRoutes = routes.filter(route => route.polyline);
+export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) => {
+  const polylineRefs = useRef<{ [id: number]: google.maps.Polyline }>({});
+  const previousDataRef = useRef<{ [id: number]: string }>({});
 
-  return (
-    <>
-      {validRoutes.map(route => (
-        <Polyline
-          key={`route-${route.routeId}`}
-          path={google.maps.geometry.encoding.decodePath(route.polyline)}
-          options={{
-            strokeColor: route.color,
-            strokeOpacity: 1.0,
-            strokeWeight: 5
-          }}
-        />
-      ))}
-    </>
-  );
+  // Hole das Set der versteckten IDs aus dem Store, damit React auf Änderungen reagiert
+  const hiddenIds = usePolylineVisibility(state => state.hiddenIds);
+
+  useEffect(() => {
+    if (!map || !window.google || !window.google.maps.geometry) return;
+
+    for (const { routeId, polyline, color } of routes) {
+      const isEmpty = polyline == null || polyline === '';
+      const oldEncoded = previousDataRef.current[routeId] || '';
+
+      // Entfernen, wenn leer
+      if (isEmpty) {
+        if (polylineRefs.current[routeId]) {
+          polylineRefs.current[routeId].setMap(null);
+          delete polylineRefs.current[routeId];
+        }
+        previousDataRef.current[routeId] = '';
+        continue;
+      }
+
+      // Neu erstellen, wenn noch nicht existiert
+      if (!polylineRefs.current[routeId]) {
+        const path = window.google.maps.geometry.encoding.decodePath(polyline);
+        const polylineObj = new window.google.maps.Polyline({
+          path,
+          map,
+          strokeColor: color,
+          strokeOpacity: 1.0,
+          strokeWeight: 5,
+        });
+        polylineRefs.current[routeId] = polylineObj;
+        previousDataRef.current[routeId] = polyline;
+        continue;
+      }
+
+      // Aktualisieren, wenn sich der Pfad geändert hat
+      if (polyline !== oldEncoded) {
+        const newPath = window.google.maps.geometry.encoding.decodePath(polyline);
+        polylineRefs.current[routeId].setPath(newPath);
+        previousDataRef.current[routeId] = polyline;
+      }
+
+      // Sichtbarkeit setzen (jetzt reaktiv über hiddenIds)
+      const shouldBeVisible = !hiddenIds.has(routeId);
+      polylineRefs.current[routeId].setMap(shouldBeVisible ? map : null);
+    }
+
+    // Clean up: entferne Polylines, die nicht mehr in routes sind
+    Object.keys(polylineRefs.current).forEach((idStr) => {
+      const id = Number(idStr);
+      if (!routes.some(r => r.routeId === id && r.polyline)) {
+        polylineRefs.current[id].setMap(null);
+        delete polylineRefs.current[id];
+        delete previousDataRef.current[id];
+      }
+    });
+  }, [routes, map, hiddenIds]);
+
+  return null;
 }; 

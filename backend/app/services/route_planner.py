@@ -43,7 +43,7 @@ class RoutePlanner:
 
             # If route order is empty, set distance and duration to 0
             if not route.get_route_order():
-                route.polyline = ""
+                route.polyline = None
                 route.total_distance = 0
                 route.total_duration = 0
                 route.updated_at = datetime.utcnow()

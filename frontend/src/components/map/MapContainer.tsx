@@ -117,7 +117,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         onUnmount={() => setMap(null)}
         options={mapOptions}
       >
-        <RoutePolylines routes={routePaths} />
+        <RoutePolylines routes={routePaths} map={map} />
         <MapMarkers
           markers={markers}
           patients={patients}

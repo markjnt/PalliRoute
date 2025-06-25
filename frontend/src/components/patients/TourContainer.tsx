@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { 
     Box, 
     Typography, 
@@ -27,7 +27,9 @@ import {
     Route as RouteIcon,
     SwapHoriz as SwapHorizIcon,
     Straighten as StraightenIcon,
-    AccessTime as AccessTimeIcon
+    AccessTime as AccessTimeIcon,
+    Visibility as VisibilityIcon,
+    VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
@@ -37,6 +39,7 @@ import { useBatchMoveAppointments, useMoveAppointment } from '../../services/que
 import { useReorderAppointment, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import TourSections from './TourSections';
+import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -108,6 +111,22 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const moveAppointment = useMoveAppointment();
     const reorderAppointment = useReorderAppointment();
     const dropRef = useRef<HTMLDivElement>(null);
+    const polylineVisibility = usePolylineVisibility();
+
+    // Find the route for this employee and day
+    const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
+    const routeId = route?.id;
+    const isPolylineVisible = routeId !== undefined ? !polylineVisibility.hiddenIds.has(routeId) : false;
+
+    // 3. Patients for this tour (based on tour assignment)
+    const tourPatients = patients.filter(p => p.tour === employee.tour_number);
+
+    // Sichtbarkeit automatisch zurücksetzen, wenn Route leer wird
+    useEffect(() => {
+      if (routeId !== undefined && tourPatients.length === 0 && polylineVisibility.hiddenIds.has(routeId)) {
+        polylineVisibility.toggleVisibility(routeId);
+      }
+    }, [routeId, tourPatients.length, polylineVisibility]);
 
     const handleDropPatient = async (item: PatientDragItem) => {
         try {
@@ -296,9 +315,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const getPatientAppointments = useCallback((patientId: number) => {
         return employeeAppointments.filter(a => a.patient_id === patientId);
     }, [employeeAppointments]);
-    
-    // 3. Patients for this tour (based on tour assignment)
-    const tourPatients = patients.filter(p => p.tour === employee.tour_number);
     
     // Group patients by their appointment types (HB, TK, NA, or empty string)
     const getFilteredPatients = (visitType: 'HB' | 'NA' | 'TK' | '') => {
@@ -572,7 +588,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                 >
                                     {optimizeState.isOptimizing ? 'Optimiert...' : 'Optimieren'}
                                 </Button>
-                                
                                 <Tooltip title="Alle neu zuweisen" arrow>
                                     <span>
                                         <Button
@@ -580,14 +595,13 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                             size="small"
                                             onClick={handleMenuOpen}
                                             disabled={tourPatients.length === 0}
-                                            sx={{ 
-                                                textTransform: 'none',
+                                            sx={{
+                                                left: '2px', 
                                                 minWidth: '40px',
                                                 width: '40px',
                                                 px: 0,
                                                 height: '31px',
                                                 display: 'flex',
-                                                justifyContent: 'center',
                                                 alignItems: 'center',
                                                 '&:hover': {
                                                     backgroundColor: 'primary.light',
@@ -776,6 +790,35 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                         })
                                     ]}
                                 </Menu>
+
+                                {/* Eye icon button rechts daneben, gleiches Design */}
+                                {routeId !== undefined && (
+                                    <Tooltip title={isPolylineVisible ? 'Route ausblenden' : 'Route einblenden'} arrow>
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                onClick={() => polylineVisibility.toggleVisibility(routeId)}
+                                                disabled={tourPatients.length === 0}
+                                                sx={{
+                                                    minWidth: '40px',
+                                                    width: '40px',
+                                                    height: '31px',
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    ml: 0.5,
+                                                    '&:hover': {
+                                                        backgroundColor: 'primary.light',
+                                                        color: 'primary.contrastText'
+                                                    }
+                                                }}
+                                            >
+                                                {isPolylineVisible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                )}
                             </Box>
                         )}
                     </Box>
