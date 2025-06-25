@@ -279,7 +279,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         fullWidth
                         startIcon={<RouteIcon />}
                         onClick={handleOptimizeAllRoutes}
-                        disabled={isOptimizing || !employees.length}
+                        disabled={isOptimizing || !routes.length}
                     >
                         {isOptimizing ? 'Optimierung läuft...' : 'Alle Routen optimieren'}
                     </Button>
