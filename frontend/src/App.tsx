@@ -5,7 +5,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import UserSelection from './components/users/UserSelection';
 import { MainLayout } from './components/layout/MainLayout';
-import { MapView } from './components/map/MapView';
+import { MapView } from './components/map/MainViewMap';
 
 // Create a theme instance
 const theme = createTheme({

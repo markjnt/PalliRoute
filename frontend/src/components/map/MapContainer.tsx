@@ -32,7 +32,6 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   // Map state
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [markers, setMarkers] = useState<MarkerData[]>([]);
 
   // Data hooks
   const { data: employees = [], isLoading: employeesLoading, refetch: refetchEmployees } = useEmployees();
@@ -40,18 +39,21 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const { data: appointments = [], isLoading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useAppointmentsByWeekday(selectedWeekday as Weekday);
   const { data: routes = [], isLoading: routesLoading, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedWeekday as Weekday });
 
-  // Marker-Erstellung direkt in der Komponente
-  useEffect(() => {
-    if (!isLoaded) return;
+  // Marker-Berechnung mit useMemo
+  const markers = useMemo(() => {
+    if (!isLoaded) return [];
     const newMarkers = [];
-    // Employees
+    // Employees NUR mit tour_number
     for (const employee of employees) {
-      const marker = createEmployeeMarkerData(employee);
-      if (marker) newMarkers.push(marker);
+      if (employee.tour_number !== undefined && employee.tour_number !== null) {
+        const marker = createEmployeeMarkerData(employee);
+        if (marker) newMarkers.push(marker);
+      }
     }
     // Appointments/Patients
     if (patients.length > 0 && appointments.length > 0) {
-      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && a.visit_type && a.visit_type.trim() !== '');
+      // Nur HB-Termine (Hausbesuch)
+      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && a.visit_type === 'HB');
       const appointmentPositions = new Map();
       routes.forEach(route => {
         const routeOrder = parseRouteOrder(route.route_order);
@@ -68,7 +70,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         }
       }
     }
-    setMarkers(newMarkers);
+    return newMarkers;
   }, [isLoaded, employees, patients, appointments, routes, selectedWeekday]);
 
   // Nur die passenden Routen für den Tag
