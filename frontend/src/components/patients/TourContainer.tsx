@@ -113,42 +113,43 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const reorderAppointment = useReorderAppointment();
     const dropRef = useRef<HTMLDivElement>(null);
 
+    const handleDropPatient = async (item: PatientDragItem) => {
+        try {
+            setLoading('Patient wird zugewiesen...');
+            const patientId = item.patientId;
+            const patient = patients.find(p => p.id === patientId);
+            
+            if (!patient) {
+                resetLoading();
+                console.error(`Patient mit ID ${patientId} nicht gefunden`);
+                setNotification('Kein aktueller Mitarbeiter gefunden', 'error');
+                return;
+            }
+
+            if (item.appointmentIds.length > 0) {
+                await moveAppointment.mutateAsync({
+                    appointmentId: item.appointmentIds[0],
+                    sourceEmployeeId: item.sourceTourNumber || 0,
+                    targetEmployeeId: employee.id || 0
+                });
+            }
+            resetLoading();
+            setNotification('Patient erfolgreich zugewiesen', 'success');
+        } catch (error) {
+            resetLoading();
+            console.error('Fehler beim Zuweisen des Patienten', error);
+            setNotification('Fehler beim Zuweisen des Patienten', 'error');
+        }
+    };
+
     const [{ isOver, canDrop }, drop] = useDrop<PatientDragItem, void, DropState>({
         accept: DragItemTypes.PATIENT,
         drop: (item) => {
-            if (item.sourceTourNumber === employee.tour_number) {
-                return;
-            }
-
-            if (!employee.is_active) {
-                setNotification('Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter für diese Tour.', 'error');
-                return;
-            }
-
-            try {
-                const patientId = item.patientId;
-                const patient = patients.find(p => p.id === patientId);
-                
-                if (!patient) {
-                    console.error(`Patient mit ID ${patientId} nicht gefunden`);
-                    return;
-                }
-
-                // Move all appointments for this patient (nur die des aktuellen Patienten)
-                for (const apptId of item.appointmentIds) {
-                    moveAppointment.mutate({
-                        appointmentId: apptId,
-                        sourceEmployeeId: item.sourceTourNumber || 0,
-                        targetEmployeeId: employee.id || 0
-                    });
-                }
-
-
-                setNotification(`Patient erfolgreich zu Tour ${employee.tour_number} verschoben`, 'success');
-            } catch (error) {
-                console.error('Fehler beim Verschieben des Patienten:', error);
-                setNotification('Fehler beim Verschieben des Patienten', 'error');
-            }
+            handleDropPatient(item);
+        },
+        canDrop: (item) => {
+            // Drop auf eigene Tour verhindern
+            return employee.is_active && item.sourceTourNumber !== employee.tour_number;
         },
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
@@ -429,7 +430,10 @@ export const TourContainer: React.FC<TourContainerProps> = ({
 
     return (
         <Paper 
-            ref={dropRef}
+            ref={node => {
+                drop(node);
+                dropRef.current = node;
+            }}
             elevation={2} 
             sx={{ 
                 mb: 3, 
