@@ -34,7 +34,7 @@ import { useAppointmentsByWeekday } from '../../services/queries/useAppointments
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibility';
 
 interface TourPlanSidebarProps {
     width?: number;
@@ -50,7 +50,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const queryClient = useQueryClient();
-    const { hiddenIds, hideAll, showAll } = usePolylineVisibility();
+    const { hiddenPolylines, hideAllPolylines, showAllPolylines } = useRouteVisibility();
 
     // React Query Hooks
     const { 
@@ -179,20 +179,20 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
     // Toggle all polylines visibility
     const allRouteIds = useMemo(() => routes.map(r => r.id), [routes]);
-    const allHidden = allRouteIds.length > 0 && allRouteIds.every(id => hiddenIds.has(id));
-    const noneHidden = allRouteIds.length > 0 && allRouteIds.every(id => !hiddenIds.has(id));
+    const allHidden = allRouteIds.length > 0 && allRouteIds.every(id => hiddenPolylines.has(id));
+    const noneHidden = allRouteIds.length > 0 && allRouteIds.every(id => !hiddenPolylines.has(id));
     const handleToggleAllPolylines = () => {
       if (!allRouteIds.length) return;
       if (!allHidden) {
-        hideAll(allRouteIds);
+        hideAllPolylines(allRouteIds);
       } else {
-        showAll(allRouteIds);
+        showAllPolylines();
       }
     };
 
     useEffect(() => {
-        showAll([]);
-    }, [selectedWeekday, showAll]);
+        showAllPolylines();
+    }, [selectedWeekday, showAllPolylines]);
 
     return (
         <Box

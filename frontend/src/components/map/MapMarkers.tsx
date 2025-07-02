@@ -4,7 +4,7 @@ import { MarkerData } from '../../types/mapTypes';
 import { MarkerInfoWindow } from './MarkerInfoWindow';
 import { Appointment, Employee, Patient } from '../../types/models';
 import { createMarkerIcon, createMarkerLabel } from '../../utils/markerConfig';
-import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibility';
 
 interface MapMarkersProps {
   markers: MarkerData[];
@@ -46,12 +46,12 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
   appointments
 }) => {
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
-  const hiddenIds = usePolylineVisibility(state => state.hiddenIds);
+  const hiddenMarkers = useRouteVisibility(state => state.hiddenMarkers);
 
   // Group markers by rounded lat/lng
   const visibleMarkers = useMemo(() =>
-    markers.filter(marker => !marker.routeId || !hiddenIds.has(marker.routeId)),
-    [markers, hiddenIds]
+    markers.filter(marker => !marker.routeId || !hiddenMarkers.has(marker.routeId)),
+    [markers, hiddenMarkers]
   );
   const markerGroups = useMemo(() => groupMarkersByLatLng(visibleMarkers), [visibleMarkers]);
 

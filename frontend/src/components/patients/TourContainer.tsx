@@ -39,7 +39,7 @@ import { useBatchMoveAppointments, useMoveAppointment } from '../../services/que
 import { useReorderAppointment, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import TourSections from './TourSections';
-import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibility';
 
 // Helper component for section titles
 const SectionTitle = ({ 
@@ -111,12 +111,12 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const moveAppointment = useMoveAppointment();
     const reorderAppointment = useReorderAppointment();
     const dropRef = useRef<HTMLDivElement>(null);
-    const polylineVisibility = usePolylineVisibility();
+    const { hiddenPolylines, hiddenMarkers, togglePolyline, toggleMarker, hidePolyline, showPolyline, hideMarker, showMarker } = useRouteVisibility();
 
     // Find the route for this employee and day
     const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
     const routeId = route?.id;
-    const isPolylineVisible = routeId !== undefined ? !polylineVisibility.hiddenIds.has(routeId) : false;
+    const isVisible = routeId !== undefined ? !hiddenPolylines.has(routeId) : false;
 
     // 3. Patients for this tour (based on tour assignment)
     const tourPatients = patients.filter(p => p.tour === employee.tour_number);
@@ -786,12 +786,20 @@ export const TourContainer: React.FC<TourContainerProps> = ({
 
                                 {/* Eye icon button rechts daneben, gleiches Design */}
                                 {routeId !== undefined && (
-                                    <Tooltip title={isPolylineVisible ? 'Route ausblenden' : 'Route einblenden'} arrow>
+                                    <Tooltip title={isVisible ? 'Route ausblenden' : 'Route einblenden'} arrow>
                                         <span>
                                             <Button
                                                 variant="outlined"
                                                 size="small"
-                                                onClick={() => polylineVisibility.toggleVisibility(routeId)}
+                                                onClick={() => {
+                                                    if (isVisible) {
+                                                        hidePolyline(routeId);
+                                                        hideMarker(routeId);
+                                                    } else {
+                                                        showPolyline(routeId);
+                                                        showMarker(routeId);
+                                                    }
+                                                }}
                                                 sx={{
                                                     minWidth: '40px',
                                                     width: '40px',
@@ -806,7 +814,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                     }
                                                 }}
                                             >
-                                                {isPolylineVisible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                                                {isVisible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
                                             </Button>
                                         </span>
                                     </Tooltip>

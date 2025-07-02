@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { RoutePathData } from '../../types/mapTypes';
-import { usePolylineVisibility } from '../../stores/usePolylineVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibility';
 
 interface RoutePolylinesProps {
   routes: RoutePathData[];
@@ -16,7 +16,7 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
   const previousDataRef = useRef<{ [id: number]: string }>({});
 
   // Hole das Set der versteckten IDs aus dem Store, damit React auf Änderungen reagiert
-  const hiddenIds = usePolylineVisibility(state => state.hiddenIds);
+  const hiddenPolylines = useRouteVisibility(state => state.hiddenPolylines);
 
   useEffect(() => {
     if (!map || !window.google || !window.google.maps.geometry) return;
@@ -57,8 +57,8 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
         previousDataRef.current[routeId] = polyline;
       }
 
-      // Sichtbarkeit setzen (jetzt reaktiv über hiddenIds)
-      const shouldBeVisible = !hiddenIds.has(routeId);
+      // Sichtbarkeit setzen (jetzt reaktiv über hiddenPolylines)
+      const shouldBeVisible = !hiddenPolylines.has(routeId);
       polylineRefs.current[routeId].setMap(shouldBeVisible ? map : null);
     }
 
@@ -71,7 +71,7 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
         delete previousDataRef.current[id];
       }
     });
-  }, [routes, map, hiddenIds]);
+  }, [routes, map, hiddenPolylines]);
 
   return null;
 }; 
