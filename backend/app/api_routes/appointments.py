@@ -3,11 +3,13 @@ from app import db
 from app.models.appointment import Appointment
 from app.models.patient import Patient
 from app.models.route import Route
-from app.services.route_planner import RoutePlanner
 from datetime import datetime
 from app.models.employee import Employee
+from app.services.route_optimizer import RouteOptimizer
+from app.services.route_planner import RoutePlanner
 
 appointments_bp = Blueprint('appointments', __name__)
+route_optimizer = RouteOptimizer()
 route_planner = RoutePlanner()
 
 @appointments_bp.route('/', methods=['GET'])
@@ -101,7 +103,7 @@ def move_appointment():
                         route_order.remove(weekday_appointment.id)
                         source_route.set_route_order(route_order)
                     
-                    # Always recalculate source route
+                    # Plan source route
                     route_planner.plan_route(weekday, source_employee_id)
                 
                 if target_route and weekday_appointment.visit_type == 'HB':
@@ -110,8 +112,8 @@ def move_appointment():
                     route_order.append(weekday_appointment.id)
                     target_route.set_route_order(route_order)
                     
-                    # Recalculate target route
-                    route_planner.plan_route(weekday, target_employee_id)
+                    # Optimize target route
+                    route_optimizer.optimize_route(weekday, target_employee_id)
         
         db.session.commit()
         return jsonify({'message': 'Appointments moved successfully'})
@@ -159,7 +161,7 @@ def batch_move_appointments():
             if source_route:
                 # Clear source route order
                 source_route.set_route_order([])
-                # Recalculate empty source route
+                # Plan source route
                 route_planner.plan_route(weekday, source_employee_id)
             
             if target_route:
@@ -172,8 +174,8 @@ def batch_move_appointments():
                 route_order.extend(appointment_ids)
                 target_route.set_route_order(route_order)
                 
-                # Recalculate target route
-                route_planner.plan_route(weekday, target_employee_id)
+                # Optimize target route
+                route_optimizer.optimize_route(weekday, target_employee_id)
         
         # Update all appointments to new employee
         for appointment in appointments:

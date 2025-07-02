@@ -45,20 +45,3 @@ export const usePatientImport = () => {
     },
   });
 };
-
-// Hook zum Löschen aller Daten
-export const useClearAllData = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: () => patientsApi.clearAll(),
-    onSuccess: () => {
-      // Invalidate all queries to force refetch
-      queryClient.invalidateQueries()
-    },
-    onError: (error: any) => {
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to clear all data';
-      throw new Error(errorMessage);
-    }
-  });
-}; 

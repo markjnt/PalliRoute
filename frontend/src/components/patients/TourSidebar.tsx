@@ -29,7 +29,7 @@ import { ToursView } from './ToursView';
 import { PatientExcelImport } from './PatientImport';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
-import { usePatients, usePatientImport, useClearAllData } from '../../services/queries/usePatients';
+import { usePatients, usePatientImport } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
@@ -46,7 +46,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
-    const [clearDialogOpen, setClearDialogOpen] = useState(false);
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const queryClient = useQueryClient();
@@ -78,7 +77,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
-    const clearAllDataMutation = useClearAllData();
 
     // Handle weekday change
     const handleDayChange = useCallback((event: SelectChangeEvent) => {
@@ -151,26 +149,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             await Promise.all(optimizationPromises);
             await queryClient.invalidateQueries();
 
-            setNotification('Alle Routen wurden erfolgreich optimiert', 'success');
+            setNotification('Alle Routen für den Tag wurden erfolgreich optimiert', 'success');
         } catch (error) {
             setNotification('Fehler beim Optimieren der Routen', 'error');
         } finally {
             setIsOptimizing(false);
-        }
-    };
-
-    const handleClearAllData = async () => {
-        try {
-            const result = await clearAllDataMutation.mutateAsync();
-            setCalendarWeek(null);
-            setClearDialogOpen(false);
-            
-            setNotification(
-                `Alle Daten wurden gelöscht: ${result.deleted_count.patients} Patienten, ${result.deleted_count.appointments} Termine, ${result.deleted_count.routes} Routen`,
-                'success'
-            );
-        } catch (error) {
-            setNotification('Fehler beim Löschen der Daten', 'error');
         }
     };
 
@@ -261,17 +244,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     >
                         Excel Import
                     </Button>
-                    {hasData && (
-                        <Button
-                            variant="outlined"
-                            color="error"
-                            fullWidth
-                            startIcon={<DeleteForeverIcon />}
-                            onClick={() => setClearDialogOpen(true)}
-                        >
-                            Zurücksetzen
-                        </Button>
-                    )}
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
@@ -306,40 +278,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 onClose={handleImportDialogClose}
                 onSuccess={handleImportSuccess}
             />
-
-            <Dialog
-                open={clearDialogOpen}
-                onClose={() => setClearDialogOpen(false)}
-                aria-labelledby="clear-dialog-title"
-                aria-describedby="clear-dialog-description"
-            >
-                <DialogTitle id="clear-dialog-title">
-                    Daten zurücksetzen
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="clear-dialog-description">
-                        Wirklich alle Daten zurücksetzen?
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button 
-                        onClick={() => setClearDialogOpen(false)}
-                        color="primary"
-                    >
-                        Abbrechen
-                    </Button>
-                    <Button 
-                        onClick={handleClearAllData}
-                        color="error"
-                        variant="contained"
-                        disabled={clearAllDataMutation.isPending}
-                    >
-                        {clearAllDataMutation.isPending ? 'Zurücksetzen...' : 'Zurücksetzen'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-
         </Box>
     );
 }; 

@@ -40,23 +40,5 @@ export const patientsApi = {
             console.error('Failed to import patients from Excel:', error);
             throw error;
         }
-    },
-
-    // Clear all data from the database
-    async clearAll(): Promise<{
-        message: string;
-        deleted_count: {
-            patients: number;
-            appointments: number;
-            routes: number;
-        };
-    }> {
-        try {
-            const response = await axios.delete('/patients/clear-all');
-            return response.data;
-        } catch (error) {
-            console.error('Failed to clear all data:', error);
-            throw error;
-        }
     }
 }; 
