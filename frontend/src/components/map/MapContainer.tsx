@@ -43,11 +43,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const markers = useMemo(() => {
     if (!isLoaded) return [];
     const newMarkers = [];
-    // Employees NUR mit tour_number
-    for (const route of routes) {
-      const employee = employees.find(e => e.id === route.employee_id);
-      if (employee && employee.tour_number !== undefined && employee.tour_number !== null) {
-        const marker = createEmployeeMarkerData(employee, route.id);
+    // Alle Mitarbeiter mit Koordinaten als Marker anzeigen
+    for (const employee of employees) {
+      if (employee.latitude && employee.longitude) {
+        // Finde ggf. die Route für diesen Mitarbeiter am ausgewählten Tag
+        const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedWeekday);
+        const marker = createEmployeeMarkerData(employee, route?.id);
         if (marker) newMarkers.push(marker);
       }
     }
