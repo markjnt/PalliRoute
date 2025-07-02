@@ -236,8 +236,8 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                     </Tooltip>
                 )}
                 
-                {/* Separator line when both arrows are visible */}
-                {!isFirst && !isLast && (
+                {/* Separator line when at least one arrow is visible */}
+                {(onMoveUp || onMoveDown) && (
                     <Divider orientation="vertical" flexItem sx={{ height: 16, my: 'auto' }} />
                 )}
                 
