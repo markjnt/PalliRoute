@@ -8,7 +8,7 @@ import time as time_module
 import googlemaps
 from ..models.employee import Employee
 from ..models.patient import Patient
-from ..models.appointment import Appointment
+from ..models.appointment import Appointment, VISIT_TYPE_DURATIONS
 from ..models.route import Route
 from .. import db
 import json
@@ -338,17 +338,14 @@ class ExcelImportService:
                             # Besuchstyp bestimmen
                             if "HB" in visit_info:
                                 visit_type = "HB"
-                                duration = 25  # Minuten
                             elif "NA" in visit_info:
                                 visit_type = "NA"
-                                duration = 120  # Minuten
                             elif "TK" in visit_info:
                                 visit_type = "TK"
-                                duration = 0  # Minuten (nur Telefonat)
                             else:
                                 # Standard: HB wenn nicht anders angegeben, aber ein Wert existiert
                                 visit_type = "HB"
-                                duration = 25  # Minuten
+                            duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)  # Zentrale Dauerzuweisung
                         
                         # Hole die Zeit/Info für diesen Tag
                         time_info_column = f"Uhrzeit/Info {weekday}"

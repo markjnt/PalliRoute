@@ -3,7 +3,7 @@ from datetime import datetime
 import enum
 
 class VisitType(enum.Enum):
-    HB = "HB"  # Hausbesuch (25 min)
+    HB = "HB"  # Hausbesuch (30 min)
     NA = "NA"  # Nachtbesuch (120 min)
     TK = "TK"  # Telefonkontakt (no visit)
 
@@ -29,15 +29,6 @@ class Appointment(db.Model):
     info = db.Column(db.String(200))  # Additional info from Excel
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def get_duration_from_visit_type(self):
-        if self.visit_type == VisitType.HB.value:
-            return 25
-        elif self.visit_type == VisitType.NA.value:
-            return 120
-        elif self.visit_type == VisitType.TK.value:
-            return 0
-        return self.duration
 
     def to_dict(self):
         return {
@@ -52,3 +43,10 @@ class Appointment(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+
+# Zentrale Mapping-Konstante für Besuchsdauern (in Minuten)
+VISIT_TYPE_DURATIONS = {
+    VisitType.HB.value: 30,
+    VisitType.NA.value: 120,
+    VisitType.TK.value: 0,
+}

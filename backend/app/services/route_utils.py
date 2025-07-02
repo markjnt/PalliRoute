@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, date
 from typing import Dict, List, Tuple
 import googlemaps
 import os
+from app.models.appointment import VISIT_TYPE_DURATIONS
 
 def get_departure_time(weekday: str, calendar_week: int) -> datetime:
     """
@@ -57,13 +58,8 @@ def calculate_visit_duration(appointments: List) -> int:
     Calculate total visit duration based on appointment types
     Returns: duration in minutes
     """
-    visit_durations = {
-        'HB': 25,  # 25 minutes for Hausbesuch
-        'NA': 120  # 120 minutes for Nachtbesuch
-    }
-    
     return sum(
-        visit_durations.get(appointment.visit_type, 0)
+        VISIT_TYPE_DURATIONS.get(appointment.visit_type, 0)
         for appointment in appointments
     )
 
