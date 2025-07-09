@@ -69,7 +69,13 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
             setTimeout(onClose, 1500);
         } catch (error: any) {
             console.error('Error importing employees:', error);
-            setNotification(error.message || 'Fehler beim Importieren der Mitarbeiter', 'error');
+            let message = 'Fehler beim Importieren der Mitarbeiter';
+            if (error?.response?.data?.error) {
+                message = error.response.data.error;
+            } else if (error?.message) {
+                message = error.message;
+            }
+            setNotification(message, 'error');
         }
     };
 
@@ -114,6 +120,8 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                         • Funktion (Pflegekraft, Arzt, Physiotherapie, Honorararzt, PDL)
                         <br />
                         • Stellenumfang (0-100)
+                        <br />
+                        • Gebiet (Nordkreis, Südkreis)
                     </Typography>
 
                     {importEmployeesMutation.isPending ? (
@@ -151,20 +159,6 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
                                 </Box>
                             )}
                         </Box>
-                    )}
-
-                    {fileError && (
-                        <Alert severity="error" sx={{ mt: 2 }}>
-                            <AlertTitle>Fehler</AlertTitle>
-                            {fileError}
-                        </Alert>
-                    )}
-                    
-                    {importEmployeesMutation.error instanceof Error && (
-                        <Alert severity="error" sx={{ mt: 2 }}>
-                            <AlertTitle>Fehler</AlertTitle>
-                            {importEmployeesMutation.error.message}
-                        </Alert>
                     )}
                 </Box>
             </DialogContent>

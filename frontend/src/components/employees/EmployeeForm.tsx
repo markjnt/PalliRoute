@@ -28,6 +28,11 @@ interface EmployeeFormProps {
     employee: Employee | null;
 }
 
+const areaOptions = [
+    { value: 'Nordkreis', label: 'Nordkreis' },
+    { value: 'Südkreis', label: 'Südkreis' },
+];
+
 const validationSchema = Yup.object({
     first_name: Yup.string().required('Vorname ist erforderlich'),
     last_name: Yup.string().required('Nachname ist erforderlich'),
@@ -39,6 +44,7 @@ const validationSchema = Yup.object({
         .required('Stellenumfang ist erforderlich')
         .min(0, 'Stellenumfang muss mindestens 0% sein')
         .max(100, 'Stellenumfang kann maximal 100% sein'),
+    area: Yup.string().oneOf(areaOptions.map(opt => opt.value)).required('Gebiet ist erforderlich'),
 });
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({
@@ -61,6 +67,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             work_hours: employee?.work_hours || 100,
             tour_number: employee?.tour_number || undefined,
             is_active: employee?.is_active ?? true,
+            area: employee?.area || 'Nordkreis',
         },
         validationSchema,
         onSubmit: async (values) => {
@@ -184,6 +191,23 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                     inputProps: { min: 0, max: 100 }
                                 }}
                             />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <FormControl fullWidth error={formik.touched.area && Boolean(formik.errors.area)}>
+                                <InputLabel id="area-label">Gebiet</InputLabel>
+                                <Select
+                                    labelId="area-label"
+                                    id="area"
+                                    name="area"
+                                    value={formik.values.area}
+                                    onChange={formik.handleChange}
+                                    label="Gebiet"
+                                >
+                                    {areaOptions.map(option => (
+                                        <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField

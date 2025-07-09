@@ -27,6 +27,7 @@ class Appointment(db.Model):
     visit_type = db.Column(db.String(10), nullable=False)
     duration = db.Column(db.Integer, nullable=False)  # in minutes
     info = db.Column(db.String(200))  # Additional info from Excel
+    area = db.Column(db.String(50), nullable=False)  # Nordkreis, Südkreis, etc.
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -40,6 +41,7 @@ class Appointment(db.Model):
             'visit_type': self.visit_type,
             'duration': self.duration,
             'info': self.info,
+            'area': self.area,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

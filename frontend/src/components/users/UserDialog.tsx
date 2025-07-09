@@ -64,12 +64,12 @@ const UserDialog: React.FC<UserDialogProps> = ({
                                 onChange={(e) => setFormData?.({ ...formData!, name: e.target.value })}
                             />
                             <FormControl fullWidth margin="normal">
-                                <InputLabel id="area-label">Bereich</InputLabel>
+                                <InputLabel id="area-label">Gebiet</InputLabel>
                                 <Select
                                     labelId="area-label"
                                     id="area"
                                     value={formData?.area}
-                                    label="Bereich"
+                                    label="Gebiet"
                                     onChange={(e) => setFormData?.({ ...formData!, area: e.target.value as Area })}
                                 >
                                     <MenuItem value="Nordkreis">Nordkreis</MenuItem>

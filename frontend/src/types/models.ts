@@ -26,6 +26,7 @@ export interface Employee {
     work_hours: number;
     tour_number?: number;
     is_active: boolean;
+    area: Area;
     created_at?: string;
     updated_at?: string;
 }
@@ -52,6 +53,7 @@ export interface Appointment {
     visit_type: VisitType;
     duration: number;
     info?: string;
+    area: Area;
     created_at?: string;
     updated_at?: string;
 }
@@ -92,6 +94,7 @@ export interface Route {
     total_duration: number;
     total_distance: number;
     polyline: string;
+    area: Area;
     created_at: string;
     updated_at: string;
 } 

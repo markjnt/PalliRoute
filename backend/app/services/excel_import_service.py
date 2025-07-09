@@ -101,13 +101,14 @@ class ExcelImportService:
             ExcelImportService.delete_all_data()
             
             df = pd.read_excel(file)
-            required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang']
+            required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang', 'Gebiet']
             
             # Validate columns
             if not all(col in df.columns for col in required_columns):
                 missing = [col for col in required_columns if col not in df.columns]
-                raise ValueError(f"Missing required columns: {', '.join(missing)}")
+                raise ValueError(f"Fehlende Spalten: {', '.join(missing)}")
 
+            valid_areas = ['Nordkreis', 'Südkreis']
             added_employees = []
             for _, row in df.iterrows():
                 try:
@@ -118,6 +119,11 @@ class ExcelImportService:
                     # Validate work_hours range
                     if work_hours < 0 or work_hours > 100:
                         raise ValueError(f"Stellenumfang muss zwischen 0 und 100 sein, ist aber {work_hours}")
+
+                    # Validate area
+                    area = str(row['Gebiet']).strip()
+                    if area not in valid_areas:
+                        raise ValueError(f"Ungültiges Gebiet '{area}'. Muss einer der folgenden Werte sein: {', '.join(valid_areas)}")
 
                     # Get tour number if exists
                     tour_number = None
@@ -159,6 +165,7 @@ class ExcelImportService:
                         function=function,
                         work_hours=work_hours,
                         tour_number=tour_number,
+                        area=area,
                         is_active=True
                     )
                     
@@ -178,7 +185,7 @@ class ExcelImportService:
 
         except Exception as e:
             db.session.rollback()
-            raise Exception(f"Error importing employees: {str(e)}")
+            raise Exception(f"Fehler beim Importieren der Mitarbeiter: {str(e)}")
 
     @staticmethod
     def import_patients(file) -> Dict[str, List[Any]]:
@@ -386,7 +393,8 @@ class ExcelImportService:
                             time=appointment_time,
                             visit_type=visit_type_value,
                             duration=duration,
-                            info=time_info
+                            info=time_info,
+                            area=employee.area
                         )
                         patient_appointments.append(appointment)
                         appointments.append(appointment)
@@ -404,6 +412,9 @@ class ExcelImportService:
             print("\nStep 6: Creating routes for each employee by weekday...")
             routes = []
             
+            # Mapping von employee_id auf area für schnellen Zugriff
+            employee_id_to_area = {emp.id: emp.area for emp in employees_with_tours}
+            
             # Gruppiere Termine nach Mitarbeiter und Wochentag
             employee_weekday_appointments = {}
             for app in appointments:
@@ -420,13 +431,14 @@ class ExcelImportService:
                 
                 # Neue Route erstellen mit allen HB-Terminen für diesen Mitarbeiter an diesem Wochentag
                 appointment_ids = [app.id for app in apps]
-                
+                route_area = employee_id_to_area.get(employee_id, '')
                 new_route = Route(
                     employee_id=employee_id,
                     weekday=weekday,
                     route_order=json.dumps(appointment_ids),
                     total_duration=0,  # Wird später aktualisiert
-                    total_distance=0  # Wird später aktualisiert
+                    total_distance=0,  # Wird später aktualisiert
+                    area=route_area
                 )
                 db.session.add(new_route)
                 routes.append(new_route)
@@ -467,7 +479,8 @@ class ExcelImportService:
                             weekday=weekday,
                             route_order=json.dumps([]),  # Leere Route
                             total_duration=0,
-                            total_distance=0
+                            total_distance=0,
+                            area=employee_id_to_area.get(employee.id, '')
                         )
                         db.session.add(new_route)
                         empty_routes.append(new_route)

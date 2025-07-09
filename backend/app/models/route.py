@@ -12,6 +12,7 @@ class Route(db.Model):
     total_duration = db.Column(db.Integer, nullable=False)  # in minutes
     total_distance = db.Column(db.Float, nullable=True)  # in kilometers
     polyline = db.Column(db.Text, nullable=True)  # Encoded polyline of the route
+    area = db.Column(db.String(50), nullable=False)  # Nordkreis, Südkreis, etc.
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -32,6 +33,7 @@ class Route(db.Model):
             'total_duration': self.total_duration,
             'total_distance': self.total_distance,
             'polyline': self.polyline,
+            'area': self.area,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

@@ -200,6 +200,14 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             filterable: true,
         },
         {
+            field: 'area',
+            headerName: 'Gebiet',
+            width: 120,
+            filterable: true,
+            type: 'singleSelect',
+            valueOptions: ['Nordkreis', 'Südkreis'],
+        },
+        {
             field: 'tour_number',
             headerName: 'Tournummer',
             width: 110,
