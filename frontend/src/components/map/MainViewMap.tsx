@@ -3,6 +3,7 @@ import { Box, CircularProgress, Alert } from '@mui/material';
 import { useWeekdayStore } from '../../stores';
 import { MapContainer } from './MapContainer';
 import { useGoogleMapsApiKey } from '../../services/queries/useGoogleMapsApiKey';
+import { useUserStore } from '../../stores/useUserStore';
 
 /**
  * Main Map View component that manages API key fetching and shows the map
@@ -10,6 +11,8 @@ import { useGoogleMapsApiKey } from '../../services/queries/useGoogleMapsApiKey'
 export const MapView: React.FC = () => {
   const { data: apiKey, isLoading, error } = useGoogleMapsApiKey();
   const { selectedWeekday } = useWeekdayStore();
+  const { currentUser } = useUserStore();
+  const userArea = currentUser?.area;
 
   if (error) {
     return (
@@ -32,5 +35,5 @@ export const MapView: React.FC = () => {
     );
   }
 
-  return <MapContainer apiKey={apiKey!} selectedWeekday={selectedWeekday} />;
+  return <MapContainer apiKey={apiKey!} selectedWeekday={selectedWeekday} userArea={userArea} />;
 }; 

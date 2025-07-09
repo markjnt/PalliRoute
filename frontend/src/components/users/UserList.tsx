@@ -82,7 +82,7 @@ const UserList: React.FC<UserListProps> = ({
                     </ListItemAvatar>
                     <ListItemText
                         primary={user.name}
-                        secondary={`Bereich: ${user.area}`}
+                        secondary={`Gebiet: ${user.area}`}
                     />
                     <ListItemSecondaryAction>
                         <Stack direction="row" spacing={1}>

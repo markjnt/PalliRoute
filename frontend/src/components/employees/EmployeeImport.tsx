@@ -58,7 +58,7 @@ export const EmployeeImport: React.FC<EmployeeImportProps> = ({
         try {
             const result = await importEmployeesMutation.mutateAsync(selectedFile);
             const totalEmployees = result.added_employees.length;
-            setNotification(`${totalEmployees} Mitarbeiter wurden erfolgreich importiert.`, 'success');
+            setNotification(`${totalEmployees} Mitarbeiter wurden erfolgreich importiert`, 'success');
             
             // Reset form state
             setSelectedFile(null);

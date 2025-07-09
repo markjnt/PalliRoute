@@ -1,11 +1,12 @@
 import React from 'react';
 import { InfoWindow } from '@react-google-maps/api';
-import { Box, Typography, Chip } from '@mui/material';
+import { Box, Typography, Chip, Divider, LinearProgress } from '@mui/material';
 import { CheckCircle as ActiveIcon, Cancel as InactiveIcon } from '@mui/icons-material';
 import { MarkerData } from '../../types/mapTypes';
 import { Appointment, Employee, Patient } from '../../types/models';
 import { getColorForVisitType, getColorForEmployeeType } from '../../utils/mapUtils';
 import { getColorForTour } from '../../utils/colors';
+import NavigationIcon from '@mui/icons-material/Navigation';
 
 interface MarkerInfoWindowProps {
   markerList: MarkerData[];
@@ -14,6 +15,7 @@ interface MarkerInfoWindowProps {
   patients: Patient[];
   employees: Employee[];
   appointments: Appointment[];
+  userArea?: string;
 }
 
 /**
@@ -25,7 +27,8 @@ export const MarkerInfoWindow: React.FC<MarkerInfoWindowProps> = ({
   onClose,
   patients,
   employees,
-  appointments
+  appointments,
+  userArea
 }) => {
   return (
     <InfoWindow
@@ -109,24 +112,34 @@ const PatientInfoContent: React.FC<{
         </Box>
       )}
       
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
-        Adresse:
-      </Typography>
-      <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
-        {patient.street}<br/>
-        {patient.zip_code} {patient.city}
-      </Typography>
-      
+      {/* Address with area display and vertical divider */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        {patient.area && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+            <NavigationIcon 
+              fontSize="small" 
+              sx={{ 
+                mr: 0.5, 
+                color: 'text.secondary',
+                transform: patient.area.includes('Nordkreis') ? 'rotate(0deg)' : 'rotate(180deg)'
+              }} 
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+              {patient.area.includes('Nordkreis') ? 'N' : 'S'}
+            </Typography>
+            <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24 }} />
+          </Box>
+        )}
+        <Typography variant="body2" color="text.secondary">
+          {patient.street}<br/>
+          {patient.zip_code} {patient.city}
+        </Typography>
+      </Box>
+      {/* Tour-Anzeige (Chip) für Patienten */}
       {patient.tour !== undefined && patient.tour !== null && (
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 1
-        }}>
-          <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 1 }}>
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <Chip 
-            label={`Tour ${patient.tour}`} 
+            label={`Tour ${patient.tour} ${marker.routeArea ? (marker.routeArea.includes('Nordkreis') ? '(N)' : '(S)') : (patient.area ? (patient.area.includes('Nordkreis') ? '(N)' : '(S)') : '')}`}
             size="small"
             sx={{ 
               height: 24,
@@ -200,24 +213,34 @@ const EmployeeInfoContent: React.FC<{
         </Box>
       )}
       
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
-        Adresse:
-      </Typography>
-      <Typography variant="body2" sx={{ mb: 1.5, color: 'text.secondary' }}>
-        {employee.street}<br/>
-        {employee.zip_code} {employee.city}
-      </Typography>
-      
+      {/* Address with area display and vertical divider */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+        {employee.area && (
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+            <NavigationIcon 
+              fontSize="small" 
+              sx={{ 
+                mr: 0.5, 
+                color: 'text.secondary',
+                transform: employee.area.includes('Nordkreis') ? 'rotate(0deg)' : 'rotate(180deg)'
+              }} 
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+              {employee.area.includes('Nordkreis') ? 'N' : 'S'}
+            </Typography>
+            <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 24 }} />
+          </Box>
+        )}
+        <Typography variant="body2" color="text.secondary">
+          {employee.street}<br/>
+          {employee.zip_code} {employee.city}
+        </Typography>
+      </Box>
+      {/* Tour-Anzeige (Chip) für Mitarbeiter */}
       {employee.tour_number && (
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 1
-        }}>
-          <Typography variant="body2" sx={{ fontWeight: 'medium', mr: 1 }}>
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
           <Chip 
-            label={`Tour ${employee.tour_number}`} 
+            label={`Tour ${employee.tour_number} ${employee.area ? (employee.area.includes('Nordkreis') ? '(N)' : '(S)') : ''}`}
             size="small"
             sx={{ 
               height: 24,
@@ -228,9 +251,31 @@ const EmployeeInfoContent: React.FC<{
         </Box>
       )}
       
-      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
-        Stellenumfang: {employee.work_hours}%
-      </Typography>
+      {/* Stellenumfang: Prozent-Balken */}
+      <Box sx={{ mb: 1, width: '100%' }}>
+        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
+          Stellenumfang:
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ flexGrow: 1 }}>
+            <LinearProgress
+              variant="determinate"
+              value={employee.work_hours}
+              sx={{
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: '#eee',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: 'primary.main',
+                },
+              }}
+            />
+          </Box>
+          <Typography variant="body2" sx={{ minWidth: 36, textAlign: 'right', fontWeight: 'bold' }}>
+            {employee.work_hours}%
+          </Typography>
+        </Box>
+      </Box>
     </>
   );
 }; 

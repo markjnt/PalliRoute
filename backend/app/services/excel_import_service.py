@@ -27,13 +27,11 @@ class ExcelImportService:
         # Format the address
         address = f"{street}, {zip_code} {city}, Germany"
         cache_key = address.lower().strip()
-        made_api_call = False
         
         try:
             # Check if address is already in cache
             if cache_key in ExcelImportService._geocode_cache:
                 cached_result = ExcelImportService._geocode_cache[cache_key]
-                print(f"  Using cached geocode for address: {address} -> ({cached_result[0]}, {cached_result[1]})")
                 return cached_result
             
             # Get API key from environment variable
@@ -46,7 +44,6 @@ class ExcelImportService:
             gmaps = googlemaps.Client(key=api_key)
             
             # Call the Google Maps Geocoding API
-            made_api_call = True
             geocode_result = gmaps.geocode(address)
             
             # Check if the request was successful and has results
@@ -54,7 +51,6 @@ class ExcelImportService:
                 location = geocode_result[0]['geometry']['location']
                 latitude = location['lat']
                 longitude = location['lng']
-                print(f"  Geocoded address: {address} -> ({latitude}, {longitude})")
                 
                 # Store result in cache
                 ExcelImportService._geocode_cache[cache_key] = (latitude, longitude)
@@ -67,11 +63,30 @@ class ExcelImportService:
         except Exception as e:
             print(f"  Error geocoding address: {e}")
             return None, None
-        finally:
-            # Add a small delay to avoid hitting API rate limits
-            # Only add delay for actual API calls (not cached results)
-            if made_api_call:
-                time_module.sleep(0.2)
+
+    @staticmethod
+    def batch_geocode_addresses(address_tuples, max_workers=10):
+        """
+        Geocode multiple addresses in parallel using ThreadPoolExecutor.
+        address_tuples: List of (street, zip_code, city)
+        Returns: Dict with (street, zip_code, city) as key and (lat, lng) as value
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_address = {
+                executor.submit(ExcelImportService.geocode_address, street, zip_code, city): (street, zip_code, city)
+                for (street, zip_code, city) in address_tuples
+            }
+            for future in as_completed(future_to_address):
+                address = future_to_address[future]
+                try:
+                    latlng = future.result()
+                    results[address] = latlng
+                except Exception as exc:
+                    print(f"  Error in geocoding for {address}: {exc}")
+                    results[address] = (None, None)
+        return results
 
     @staticmethod
     def delete_all_data():
@@ -109,51 +124,58 @@ class ExcelImportService:
                 raise ValueError(f"Fehlende Spalten: {', '.join(missing)}")
 
             valid_areas = ['Nordkreis', 'Südkreis']
+            valid_functions = ['PDL', 'Pflegekraft', 'Arzt', 'Honorararzt', 'Physiotherapie']
             added_employees = []
+
+            # 1. Adressen extrahieren und deduplizieren
+            address_tuples = []
             for _, row in df.iterrows():
+                street = str(row['Strasse']).strip()
+                zip_code = str(row['PLZ']).strip()
+                city = str(row['Ort']).strip()
+                address_tuples.append((street, zip_code, city))
+            unique_address_tuples = list(set(address_tuples))
+
+            # 2. Batch-Geocoding
+            geocode_results = ExcelImportService.batch_geocode_addresses(unique_address_tuples, max_workers=10)
+
+            # 3. Existierende Tournummern einmalig abfragen
+            existing_tour_numbers = set(emp.tour_number for emp in Employee.query.filter(Employee.tour_number.isnot(None)).all())
+
+            # 4. Employees anlegen
+            for idx, row in df.iterrows():
                 try:
-                    # Convert Stellenumfang to float and handle percentage format
                     stellenumfang = str(row['Stellenumfang']).replace('%', '')
                     work_hours = float(stellenumfang)
-                    
-                    # Validate work_hours range
                     if work_hours < 0 or work_hours > 100:
                         raise ValueError(f"Stellenumfang muss zwischen 0 und 100 sein, ist aber {work_hours}")
 
-                    # Validate area
                     area = str(row['Gebiet']).strip()
                     if area not in valid_areas:
                         raise ValueError(f"Ungültiges Gebiet '{area}'. Muss einer der folgenden Werte sein: {', '.join(valid_areas)}")
 
-                    # Get tour number if exists
                     tour_number = None
                     if 'Tournummer' in df.columns and pd.notna(row['Tournummer']):
-                        # Check if the value is a non-empty string or number
                         if str(row['Tournummer']).strip() != '':
                             try:
                                 tour_number = int(row['Tournummer'])
-                                # Check if tour_number already exists
-                                existing_tour = Employee.query.filter_by(tour_number=tour_number).first()
-                                if existing_tour:
+                                if tour_number in existing_tour_numbers:
                                     raise ValueError(f"Ein Mitarbeiter mit der Tournummer {tour_number} existiert bereits")
+                                existing_tour_numbers.add(tour_number)
                             except ValueError as ve:
                                 if "existiert bereits" in str(ve):
                                     raise ve
                                 raise ValueError(f"Tournummer muss eine Ganzzahl sein, ist aber {row['Tournummer']}")
-                    
-                    # Geocode the address to get latitude and longitude
+
                     street = str(row['Strasse']).strip()
                     zip_code = str(row['PLZ']).strip()
                     city = str(row['Ort']).strip()
-                    latitude, longitude = ExcelImportService.geocode_address(street, zip_code, city)
+                    latitude, longitude = geocode_results.get((street, zip_code, city), (None, None))
 
-                    # Validate function
                     function = str(row['Funktion']).strip()
-                    valid_functions = ['PDL', 'Pflegekraft', 'Arzt', 'Honorararzt', 'Physiotherapie']
                     if function not in valid_functions:
                         raise ValueError(f"Ungültige Funktion '{function}'. Muss einer der folgenden Werte sein: {', '.join(valid_functions)}")
-                    
-                    # Create new employee
+
                     employee = Employee(
                         first_name=str(row['Vorname']).strip(),
                         last_name=str(row['Nachname']).strip(),
@@ -168,16 +190,12 @@ class ExcelImportService:
                         area=area,
                         is_active=True
                     )
-                    
                     added_employees.append(employee)
                     db.session.add(employee)
-                    
                 except Exception as row_error:
-                    raise ValueError(f"Fehler in Zeile {_ + 2}: {str(row_error)}")
+                    raise ValueError(f"Fehler in Zeile {idx + 2}: {str(row_error)}")
 
-            # Commit all changes to the database
             db.session.commit()
-
             return {
                 'added': added_employees,
                 'updated': []
@@ -204,7 +222,6 @@ class ExcelImportService:
         try:
             # Step 1: Load the Excel file and validate columns
             print("Step 1: Loading Excel file and validating columns...")
-            # Standard NaN-Werte ohne "NA" definieren, damit "NA" als String und nicht als NaN interpretiert wird
             custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
                                '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
             df = pd.read_excel(file, keep_default_na=False, na_values=custom_na_values)
@@ -218,7 +235,19 @@ class ExcelImportService:
             # Validate columns
             if not all(col in df.columns for col in required_columns):
                 missing = [col for col in required_columns if col not in df.columns]
-                raise ValueError(f"Missing required columns: {', '.join(missing)}")
+                raise ValueError(f"Fehlende Spalten: {', '.join(missing)}")
+
+            # 1. Patientenadressen extrahieren und deduplizieren
+            patient_address_tuples = []
+            for _, row in df.iterrows():
+                street = str(row['Strasse']).strip()
+                zip_code = str(row['PLZ']).strip()
+                city = str(row['Ort']).strip()
+                patient_address_tuples.append((street, zip_code, city))
+            unique_patient_address_tuples = list(set(patient_address_tuples))
+
+            # 2. Batch-Geocoding
+            geocode_results = ExcelImportService.batch_geocode_addresses(unique_patient_address_tuples, max_workers=10)
 
             # Step 2: Create and save all patients from the Excel file
             print("Step 2: Creating patient records...")
@@ -228,24 +257,20 @@ class ExcelImportService:
                 tour_number = None
                 if pd.notna(row['Touren']):
                     tour_text = str(row['Touren']).strip()
-                    # Super einfache Methode: Extrahiert die erste Zahl aus dem String
                     try:
-                        # Extrahiere alle Zahlen aus dem String und nimm die erste
                         numbers = re.findall(r'\d+', tour_text)
                         if numbers:
-                            tour_number = int(numbers[0])  # Nimm die erste gefundene Zahl
+                            tour_number = int(numbers[0])
                             print(f"  Extracted tour number {tour_number} from '{tour_text}'")
                         else:
                             print(f"  Warning: No numeric values found in '{tour_text}'")
                     except Exception as e:
                         print(f"  Warning: Error extracting tour number: {str(e)}")
-                
                 # Geocode the address to get latitude and longitude
                 street = str(row['Strasse'])
                 zip_code = str(row['PLZ'])
                 city = str(row['Ort'])
-                latitude, longitude = ExcelImportService.geocode_address(street, zip_code, city)
-                
+                latitude, longitude = geocode_results.get((street.strip(), zip_code.strip(), city.strip()), (None, None))
                 # Create patient with integer tour_number
                 patient = Patient(
                     first_name=str(row['Vorname']),
@@ -259,10 +284,9 @@ class ExcelImportService:
                     phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
                     calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,
                     area=str(row['Gebiet']) if pd.notna(row['Gebiet']) else None,
-                    tour=tour_number  # Using the extracted integer tour number as 'tour', not 'tour_number'
+                    tour=tour_number
                 )
                 patients.append(patient)
-            
             # Save all patients to the database to get IDs
             print(f"Saving {len(patients)} patients to database...")
             db.session.add_all(patients)
@@ -333,8 +357,6 @@ class ExcelImportService:
                     # Gehe alle 5 Wochentage für diesen Patienten durch
                     for weekday in weekdays:
                         weekday_value = excel_row[weekday]
-                        
-                        # Überspringe den Tag nicht mehr, sondern erstelle einen Termin mit leerem Typ
                         visit_type = None
                         duration = 0
                         
@@ -394,7 +416,7 @@ class ExcelImportService:
                             visit_type=visit_type_value,
                             duration=duration,
                             info=time_info,
-                            area=employee.area
+                            area=patient.area
                         )
                         patient_appointments.append(appointment)
                         appointments.append(appointment)
@@ -534,6 +556,6 @@ class ExcelImportService:
 
         except Exception as e:
             db.session.rollback()
-            error_message = f"Error importing patients: {str(e)}"
+            error_message = f"Fehler beim Importieren der Patienten: {str(e)}"
             print(error_message)
             raise Exception(error_message)

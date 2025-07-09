@@ -11,6 +11,7 @@ interface MapMarkersProps {
   patients: Patient[];
   employees: Employee[];
   appointments: Appointment[];
+  userArea?: string;
 }
 
 // Group markers by rounded lat/lng
@@ -43,17 +44,14 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
   markers,
   patients,
   employees,
-  appointments
+  appointments,
+  userArea
 }) => {
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const hiddenMarkers = useRouteVisibility(state => state.hiddenMarkers);
 
-  // Group markers by rounded lat/lng
-  const visibleMarkers = useMemo(() =>
-    markers.filter(marker => !marker.routeId || !hiddenMarkers.has(marker.routeId)),
-    [markers, hiddenMarkers]
-  );
-  const markerGroups = useMemo(() => groupMarkersByLatLng(visibleMarkers), [visibleMarkers]);
+  // Gruppiere alle Marker (keine Filterung mehr)
+  const markerGroups = useMemo(() => groupMarkersByLatLng(markers), [markers]);
 
   return (
     <>
@@ -63,13 +61,35 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
           const origLng = marker.position.lng();
           const { lat, lng } = offsetLatLng(origLat, origLng, idx, group.length);
           const displayPosition = new google.maps.LatLng(lat, lng);
+          // Area-based styling
+          let opacity = 1;
+          let icon = createMarkerIcon(
+            marker.type,
+            marker.employeeType,
+            marker.visitType,
+            false,
+            marker.isInactive === true // isGray nur für Inactive
+          );
+          let label = marker.isInactive ? undefined : createMarkerLabel(marker.routePosition, marker.visitType, marker.label);
+          if (marker.isInactive) {
+            opacity = 0.6;
+          } else if (
+            marker.type === 'employee' &&
+            userArea &&
+            userArea !== 'Nord- und Südkreis' &&
+            marker.employeeType &&
+            employees.find(e => e.id === marker.employeeId)?.area !== userArea
+          ) {
+            opacity = 0.6;
+          }
           return (
             <Marker
               key={`marker-${groupIdx}-${idx}`}
               position={displayPosition}
-              icon={createMarkerIcon(marker.type, marker.employeeType, marker.visitType)}
-              label={createMarkerLabel(marker.routePosition, marker.visitType, marker.label)}
+              icon={icon}
+              label={label}
               onClick={() => setSelectedMarker({ ...marker, displayPosition })}
+              opacity={opacity}
             />
           );
         })
@@ -82,6 +102,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
           patients={patients}
           employees={employees}
           appointments={appointments}
+          userArea={userArea}
         />
       )}
     </>

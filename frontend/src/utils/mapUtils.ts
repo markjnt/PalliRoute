@@ -118,7 +118,8 @@ export const createEmployeeMarkerData = (employee: Employee, routeId?: number): 
       type: 'employee',
       employeeType: employee.function,
       employeeId: employee.id,
-      routeId,
+      routeId
+      // area entfernt
     };
   } else {
     // If no coordinates, log warning and skip
@@ -146,7 +147,8 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
       patientId: patient.id,
       appointmentId: appointment.id,
       routePosition: position,
-      routeId,
+      routeId
+      // area entfernt
     };
   } else {
     // If no coordinates, log warning and skip

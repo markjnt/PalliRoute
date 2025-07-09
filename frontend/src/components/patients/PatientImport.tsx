@@ -70,7 +70,13 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
             handleClose();
         } catch (error: any) {
             console.error('Error importing patients:', error);
-            setNotification(error.message || 'Fehler beim Importieren der Patienten', 'error');
+            let message = 'Fehler beim Importieren der Patienten';
+            if (error?.response?.data?.error) {
+                message = error.response.data.error;
+            } else if (error?.message) {
+                message = error.message;
+            }
+            setNotification(message, 'error');
         }
     };
     
@@ -165,20 +171,6 @@ export const PatientExcelImport: React.FC<PatientExcelImportProps> = ({
                                 </Box>
                             )}
                         </Box>
-                    )}
-
-                    {fileError && (
-                        <Alert severity="error" sx={{ mt: 2 }}>
-                            <AlertTitle>Fehler</AlertTitle>
-                            {fileError}
-                        </Alert>
-                    )}
-                    
-                    {patientImportMutation.error instanceof Error && (
-                        <Alert severity="error" sx={{ mt: 2 }}>
-                            <AlertTitle>Fehler</AlertTitle>
-                            {patientImportMutation.error.message}
-                        </Alert>
                     )}
                 </Box>
             </DialogContent>

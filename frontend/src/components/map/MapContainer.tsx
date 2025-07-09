@@ -18,7 +18,8 @@ import { Weekday } from '../../types/models';
  */
 export const MapContainer: React.FC<MapContainerProps> = ({
   apiKey,
-  selectedWeekday
+  selectedWeekday,
+  userArea
 }) => {
   // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
@@ -38,6 +39,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const { data: patients = [], isLoading: patientsLoading, error: patientsError, refetch: refetchPatients } = usePatients();
   const { data: appointments = [], isLoading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useAppointmentsByWeekday(selectedWeekday as Weekday);
   const { data: routes = [], isLoading: routesLoading, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedWeekday as Weekday });
+
+  // Nur die passenden Routen für den Tag und die Area
+  const isAllAreas = userArea === 'Nord- und Südkreis' || !userArea;
+  const dayRoutes = useMemo(
+    () => routes.filter(route => route.weekday === selectedWeekday && (isAllAreas || route.area === userArea)),
+    [routes, selectedWeekday, userArea, isAllAreas]
+  );
+
+  // Sichtbare Routen-IDs für den Tag
+  const visibleRouteIds = useMemo(() => dayRoutes.map(r => r.id), [dayRoutes]);
 
   // Marker-Berechnung mit useMemo
   const markers = useMemo(() => {
@@ -69,16 +80,20 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           const posInfo = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
           const position = posInfo ? posInfo.position : undefined;
           const routeId = posInfo ? posInfo.routeId : undefined;
-          const marker = createPatientMarkerData(patient, appointment, position, routeId);
-          if (marker) newMarkers.push(marker);
+          // Prüfe, ob die Route sichtbar ist
+          const isInactive = !routeId || !visibleRouteIds.includes(routeId);
+          const baseMarker = createPatientMarkerData(patient, appointment, position, routeId);
+          if (baseMarker) {
+            // Area der zugehörigen Route ermitteln
+            const routeArea = routeId ? routes.find(r => r.id === routeId)?.area : undefined;
+            const marker = { ...baseMarker, isInactive, routeArea };
+            newMarkers.push(marker);
+          }
         }
       }
     }
     return newMarkers;
-  }, [isLoaded, employees, patients, appointments, routes, selectedWeekday]);
-
-  // Nur die passenden Routen für den Tag
-  const dayRoutes = useMemo(() => routes.filter(route => route.weekday === selectedWeekday), [routes, selectedWeekday]);
+  }, [isLoaded, employees, patients, appointments, routes, selectedWeekday, visibleRouteIds]);
 
   // Route-Polylines
   const routePaths = useMemo(() => {
@@ -127,6 +142,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           patients={patients}
           employees={employees}
           appointments={appointments}
+          userArea={userArea}
         />
       </GoogleMap>
     </Box>

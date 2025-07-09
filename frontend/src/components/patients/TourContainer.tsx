@@ -454,6 +454,28 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {/* Kreis-Label vor Tournummer anzeigen */}
+                        {(() => {
+                            // Bestimme Nord/Süd über die Route, nicht über den Patienten
+                            if (route && route.area) {
+                                const isNord = route.area.includes('Nordkreis');
+                                return (
+                                    <Chip
+                                        label={isNord ? 'N' : 'S'}
+                                        size="small"
+                                        sx={{
+                                            height: '20px',
+                                            fontSize: '0.7rem',
+                                            bgcolor: 'primary.main',
+                                            color: 'white',
+                                            fontWeight: 'bold',
+                                            mr: 0.5
+                                        }}
+                                    />
+                                );
+                            }
+                            return null;
+                        })()}
                         <Typography 
                             variant="h6" 
                             component="h3" 

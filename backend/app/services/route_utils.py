@@ -36,14 +36,6 @@ def get_departure_time(weekday: str, calendar_week: int) -> datetime:
             
     return departure_time
 
-def get_coordinates(gmaps: googlemaps.Client, address: str) -> Dict[str, float]:
-    """Get coordinates for an address using Google Maps Geocoding"""
-    result = gmaps.geocode(address)
-    if not result:
-        raise ValueError(f"Could not geocode address: {address}")
-    location = result[0]['geometry']['location']
-    return {'lat': location['lat'], 'lng': location['lng']}
-
 def calculate_route_duration(legs: List[Dict]) -> Tuple[float, int]:
     """
     Calculate total distance and duration from route legs

@@ -4,6 +4,7 @@ import { Route, Patient, Appointment, Employee, Weekday } from './models';
 export interface MapContainerProps {
   apiKey: string;
   selectedWeekday: string;
+  userArea?: string; // Area of the current user for filtering
 }
 
 // Marker data for map
@@ -20,6 +21,8 @@ export interface MarkerData {
   routePosition?: number; // Position in the route (1-based index)
   displayPosition?: google.maps.LatLng; // Position to show InfoWindow at (for expanded markers)
   routeId?: number; // ID der zugehörigen Route (für Sichtbarkeit)
+  isInactive?: boolean; // Marker gehört zu keiner sichtbaren Route
+  routeArea?: string; // Area der zugehörigen Route (Nordkreis/Südkreis)
 }
 
 // Group of markers at the same location

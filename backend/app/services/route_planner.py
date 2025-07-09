@@ -9,7 +9,6 @@ from ..models.route import Route
 from .. import db
 from .route_utils import (
     get_departure_time,
-    get_coordinates,
     calculate_route_duration,
     calculate_visit_duration,
     get_gmaps_client
@@ -63,20 +62,13 @@ class RoutePlanner:
                 raise ValueError(f"No appointments found for the IDs in route order: {appointment_ids}")
 
             # Get coordinates for all locations
-            employee_location = get_coordinates(
-                self.gmaps,
-                f"{employee.street}, {employee.zip_code} {employee.city}"
-            )
+            employee_location = {'lat': employee.latitude, 'lng': employee.longitude}
 
             # Get coordinates for appointments in route order
             waypoints = []
             for appointment in appointments:
                 patient = appointment.patient
-                coords = get_coordinates(
-                    self.gmaps,
-                    f"{patient.street}, {patient.zip_code} {patient.city}"
-                )
-                waypoints.append((coords['lat'], coords['lng']))
+                waypoints.append((patient.latitude, patient.longitude))
 
             # Calculate departure time
             departure_time = get_departure_time(weekday, patient.calendar_week)

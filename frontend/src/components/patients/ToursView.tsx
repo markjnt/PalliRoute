@@ -8,6 +8,7 @@ import { useRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
+import { useUserStore } from '../../stores/useUserStore';
 
 interface ToursViewProps {
     selectedDay: Weekday;
@@ -19,13 +20,18 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
     const { data: routes = [], isLoading: loadingRoutes, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedDay });
+    const { currentUser } = useUserStore();
 
-    // Kombinierte Loading- und Error-States
-    const loading = loadingEmployees || loadingPatients || loadingAppointments || loadingRoutes;
-    const error = employeesError?.message || patientsError?.message || appointmentsError?.message || routesError?.message || null;
+    // Area filtering logic
+    const userArea = currentUser?.area;
+    const isAllAreas = userArea === 'Nord- und Südkreis';
+    // Employees filtered by area
+    const filteredEmployees = isAllAreas ? employees : employees.filter(e => e.area === userArea);
+    // Routes filtered by area
+    const filteredRoutes = isAllAreas ? routes : routes.filter(r => r.area === userArea);
 
     // Get employees with tour numbers
-    const employeesWithTours = [...employees]
+    const employeesWithTours = [...filteredEmployees]
         .filter(e => e.tour_number)
         .sort((a, b) => {
             if (!a.tour_number || !b.tour_number) return 0;
@@ -33,7 +39,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
         });
     
     // Get employees without tour numbers
-    const employeesWithoutTours = employees.filter(e => !e.tour_number);
+    const employeesWithoutTours = filteredEmployees.filter(e => !e.tour_number);
     
     // Separate employees with tours but without patients
     const hasPatientInTour = (tourNumber: number) => {
@@ -59,7 +65,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
     // Filter active employees with tours and patients
     const activeEmployeesWithPatientsInTours = employeesWithPatientsInTours.filter(e => e.is_active);
     
-    if (loading) {
+    if (loadingEmployees || loadingPatients || loadingAppointments || loadingRoutes) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
                 <CircularProgress />
@@ -67,10 +73,10 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
         );
     }
     
-    if (error) {
+    if (employeesError || patientsError || appointmentsError || routesError) {
         return (
             <Alert severity="error" sx={{ my: 2 }}>
-                {error}
+                {employeesError?.message || patientsError?.message || appointmentsError?.message || routesError?.message || null}
             </Alert>
         );
     }
@@ -78,7 +84,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
     if (patients.length === 0) {
         return (
             <Alert severity="info" sx={{ my: 2 }}>
-                Keine Patienten gefunden. Importieren Sie Patienten über den Excel Import.
+                Keine Routen gefunden. Importieren Sie Patienten über den Excel Import.
             </Alert>
         );
     }
@@ -132,11 +138,11 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                         <TourContainer
                             key={employee.id}
                             employee={employee}
-                            employees={employees}
+                            employees={filteredEmployees}
                             patients={patients}
                             appointments={appointments}
                             selectedDay={selectedDay}
-                            routes={routes}
+                            routes={filteredRoutes}
                         />
                     ))}
                 </Box>
@@ -191,11 +197,11 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                             <TourContainer
                                 key={`inactive-${employee.id}`}
                                 employee={employee}
-                                employees={employees}
+                                employees={filteredEmployees}
                                 patients={patients}
                                 appointments={appointments}
                                 selectedDay={selectedDay}
-                                routes={routes}
+                                routes={filteredRoutes}
                             />
                         ))}
                     </Box>
@@ -249,11 +255,11 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                             <TourContainer
                                 key={`empty-${employee.id}`}
                                 employee={employee}
-                                employees={employees}
+                                employees={filteredEmployees}
                                 patients={patients}
                                 appointments={appointments}
                                 selectedDay={selectedDay}
-                                routes={routes}
+                                routes={filteredRoutes}
                             />
                         ))}
                     </Box>
@@ -272,7 +278,18 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                         {employeesWithoutTours.map(employee => {
                             // Get appropriate color for employee function
                             const functionColor = employeeTypeColors[employee.function] || employeeTypeColors.default;
-                            
+                            // Nord/Süd-Label bestimmen
+                            let areaLabel = '-';
+                            let areaBg = 'grey.400';
+                            if (employee.area) {
+                                if (employee.area.includes('Nordkreis')) {
+                                    areaLabel = 'N';
+                                    areaBg = 'primary.main';
+                                } else if (employee.area.includes('Südkreis')) {
+                                    areaLabel = 'S';
+                                    areaBg = 'secondary.main';
+                                }
+                            }
                             return (
                                 <Tooltip 
                                     key={employee.id} 
@@ -281,7 +298,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                                     <Button
                                         variant="outlined"
                                         size="small"
-                                        startIcon={<PersonIcon />}
+                                        // startIcon entfernt
                                         endIcon={employee.is_active ? 
                                             <CheckCircle color="success" fontSize="small" /> : 
                                             <Cancel color="error" fontSize="small" />
@@ -299,6 +316,19 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
                                             opacity: employee.is_active ? 1 : 0.7,
                                         }}
                                     >
+                                        {/* Nord/Süd Chip vor dem Namen */}
+                                        <Chip
+                                            label={areaLabel}
+                                            size="small"
+                                            sx={{
+                                                height: '20px',
+                                                fontSize: '0.7rem',
+                                                bgcolor: areaBg,
+                                                color: 'white',
+                                                fontWeight: 'bold',
+                                                mr: 1
+                                            }}
+                                        />
                                         {employee.first_name} {employee.last_name}
                                         <Chip 
                                             label={employee.function}
