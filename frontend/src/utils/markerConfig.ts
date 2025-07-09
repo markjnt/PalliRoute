@@ -1,21 +1,10 @@
 import { getColorForVisitType, getColorForEmployeeType } from './mapUtils';
 
-export const createMarkerIcon = (type: 'employee' | 'patient', employeeType?: string, visitType?: string, isGroup: boolean = false, isGray: boolean = false) => {
-  if (isGroup) {
-    return {
-      path: google.maps.SymbolPath.CIRCLE,
-      fillColor: '#4285F4',
-      fillOpacity: 1,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
-      scale: 12,
-    };
-  }
-
+export const createMarkerIcon = (type: 'employee' | 'patient', employeeType?: string, visitType?: string, isGray: boolean = false) => {
   if (isGray) {
     return {
       path: google.maps.SymbolPath.CIRCLE,
-      fillColor: '#757575', // Dunkleres Grau
+      fillColor: getColorForVisitType(visitType),
       fillOpacity: 1,
       strokeColor: '#ffffff',
       strokeWeight: 2,

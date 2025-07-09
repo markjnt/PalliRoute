@@ -241,6 +241,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         fullWidth
                         startIcon={<UploadIcon />}
                         onClick={handleImportDialogOpen}
+                        disabled={!employees.length}
                     >
                         Excel Import
                     </Button>
