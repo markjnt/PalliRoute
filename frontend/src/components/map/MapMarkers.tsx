@@ -59,6 +59,10 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
     <>
       {markerGroups.map((group, groupIdx) =>
         group.map((marker, idx) => {
+          // Marker ausblenden, wenn die zugehörige Route in hiddenMarkers ist
+          if (marker.routeId && hiddenMarkers.has(marker.routeId)) {
+            return null;
+          }
           const origLat = marker.position.lat();
           const origLng = marker.position.lng();
           const { lat, lng } = offsetLatLng(origLat, origLng, idx, group.length);

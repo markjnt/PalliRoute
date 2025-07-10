@@ -48,7 +48,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const queryClient = useQueryClient();
-    const { hiddenPolylines, hideAllPolylines, showAllPolylines } = useRouteVisibility();
+    const { hiddenPolylines, hideAllPolylines, showAllPolylines, showAllMarkers } = useRouteVisibility();
 
     // React Query Hooks
     const { 
@@ -159,13 +159,15 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     // Toggle all polylines visibility
     const allRouteIds = useMemo(() => routes.map(r => r.id), [routes]);
     const allHidden = allRouteIds.length > 0 && allRouteIds.every(id => hiddenPolylines.has(id));
-    const noneHidden = allRouteIds.length > 0 && allRouteIds.every(id => !hiddenPolylines.has(id));
+    const allVisible = allRouteIds.length > 0 && allRouteIds.every(id => !hiddenPolylines.has(id));
     const handleToggleAllPolylines = () => {
       if (!allRouteIds.length) return;
-      if (!allHidden) {
-        hideAllPolylines(allRouteIds);
-      } else {
+      if (!allVisible) {
         showAllPolylines();
+        showAllMarkers(); // Marker auch zurücksetzen!
+      } else {
+        hideAllPolylines(allRouteIds);
+        // Marker NICHT beeinflussen!
       }
     };
 
@@ -255,11 +257,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     <Button
                         variant="outlined"
                         fullWidth
-                        startIcon={allHidden ? <VisibilityIcon /> : <VisibilityOffIcon />}
+                        startIcon={!allVisible ? <VisibilityIcon /> : <VisibilityOffIcon />}
                         onClick={handleToggleAllPolylines}
                         disabled={!routes.length}
                     >
-                        {allHidden ? 'Alle Routen einblenden' : 'Alle Routen ausblenden'}
+                        {!allVisible ? 'Alle Routen einblenden' : 'Alle Routen ausblenden'}
                     </Button>
                 </Box>
             </Box>
