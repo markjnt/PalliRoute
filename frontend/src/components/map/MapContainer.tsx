@@ -143,6 +143,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           employees={employees}
           appointments={appointments}
           userArea={userArea}
+          routes={routes}
         />
       </GoogleMap>
     </Box>

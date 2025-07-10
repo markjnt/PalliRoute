@@ -43,7 +43,6 @@ interface TourPlanSidebarProps {
 export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
-    const [calendarWeek, setCalendarWeek] = useState<number | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
     
@@ -93,9 +92,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     }, []);
 
     const handleImportSuccess = useCallback((response: any) => {
-        if (response.calendar_week) {
-            setCalendarWeek(response.calendar_week);
-        }
         handleImportDialogClose();
         setNotification('Import erfolgreich abgeschlossen.', 'success');
     }, [handleImportDialogClose, setNotification]);
@@ -202,10 +198,10 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {calendarWeek && (
+                    {patients[0]?.calendar_week && (
                         <Chip
                             icon={<CalendarIcon fontSize="small" />}
-                            label={`KW ${calendarWeek}`}
+                            label={`KW ${patients[0].calendar_week}`}
                             color="primary"
                             size="small"
                             variant="outlined"

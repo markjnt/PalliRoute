@@ -12,6 +12,7 @@ interface MapMarkersProps {
   employees: Employee[];
   appointments: Appointment[];
   userArea?: string;
+  routes: any[]; // Add this line
 }
 
 // Group markers by rounded lat/lng
@@ -45,7 +46,8 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
   patients,
   employees,
   appointments,
-  userArea
+  userArea,
+  routes
 }) => {
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const hiddenMarkers = useRouteVisibility(state => state.hiddenMarkers);
@@ -67,8 +69,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
             marker.type,
             marker.employeeType,
             marker.visitType,
-            false,
-            marker.isInactive === true // isGray nur für Inactive
+            false
           );
           let label = marker.isInactive ? undefined : createMarkerLabel(marker.routePosition, marker.visitType, marker.label);
           if (marker.isInactive) {
@@ -103,6 +104,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
           employees={employees}
           appointments={appointments}
           userArea={userArea}
+          routes={routes}
         />
       )}
     </>

@@ -14,6 +14,8 @@ import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../../ser
 import { useUserStore } from '../../stores/useUserStore';
 import UserList from './UserList';
 import UserDialog from './UserDialog';
+import { PersonAdd as PersonAddIcon, People as PeopleIcon } from '@mui/icons-material';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 
 const UserSelection: React.FC = () => {
     const [openDialog, setOpenDialog] = useState(false);
@@ -31,6 +33,7 @@ const UserSelection: React.FC = () => {
     
     const { setCurrentUser } = useUserStore();
     const navigate = useNavigate();
+    const { setNotification } = useNotificationStore();
 
     const handleUserSelect = (user: User) => {
         setCurrentUser(user);
@@ -61,7 +64,6 @@ const UserSelection: React.FC = () => {
 
     const handleEditSubmit = async () => {
         if (!userToEdit) return;
-
         try {
             await updateUserMutation.mutateAsync({ 
                 id: userToEdit.id, 
@@ -116,10 +118,25 @@ const UserSelection: React.FC = () => {
 
     return (
         <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
-            <Paper elevation={3} sx={{ p: 3 }}>
-                <Typography variant="h4" component="h1" gutterBottom>
-                    Benutzerauswahl
-                </Typography>
+            <Paper elevation={3} sx={{ p: 3, borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.10)', bgcolor: 'grey.50' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PeopleIcon color="primary" fontSize="large" />
+                    <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+                      Benutzerauswahl
+                    </Typography>
+                  </Box>
+                  <Button 
+                      variant="contained" 
+                      color="primary" 
+                      onClick={handleAddUser}
+                      disabled={isLoading || createUserMutation.isPending}
+                      sx={{ borderRadius: 2, fontWeight: 'bold', px: 2, py: 1, minWidth: 0 }}
+                      startIcon={<PersonAddIcon />}
+                  >
+                      Neu
+                  </Button>
+                </Box>
                 {error instanceof Error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         {error.message}
@@ -134,16 +151,7 @@ const UserSelection: React.FC = () => {
                     isUpdating={updateUserMutation.isPending}
                     isDeleting={deleteUserMutation.isPending}
                 />
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                    <Button 
-                        variant="contained" 
-                        color="primary" 
-                        onClick={handleAddUser}
-                        disabled={isLoading || createUserMutation.isPending}
-                    >
-                        Neuen Benutzer erstellen
-                    </Button>
-                </Box>
+                {/* Button ist jetzt oben rechts, daher unten entfernt */}
             </Paper>
 
             <UserDialog

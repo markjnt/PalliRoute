@@ -13,6 +13,9 @@ import {
     Box,
     CircularProgress,
     Typography,
+    Chip,
+    Stack,
+    Paper,
 } from '@mui/material';
 import { UserFormData, Area } from '../../types/models';
 
@@ -37,6 +40,14 @@ const UserDialog: React.FC<UserDialogProps> = ({
     setFormData,
     isSubmitting,
 }) => {
+    // Hilfsfunktion, um die aktuelle Auswahl als Array zu bekommen
+    const getAreaArray = () => {
+        if (formData?.area === 'Nord- und Südkreis') return ['Nordkreis', 'Südkreis'];
+        if (formData?.area) return [formData.area];
+        return [];
+    };
+    const areaArray = getAreaArray();
+
     const getDialogContent = () => {
         switch (type) {
             case 'delete':
@@ -63,20 +74,32 @@ const UserDialog: React.FC<UserDialogProps> = ({
                                 value={formData?.name}
                                 onChange={(e) => setFormData?.({ ...formData!, name: e.target.value })}
                             />
-                            <FormControl fullWidth margin="normal">
-                                <InputLabel id="area-label">Gebiet</InputLabel>
-                                <Select
-                                    labelId="area-label"
-                                    id="area"
-                                    value={formData?.area}
-                                    label="Gebiet"
-                                    onChange={(e) => setFormData?.({ ...formData!, area: e.target.value as Area })}
-                                >
-                                    <MenuItem value="Nordkreis">Nordkreis</MenuItem>
-                                    <MenuItem value="Südkreis">Südkreis</MenuItem>
-                                    <MenuItem value="Nord- und Südkreis">Nord- und Südkreis</MenuItem>
-                                </Select>
-                            </FormControl>
+                            <Box sx={{ mt: 2 }}>
+                              <Stack direction="row" spacing={1}>
+                                {['Nordkreis', 'Südkreis'].map(areaOption => {
+                                  const isSelected = areaArray.includes(areaOption);
+                                  return (
+                                    <Chip
+                                      key={areaOption}
+                                      label={areaOption}
+                                      color={areaOption === 'Nordkreis' ? 'primary' : 'secondary'}
+                                      variant={isSelected ? 'filled' : 'outlined'}
+                                      clickable
+                                      onClick={() => {
+                                        let newAreaArr = isSelected
+                                          ? areaArray.filter(a => a !== areaOption)
+                                          : [...areaArray, areaOption];
+                                        let newArea: Area = '' as Area;
+                                        if (newAreaArr.length === 2) newArea = 'Nord- und Südkreis' as Area;
+                                        else if (newAreaArr.length === 1) newArea = newAreaArr[0] as Area;
+                                        setFormData?.({ ...formData!, area: newArea });
+                                      }}
+                                      sx={{ fontWeight: 'bold', fontSize: '0.95rem', letterSpacing: 0.2 }}
+                                    />
+                                  );
+                                })}
+                              </Stack>
+                            </Box>
                         </Box>
                     </DialogContent>
                 );
@@ -111,7 +134,7 @@ const UserDialog: React.FC<UserDialogProps> = ({
 
     const isSubmitDisabled = () => {
         if (type === 'delete') return isSubmitting;
-        return isSubmitting || !formData?.name;
+        return isSubmitting || !formData?.name || !formData?.area;
     };
 
     return (
@@ -120,7 +143,7 @@ const UserDialog: React.FC<UserDialogProps> = ({
             onClose={onClose}
             slotProps={{
                 paper: {
-                    sx: { width: '500px' }
+                    sx: { width: '500px', borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }
                 }
             }}
         >
@@ -135,8 +158,9 @@ const UserDialog: React.FC<UserDialogProps> = ({
                     variant="contained" 
                     color={getSubmitButtonColor()}
                     disabled={isSubmitDisabled()}
+                    sx={{ position: 'relative', minWidth: 110 }}
                 >
-                    {isSubmitting ? <CircularProgress size={24} /> : getSubmitButtonText()}
+                    {isSubmitting ? <CircularProgress size={24} sx={{ position: 'absolute', left: '50%', top: '50%', marginTop: '-12px', marginLeft: '-12px' }} /> : getSubmitButtonText()}
                 </Button>
             </DialogActions>
         </Dialog>

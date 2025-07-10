@@ -8,9 +8,13 @@ import {
     Stack,
     Avatar,
     ListItemAvatar,
+    Chip,
+    Paper,
+    Box,
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { User } from '../../types/models';
+import AreaChip from './AreaChip';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -67,22 +71,31 @@ const UserList: React.FC<UserListProps> = ({
                     key={user.id}
                     onClick={() => onUserSelect(user)}
                     sx={{ 
-                        mb: 1, 
-                        border: 1, 
-                        borderColor: 'grey.300', 
-                        borderRadius: 1,
+                        mb: 1,
+                        borderRadius: 2,
                         cursor: 'pointer',
+                        background: 'white',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                        transition: 'box-shadow 0.2s, background 0.2s',
                         '&:hover': {
-                            backgroundColor: 'action.hover'
-                        }
+                            backgroundColor: 'primary.50',
+                            boxShadow: '0 4px 16px rgba(0,0,0,0.10)'
+                        },
+                        alignItems: 'center',
+                        minHeight: 64
                     }}
                 >
                     <ListItemAvatar>
                         <Avatar {...stringAvatar(user.name)} />
                     </ListItemAvatar>
                     <ListItemText
-                        primary={user.name}
-                        secondary={`Gebiet: ${user.area}`}
+                        primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <span>{user.name}</span>
+                                <AreaChip area={user.area} />
+                            </Box>
+                        }
+                        secondary={null}
                     />
                     <ListItemSecondaryAction>
                         <Stack direction="row" spacing={1}>

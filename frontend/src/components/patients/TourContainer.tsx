@@ -466,7 +466,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                         sx={{
                                             height: '20px',
                                             fontSize: '0.7rem',
-                                            bgcolor: 'primary.main',
+                                            bgcolor: isNord ? 'primary.main' : 'secondary.main',
                                             color: 'white',
                                             fontWeight: 'bold',
                                             mr: 0.5

@@ -37,6 +37,7 @@ import { EmployeeImport } from './EmployeeImport';
 import { useUserStore } from '../../stores/useUserStore';
 import { useNavigate } from 'react-router-dom';
 import { useEmployees, useDeleteEmployee, useToggleEmployeeActive } from '../../services/queries/useEmployees';
+import AreaChip from '../users/AreaChip';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -350,10 +351,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                             {currentUser?.name}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                            <LocationIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary">
-                                {currentUser?.area}
-                            </Typography>
+                            <AreaChip area={currentUser?.area || ''} />
                         </Box>
                     </Box>
                     
