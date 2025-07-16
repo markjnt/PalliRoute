@@ -21,6 +21,8 @@ data/flask_session/*
 /frontend/node_modules
 /frontend/.pnp
 /frontend/.pnp.js
+# vite-pwa build output
+/frontend/dev-dist
 
 # testing
 /frontend/coverage
