@@ -13,20 +13,34 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Datenordner
-data/uploads/*
-data/flask_session/*
-
 # dependencies
+/frontend_web/node_modules
+/frontend_web/.pnp
+/frontend_web/.pnp.js
+
 /frontend/node_modules
 /frontend/.pnp
 /frontend/.pnp.js
 
+/frontend_pwa/node_modules
+/frontend_pwa/.pnp
+/frontend_pwa/.pnp.js
+
 # testing
 /frontend/coverage
 
+/frontend_web/coverage
+
+/frontend_pwa/coverage
+
+
+
 # production
 /frontend/build
+
+/frontend_web/build
+
+/frontend_pwa/build
 
 # misc
 .DS_Store
