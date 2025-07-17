@@ -5,7 +5,7 @@
 docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend -f docker/backend.Dockerfile .
 ```
 
-## Frontend
+## Frontend-Web
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend -f docker/frontend.Dockerfile .
+docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend-web -f docker/frontend_web.Dockerfile .
 ``` 

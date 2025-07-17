@@ -10,7 +10,6 @@ import { useRoutes } from '../../services/queries/useRoutes';
 import { MapMarkers } from './MapMarkers';
 import { RoutePolylines } from './RoutePolylines';
 import { routeLineColors } from '../../utils/colors';
-import { MarkerData } from '../../types/mapTypes';
 import { Weekday } from '../../types/models';
 
 /**

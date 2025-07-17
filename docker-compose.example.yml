@@ -15,9 +15,9 @@ services:
     networks:
       - app-network
 
-  frontend:
-    image: markjnt/palliroute-frontend
-    container_name: palliroute-frontend
+  frontend-web:
+    image: markjnt/palliroute-frontend-web
+    container_name: palliroute-frontend-web
     pull_policy: always
     ports:
       - "3000:3000"

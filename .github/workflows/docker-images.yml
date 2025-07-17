@@ -31,6 +31,6 @@ jobs:
         docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend -f docker/backend.Dockerfile --push .
 
     # Build and Push Frontend Docker Image in a single step
-    - name: Build and Push Frontend Docker Image
+    - name: Build and Push Frontend-Web Docker Image
       run: |
-        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend -f docker/frontend.Dockerfile --push .
+        docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend-web -f docker/frontend_web.Dockerfile --push .

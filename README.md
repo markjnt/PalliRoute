@@ -34,7 +34,7 @@ docker-compose up -d
 ```
 
 Die Anwendung ist anschließend unter folgenden URLs erreichbar:
-- Frontend: `http://localhost:3000`
+- Frontend-Web: `http://localhost:3000`
 - Backend: `http://localhost:9000`
 
 Zum Stoppen der Container:
