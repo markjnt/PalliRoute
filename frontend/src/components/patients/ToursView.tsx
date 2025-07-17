@@ -8,7 +8,7 @@ import { useRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
-import { useUserStore } from '../../stores/useUserStore';
+import { useAreaStore } from '../../stores/useAreaStore';
 
 interface ToursViewProps {
     selectedDay: Weekday;
@@ -20,15 +20,14 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
     const { data: routes = [], isLoading: loadingRoutes, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedDay });
-    const { currentUser } = useUserStore();
+    const { currentArea } = useAreaStore();
 
     // Area filtering logic
-    const userArea = currentUser?.area;
-    const isAllAreas = userArea === 'Nord- und Südkreis';
+    const isAllAreas = currentArea === 'Nord- und Südkreis';
     // Employees filtered by area
-    const filteredEmployees = isAllAreas ? employees : employees.filter(e => e.area === userArea);
+    const filteredEmployees = isAllAreas ? employees : employees.filter(e => e.area === currentArea);
     // Routes filtered by area
-    const filteredRoutes = isAllAreas ? routes : routes.filter(r => r.area === userArea);
+    const filteredRoutes = isAllAreas ? routes : routes.filter(r => r.area === currentArea);
 
     // Get employees with tour numbers
     const employeesWithTours = [...filteredEmployees]

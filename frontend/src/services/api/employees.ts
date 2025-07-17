@@ -1,11 +1,11 @@
-import axios from 'axios';
+import api from './api';
 import { Employee, EmployeeFormData, EmployeeImportResponse } from '../../types/models';
 
 export const employeesApi = {
     // Get all employees
     async getAll(): Promise<Employee[]> {
         try {
-            const response = await axios.get('/employees/');
+            const response = await api.get('/employees/');
             return response.data;
         } catch (error) {
             console.error('Failed to fetch employees:', error);
@@ -16,7 +16,7 @@ export const employeesApi = {
     // Get single employee by ID
     async getById(id: number): Promise<Employee> {
         try {
-            const response = await axios.get(`/employees/${id}`);
+            const response = await api.get(`/employees/${id}`);
             return response.data;
         } catch (error) {
             console.error(`Failed to fetch employee with ID ${id}:`, error);
@@ -27,7 +27,7 @@ export const employeesApi = {
     // Create new employee
     async create(employeeData: EmployeeFormData): Promise<Employee> {
         try {
-            const response = await axios.post('/employees/', employeeData);
+            const response = await api.post('/employees/', employeeData);
             return response.data;
         } catch (error: any) {
             // Don't log expected errors (like duplicate employee)
@@ -41,7 +41,7 @@ export const employeesApi = {
     // Update existing employee
     async update(id: number, employeeData: Partial<EmployeeFormData>): Promise<Employee> {
         try {
-            const response = await axios.put(`/employees/${id}`, employeeData);
+            const response = await api.put(`/employees/${id}`, employeeData);
             return response.data;
         } catch (error) {
             console.error(`Failed to update employee with ID ${id}:`, error);
@@ -52,7 +52,7 @@ export const employeesApi = {
     // Delete employee
     async delete(id: number): Promise<void> {
         try {
-            await axios.delete(`/employees/${id}`);
+            await api.delete(`/employees/${id}`);
         } catch (error) {
             console.error(`Failed to delete employee with ID ${id}:`, error);
             throw error;
@@ -62,7 +62,7 @@ export const employeesApi = {
     // Toggle employee active status
     async toggleActive(id: number, isActive: boolean): Promise<Employee> {
         try {
-            const response = await axios.put(`/employees/${id}`, { is_active: isActive });
+            const response = await api.put(`/employees/${id}`, { is_active: isActive });
             return response.data;
         } catch (error) {
             console.error(`Failed to toggle active status for employee with ID ${id}:`, error);
@@ -76,7 +76,7 @@ export const employeesApi = {
             const formData = new FormData();
             formData.append('file', file);
             
-            const response = await axios.post('/employees/import', formData, {
+            const response = await api.post('/employees/import', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },

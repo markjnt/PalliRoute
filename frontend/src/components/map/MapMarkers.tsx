@@ -4,7 +4,7 @@ import { MarkerData } from '../../types/mapTypes';
 import { MarkerInfoWindow } from './MarkerInfoWindow';
 import { Appointment, Employee, Patient } from '../../types/models';
 import { createMarkerIcon, createMarkerLabel } from '../../utils/markerConfig';
-import { useRouteVisibility } from '../../stores/useRouteVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
 
 interface MapMarkersProps {
   markers: MarkerData[];

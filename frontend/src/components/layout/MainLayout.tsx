@@ -1,7 +1,8 @@
 import React from 'react';
 import { Box, IconButton, Drawer, useTheme, useMediaQuery, Snackbar, Alert, LinearProgress, CircularProgress } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
-import { useLayoutStore, useUserStore } from '../../stores';
+import { useLayoutStore } from '../../stores';
+import { useAreaStore } from '../../stores/useAreaStore';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
@@ -45,16 +46,16 @@ export const MainLayout: React.FC = () => {
     
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-    const { currentUser } = useUserStore();
+    const { currentArea } = useAreaStore();
     const navigate = useNavigate();
     const { notification, closeNotification, loading } = useNotificationStore();
 
-    // Redirect to user selection if no user is selected
+    // Redirect to area selection if no area is selected
     React.useEffect(() => {
-        if (!currentUser) {
-            navigate('/select-user');
+        if (!currentArea) {
+            navigate('/select-area');
         }
-    }, [currentUser, navigate]);
+    }, [currentArea, navigate]);
 
     // Left sidebar resize handlers
     const startResizing = React.useCallback((e: React.MouseEvent) => {

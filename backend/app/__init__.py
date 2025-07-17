@@ -37,14 +37,12 @@ def create_app(config_class=Config):
         return jsonify({'error': 'Internal Server Error', 'message': str(error)}), 500
 
     # Register blueprints
-    from .api_routes.users import users_bp
     from .api_routes.employees import employees_bp
     from .api_routes.patients import patients_bp
     from .api_routes.appointments import appointments_bp
     from .api_routes.routes import routes_bp
     from .api_routes.config import bp as config_bp
 
-    app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(employees_bp, url_prefix='/api/employees')
     app.register_blueprint(patients_bp, url_prefix='/api/patients')
     app.register_blueprint(appointments_bp, url_prefix='/api/appointments')

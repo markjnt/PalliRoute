@@ -34,7 +34,7 @@ import { useAppointmentsByWeekday } from '../../services/queries/useAppointments
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouteVisibility } from '../../stores/useRouteVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
 
 interface TourPlanSidebarProps {
     width?: number;

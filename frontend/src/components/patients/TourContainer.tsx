@@ -39,7 +39,7 @@ import { useBatchMoveAppointments, useMoveAppointment } from '../../services/que
 import { useReorderAppointment, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import TourSections from './TourSections';
-import { useRouteVisibility } from '../../stores/useRouteVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
 
 // Helper component for section titles
 const SectionTitle = ({ 

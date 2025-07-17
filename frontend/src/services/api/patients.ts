@@ -1,11 +1,11 @@
-import axios from 'axios';
+import api from './api';
 import { Patient, PatientImportResponse } from '../../types/models';
 
 export const patientsApi = {
     // Get all patients
     async getAll(): Promise<Patient[]> {
         try {
-            const response = await axios.get('/patients');
+            const response = await api.get('/patients/');
             return response.data;
         } catch (error) {
             console.error('Failed to fetch patients:', error);
@@ -16,7 +16,7 @@ export const patientsApi = {
     // Get single patient by ID
     async getById(id: number): Promise<Patient> {
         try {
-            const response = await axios.get(`/patients/${id}`);
+            const response = await api.get(`/patients/${id}`);
             return response.data;
         } catch (error) {
             console.error(`Failed to fetch patient with ID ${id}:`, error);
@@ -30,7 +30,7 @@ export const patientsApi = {
             const formData = new FormData();
             formData.append('file', file);
             
-            const response = await axios.post('/patients/import', formData, {
+            const response = await api.post('/patients/import', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },

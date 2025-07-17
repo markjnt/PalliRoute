@@ -15,6 +15,7 @@ import {
     Menu,
     MenuItem,
     Alert,
+    Chip,
 } from '@mui/material';
 import {
     DataGrid,
@@ -30,14 +31,14 @@ import {
     ExitToApp as LogoutIcon,
     Upload as UploadIcon,
     Add as AddIcon,
+    ChangeCircle as ChangeIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
 import { EmployeeImport } from './EmployeeImport';
-import { useUserStore } from '../../stores/useUserStore';
+import { useAreaStore } from '../../stores/useAreaStore';
 import { useNavigate } from 'react-router-dom';
 import { useEmployees, useDeleteEmployee, useToggleEmployeeActive } from '../../services/queries/useEmployees';
-import AreaChip from '../users/AreaChip';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -74,6 +75,20 @@ const stringAvatar = (name: string) => {
     };
 };
 
+const getAreaChipColor = (area: string) => {
+    if (area === 'Nordkreis') return 'primary';
+    if (area === 'Südkreis') return 'secondary';
+    if (area === 'Nord- und Südkreis' || area === 'Gesamt') return 'default';
+    return 'default';
+};
+
+const getAreaInitial = (area: string) => {
+    if (area === 'Nordkreis') return 'N';
+    if (area === 'Südkreis') return 'S';
+    if (area === 'Nord- und Südkreis' || area === 'Gesamt') return 'G';
+    return '?';
+};
+
 interface EmployeeSidebarProps {
     width?: number;
 }
@@ -86,7 +101,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const [openImport, setOpenImport] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
-    const { currentUser, setCurrentUser } = useUserStore();
+    const { currentArea, setCurrentArea } = useAreaStore();
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -95,9 +110,9 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const deleteEmployeeMutation = useDeleteEmployee();
     const toggleEmployeeActiveMutation = useToggleEmployeeActive();
 
-    const handleUserChange = () => {
-        setCurrentUser(null);
-        navigate('/select-user');
+    const handleAreaChange = () => {
+        setCurrentArea(null);
+        navigate('/select-area');
     };
 
     const handleMenuClose = () => {
@@ -301,67 +316,29 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 borderColor: 'divider'
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar
-                        onClick={(event) => setAnchorEl(event.currentTarget)}
-                        {...stringAvatar(currentUser?.name || '')}
+                    <Chip
+                        label={getAreaInitial(currentArea || '')}
+                        color={getAreaChipColor(currentArea || '')}
+                        onClick={handleAreaChange}
+                        clickable
+                        icon={<ChangeIcon fontSize="medium" />}
+                        sx={{
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            px: 1,
+                            py: 1,
+                            borderRadius: '22px',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                        }}
                     />
                     <Typography variant="h6" component="h2">
                         Mitarbeiterverwaltung
                     </Typography>
                 </Box>
-                <Menu
-                    anchorEl={anchorEl}
-                    open={Boolean(anchorEl)}
-                    onClose={handleMenuClose}
-                    PaperProps={{
-                        elevation: 3,
-                        sx: {
-                            minWidth: 200,
-                            mt: 1,
-                            borderRadius: 2,
-                            overflow: 'visible',
-                            '&:before': {
-                                content: '""',
-                                display: 'block',
-                                position: 'absolute',
-                                top: 0,
-                                left: 14,
-                                width: 10,
-                                height: 10,
-                                bgcolor: 'background.paper',
-                                transform: 'translateY(-50%) rotate(45deg)',
-                                zIndex: 0,
-                            },
-                        },
-                    }}
-                    transformOrigin={{ horizontal: 'left', vertical: 'top' }}
-                    anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
-                >
-                    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Avatar 
-                            {...stringAvatar(currentUser?.name || '')}
-                            sx={{ 
-                                width: 60, 
-                                height: 60, 
-                                mb: 1,
-                                bgcolor: stringToColor(currentUser?.name || '')
-                            }}
-                        />
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            {currentUser?.name}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                            <AreaChip area={currentUser?.area || ''} />
-                        </Box>
-                    </Box>
-                    
-                    <Divider />
-                    
-                    <MenuItem onClick={handleUserChange} sx={{ mt: 1 }}>
-                        <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
-                        <Typography>Benutzer wechseln</Typography>
-                    </MenuItem>
-                </Menu>
             </Box>
 
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>

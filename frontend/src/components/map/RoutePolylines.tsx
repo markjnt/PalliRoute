@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { RoutePathData } from '../../types/mapTypes';
-import { useRouteVisibility } from '../../stores/useRouteVisibility';
+import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
 
 interface RoutePolylinesProps {
   routes: RoutePathData[];

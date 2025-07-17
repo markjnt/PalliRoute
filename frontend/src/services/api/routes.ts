@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from './api';
 import { Route, Weekday } from '../../types/models';
 
 export const routesApi = {
@@ -9,7 +9,7 @@ export const routesApi = {
         date?: string;
     }): Promise<Route[]> {
         try {
-            const response = await axios.get('/routes', { params });
+            const response = await api.get('/routes/', { params });
             return response.data.routes || [];
         } catch (error) {
             console.error('Failed to fetch routes:', error);
@@ -20,7 +20,7 @@ export const routesApi = {
     // Get a single route by ID
     async getRouteById(id: number): Promise<Route> {
         try {
-            const response = await axios.get(`/routes/${id}`);
+            const response = await api.get(`/routes/${id}`);
             return response.data.route;
         } catch (error) {
             console.error(`Failed to fetch route with ID ${id}:`, error);
@@ -35,7 +35,7 @@ export const routesApi = {
             if (employee_id) {
                 params.employee_id = employee_id;
             }
-            const response = await axios.get('/routes', { params });
+            const response = await api.get('/routes', { params });
             return response.data.routes || [];
         } catch (error) {
             console.error(`Failed to fetch routes for date ${date}:`, error);
@@ -46,19 +46,13 @@ export const routesApi = {
     // Optimize routes for a specific day and employee
     async optimizeRoutes(weekday: string, employeeId: number): Promise<void> {
         try {
-            const response = await axios.post(`/routes/optimize`, {
+            const response = await api.post(`/routes/optimize`, {
                 weekday: weekday.toLowerCase(),
                 employee_id: employeeId
             });
             return response.data;
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                if (error.response?.status === 400) {
-                    throw new Error(error.response.data.error || 'Invalid request');
-                } else if (error.response?.status === 500) {
-                    throw new Error(error.response.data.error || 'Server error occurred');
-                }
-            }
+            console.error(`Failed to optimize routes for weekday ${weekday} and employee ${employeeId}:`, error);
             throw error;
         }
     },
@@ -66,21 +60,12 @@ export const routesApi = {
     // Reorder an appointment up or down in a route
     async reorderAppointment(routeId: number, appointmentId: number, direction: 'up' | 'down'): Promise<Route> {
         try {
-            const response = await axios.put(`/routes/${routeId}`, {
+            const response = await api.put(`/routes/${routeId}`, {
                 appointment_id: appointmentId,
                 direction: direction
             });
             return response.data.route;
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                if (error.response?.status === 400) {
-                    throw new Error(error.response.data.error || 'Invalid request');
-                } else if (error.response?.status === 404) {
-                    throw new Error('Route or appointment not found');
-                } else if (error.response?.status === 500) {
-                    throw new Error(error.response.data.error || 'Server error occurred');
-                }
-            }
             console.error(`Failed to reorder appointment in route ${routeId}:`, error);
             throw error;
         }
