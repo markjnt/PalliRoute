@@ -12,8 +12,8 @@ COPY frontend_web/ ./
 # Build the app
 RUN npm run build
 
-# Kopiere manifest.json ins Build-Output
-COPY public/manifest.json ./dist/manifest.json
+# Kopiere public ins Build-Output
+COPY public/ ./dist/
 
 # Production stage
 FROM nginx:alpine
