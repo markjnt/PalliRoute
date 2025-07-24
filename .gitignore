@@ -33,6 +33,7 @@ __pycache__/
 /frontend_web/build
 
 /frontend_pwa/build
+/frontend_pwa/dev-dist
 
 # misc
 .DS_Store

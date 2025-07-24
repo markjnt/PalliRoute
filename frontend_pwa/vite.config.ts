@@ -1,14 +1,27 @@
-import { defineConfig } from 'vite';
+import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
+import {VitePWA} from "vite-plugin-pwa";
 
 export default defineConfig({
+  publicDir: '../public',
   plugins: [
     react({
       jsxImportSource: '@emotion/react',
       babel: {
         plugins: ['@emotion/babel-plugin']
+      }
+    }),
+    VitePWA({
+      manifest: false,
+      includeAssets: [
+        "../public/favicon.ico",
+        "../public/logo192.png"
+      ],
+      registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true
       }
     }),
     tsconfigPaths()
@@ -19,11 +32,11 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3001,
     open: true,
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
   }
-}); 
+});

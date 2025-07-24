@@ -27,6 +27,18 @@ services:
     networks:
       - app-network
 
+  frontend-pwa:
+    image: markjnt/palliroute-frontend-pwa
+    container_name: palliroute-frontend-pwa
+    pull_policy: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge 

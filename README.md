@@ -1,4 +1,4 @@
-# <img src="frontend_web/public/logo512.png" alt="PalliRoute Logo" width="32" height="32" style="vertical-align: middle;"> PalliRoute
+# <img src="public/favicon.ico" alt="PalliRoute Logo" width="32" height="32" style="vertical-align: middle;"> PalliRoute
 
 PalliRoute ist ein Projekt zur automatischen Optimierung von Fahrtrouten im Gesundheitswesen.
 
@@ -22,7 +22,7 @@ cp docker-compose.example.yml docker-compose.yml
 environment:
   - SECRET_KEY=your_secret_key_here
   - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
-  - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000
+  - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
 ```
 
 ### 3. Container starten
@@ -35,6 +35,7 @@ docker-compose up -d
 
 Die Anwendung ist anschließend unter folgenden URLs erreichbar:
 - Frontend-Web: `http://localhost:3000`
+- Frontend-PWA: `http://localhost:3001`
 - Backend: `http://localhost:9000`
 
 Zum Stoppen der Container:

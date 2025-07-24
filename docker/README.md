@@ -9,3 +9,8 @@ docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-bac
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend-web -f docker/frontend_web.Dockerfile .
 ``` 
+
+## Frontend-PWA
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-frontend-pwa -f docker/frontend_pwa.Dockerfile .
+``` 
