@@ -33,7 +33,7 @@ Starten Sie die Container mit Docker Compose:
 docker-compose up -d
 ```
 
-Die Anwendung ist anschließend unter folgenden URLs erreichbar:
+Die Anwendung ist anschließend unter folgenden URLs und die Host-IP erreichbar:
 - Frontend-Web: `http://localhost:3000`
 - Frontend-PWA: `http://localhost:3001`
 - Backend: `http://localhost:9000`
