@@ -50,13 +50,6 @@ export const MainLayout: React.FC = () => {
     const navigate = useNavigate();
     const { notification, closeNotification, loading } = useNotificationStore();
 
-    // Redirect to area selection if no area is selected
-    React.useEffect(() => {
-        if (!currentArea) {
-            navigate('/select-area');
-        }
-    }, [currentArea, navigate]);
-
     // Left sidebar resize handlers
     const startResizing = React.useCallback((e: React.MouseEvent) => {
         setIsResizing(true);

@@ -16,6 +16,7 @@ import {
     MenuItem,
     Alert,
     Chip,
+    Modal,
 } from '@mui/material';
 import {
     DataGrid,
@@ -39,6 +40,7 @@ import { EmployeeImport } from './EmployeeImport';
 import { useAreaStore } from '../../stores/useAreaStore';
 import { useNavigate } from 'react-router-dom';
 import { useEmployees, useDeleteEmployee, useToggleEmployeeActive } from '../../services/queries/useEmployees';
+import AreaList from '../area_select/AreaList';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -101,9 +103,18 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const [openImport, setOpenImport] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
+    const [areaSelectionOpen, setAreaSelectionOpen] = useState(false);
     const { currentArea, setCurrentArea } = useAreaStore();
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+    // Automatically set "Gesamt" as default area and show modal if no area is selected
+    React.useEffect(() => {
+        if (!currentArea) {
+            setCurrentArea('Nord- und Südkreis');
+            setAreaSelectionOpen(true);
+        }
+    }, [currentArea, setCurrentArea]);
 
     // React Query hooks
     const { data: employees = [], isLoading, error } = useEmployees();
@@ -111,8 +122,12 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const toggleEmployeeActiveMutation = useToggleEmployeeActive();
 
     const handleAreaChange = () => {
-        setCurrentArea(null);
-        navigate('/select-area');
+        setAreaSelectionOpen(true);
+    };
+
+    const handleAreaSelect = (area: string) => {
+        setCurrentArea(area);
+        setAreaSelectionOpen(false);
     };
 
     const handleMenuClose = () => {
@@ -316,25 +331,47 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 borderColor: 'divider'
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Chip
-                        label={getAreaInitial(currentArea || '')}
-                        color={getAreaChipColor(currentArea || '')}
+                    <Button
                         onClick={handleAreaChange}
-                        clickable
-                        icon={<ChangeIcon fontSize="medium" />}
+                        variant="outlined"
+                        startIcon={<ChangeIcon />}
                         sx={{
+                            borderRadius: '12px',
+                            textTransform: 'none',
+                            fontWeight: 600,
                             fontSize: '1rem',
-                            fontWeight: 'bold',
-                            px: 1,
+                            px: 2,
                             py: 1,
-                            borderRadius: '22px',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-                            cursor: 'pointer',
-                            userSelect: 'none',
+                            border: '1px solid rgba(0, 0, 0, 0.08)',
+                            backgroundColor: getAreaChipColor(currentArea || '') === 'primary' ? 'rgba(25, 118, 210, 0.1)' : 
+                                            getAreaChipColor(currentArea || '') === 'secondary' ? 'rgba(220, 0, 78, 0.1)' : 
+                                            'rgba(0, 0, 0, 0.06)',
+                            backdropFilter: 'blur(10px)',
+                            color: getAreaChipColor(currentArea || '') === 'primary' ? '#1976d2' : 
+                                   getAreaChipColor(currentArea || '') === 'secondary' ? '#dc004e' : 
+                                   '#1d1d1f',
+                            borderColor: getAreaChipColor(currentArea || '') === 'primary' ? 'rgba(25, 118, 210, 0.3)' : 
+                                        getAreaChipColor(currentArea || '') === 'secondary' ? 'rgba(220, 0, 78, 0.3)' : 
+                                        'rgba(0, 0, 0, 0.12)',
+                            '&:hover': {
+                                backgroundColor: getAreaChipColor(currentArea || '') === 'primary' ? 'rgba(25, 118, 210, 0.15)' : 
+                                               getAreaChipColor(currentArea || '') === 'secondary' ? 'rgba(220, 0, 78, 0.15)' : 
+                                               'rgba(0, 0, 0, 0.08)',
+                                borderColor: getAreaChipColor(currentArea || '') === 'primary' ? 'rgba(25, 118, 210, 0.5)' : 
+                                            getAreaChipColor(currentArea || '') === 'secondary' ? 'rgba(220, 0, 78, 0.5)' : 
+                                            'rgba(0, 0, 0, 0.2)',
+                                transform: 'translateY(-1px)',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                            },
+                            '&:active': {
+                                transform: 'translateY(0)',
+                                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+                            },
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
-                    />
+                    >
+                        {getAreaInitial(currentArea || '')}
+                    </Button>
                     <Typography variant="h6" component="h2">
                         Mitarbeiterverwaltung
                     </Typography>
@@ -473,6 +510,60 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     onClose={() => setOpenImport(false)}
                 />
             )}
+
+            <Modal
+                open={areaSelectionOpen}
+                onClose={() => {
+                    // Allow closing only if an area is selected
+                    if (currentArea) {
+                        setAreaSelectionOpen(false);
+                    }
+                }}
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    p: 2,
+                }}
+            >
+                <Box sx={{
+                    width: '100%',
+                    maxWidth: 400,
+                    bgcolor: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+                    p: 3,
+                    outline: 'none',
+                }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                        <Box sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: '10px',
+                            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}>
+                            <ChangeIcon sx={{ color: '#1976d2', fontSize: 20 }} />
+                        </Box>
+                        <Typography variant="h5" component="h2" sx={{ 
+                            fontWeight: 600,
+                            color: '#1d1d1f',
+                            letterSpacing: '-0.3px'
+                        }}>
+                            Gebiet wählen
+                        </Typography>
+                    </Box>
+                    <AreaList
+                        areas={['Nord- und Südkreis', 'Nordkreis', 'Südkreis']}
+                        onAreaSelect={handleAreaSelect}
+                        selectedArea={currentArea}
+                    />
+                </Box>
+            </Modal>
 
             <Dialog
                 open={deleteDialogOpen}

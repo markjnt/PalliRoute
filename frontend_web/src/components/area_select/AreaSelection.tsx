@@ -24,10 +24,31 @@ const AreaSelection: React.FC = () => {
 
     return (
         <Container maxWidth="sm" sx={{ mt: 4, mb: 4 }}>
-            <Paper elevation={3} sx={{ p: 3, borderRadius: 3, boxShadow: '0 8px 32px rgba(0,0,0,0.10)', bgcolor: 'grey.50' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-                    <PublicIcon color="primary" fontSize="large" />
-                    <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+            <Box sx={{ 
+                p: 4, 
+                borderRadius: '20px', 
+                background: 'rgba(255, 255, 255, 0.8)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                    <Box sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}>
+                        <PublicIcon sx={{ color: '#1976d2', fontSize: 28 }} />
+                    </Box>
+                    <Typography variant="h4" component="h1" sx={{ 
+                        fontWeight: 600,
+                        color: '#1d1d1f',
+                        letterSpacing: '-0.5px'
+                    }}>
                         Kreisauswahl
                     </Typography>
                 </Box>
@@ -36,7 +57,7 @@ const AreaSelection: React.FC = () => {
                     onAreaSelect={handleAreaSelect}
                     selectedArea={currentArea}
                 />
-            </Paper>
+            </Box>
         </Container>
     );
 };
