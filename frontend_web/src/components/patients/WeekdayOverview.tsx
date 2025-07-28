@@ -24,6 +24,12 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
         return appt?.visit_type || null;
     };
 
+    // Funktion zum Abrufen der Info für einen bestimmten Wochentag
+    const getInfoForWeekday = (weekday: Weekday): string | null => {
+        const appt = appointments.find(a => a.weekday === weekday);
+        return appt?.info || null;
+    };
+
     // Funktion zum Übersetzen des englischen Wochentags in Deutsch
     const getGermanWeekday = (weekday: Weekday): string => {
         switch (weekday) {
@@ -61,10 +67,26 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
             <Grid container spacing={0.5} sx={{ width: '100%' }}>
                 {allWeekdays.map((weekday, idx) => {
                     const visit = getVisitTypeForWeekday(weekday);
+                    const info = getInfoForWeekday(weekday);
                     const isSelectedDay = weekday === selectedDay;
                     return (
                         <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
-                            <Tooltip title={`${getGermanWeekday(weekday)}: ${visit || 'Kein Besuch'}`}>
+                            <Tooltip 
+                                title={
+                                    <Box sx={{ p: 1, maxWidth: 300 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                            {getGermanWeekday(weekday)}: {visit || 'Kein Besuch'}
+                                        </Typography>
+                                        {info && (
+                                            <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                                                {info}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                }
+                                arrow
+                                placement="top"
+                            >
                                 <Box 
                                     sx={{ 
                                         display: 'flex', 
