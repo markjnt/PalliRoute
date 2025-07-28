@@ -1,5 +1,6 @@
 import React from 'react';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
+import { Box, CircularProgress } from '@mui/material';
 
 const containerStyle = {
   width: '100%',
@@ -43,7 +44,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({ apiKey }) => {
   });
 
   if (!isLoaded) {
-    return <div>Loading...</div>;
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        height: '100%'
+      }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   return (

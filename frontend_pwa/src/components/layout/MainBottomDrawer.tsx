@@ -16,7 +16,7 @@ import { useUserStore } from '../../stores/useUserStore';
 import { useEmployees } from '../../services/queries/useEmployees';
 import UserSearchDrawer from '../user/UserSelectDrawer';
 import { employeeTypeColors } from '../../utils/colors';
-import { WeekdayCalendar } from './WeekdayCalendar';
+import { WeekdayCalendar } from '../route/WeekdayCalendar';
 
 /**
  * Main Bottom Drawer component that shows user information and allows user switching
