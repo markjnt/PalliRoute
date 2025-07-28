@@ -11,12 +11,15 @@ import {
 import {
   Person as PersonIcon,
   SwapHoriz as SwapHorizIcon,
+  Visibility as VisibilityIcon,
+  PersonOutline as PersonOutlineIcon,
 } from '@mui/icons-material';
 import { useUserStore } from '../../stores/useUserStore';
 import { useEmployees } from '../../services/queries/useEmployees';
 import UserSearchDrawer from '../user/UserSelectDrawer';
 import { employeeTypeColors } from '../../utils/colors';
 import { WeekdayCalendar } from '../route/WeekdayCalendar';
+import { useRouteVisibilityStore } from '../../stores/useRouteVisibilityStore';
 
 /**
  * Main Bottom Drawer component that shows user information and allows user switching
@@ -24,6 +27,7 @@ import { WeekdayCalendar } from '../route/WeekdayCalendar';
 export const MainBottomDrawer: React.FC = () => {
   const { selectedUserId, setSelectedUser } = useUserStore();
   const { data: employees = [] } = useEmployees();
+  const { showOnlyOwnRoute, toggleRouteVisibility } = useRouteVisibilityStore();
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
 
   const selectedEmployee = employees.find(emp => emp.id === selectedUserId);
@@ -97,6 +101,66 @@ export const MainBottomDrawer: React.FC = () => {
         {/* Weekday Calendar - moved to top */}
         <Box sx={{ px: 2, pb: 2 }}>
           <WeekdayCalendar />
+        </Box>
+
+        {/* Route Visibility Toggle */}
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              p: 1.5,
+              bgcolor: 'rgba(0, 0, 0, 0.02)',
+              borderRadius: 2,
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <PersonOutlineIcon sx={{ color: '#007AFF', mr: 1, fontSize: 20 }} />
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  color: '#1d1d1f',
+                }}
+              >
+                Alle Routen anzeigen
+              </Typography>
+            </Box>
+            <Box
+              onClick={toggleRouteVisibility}
+              sx={{
+                position: 'relative',
+                width: 51,
+                height: 31,
+                bgcolor: showOnlyOwnRoute ? '#E5E5EA' : '#007AFF',
+                borderRadius: 16,
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                },
+                '&:active': {
+                  transform: 'scale(0.98)',
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 2,
+                  left: showOnlyOwnRoute ? 2 : 22,
+                  width: 27,
+                  height: 27,
+                  bgcolor: 'white',
+                  borderRadius: '50%',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              />
+            </Box>
+          </Box>
         </Box>
 
         {/* Divider */}

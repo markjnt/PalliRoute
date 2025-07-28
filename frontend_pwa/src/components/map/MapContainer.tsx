@@ -1,67 +1,197 @@
-import React from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { Box, CircularProgress, Alert } from '@mui/material';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
-import { Box, CircularProgress } from '@mui/material';
+import { MapContainerProps } from '../../types/mapTypes';
+import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, parseRouteOrder } from '../../utils/mapUtils';
+import { useEmployees } from '../../services/queries/useEmployees';
+import { usePatients } from '../../services/queries/usePatients';
+import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
+import { useRoutes } from '../../services/queries/useRoutes';
+import { MapMarkers } from './MapMarkers';
+import { RoutePolylines } from './RoutePolylines';
+import { routeLineColors } from '../../utils/colors';
+import { Weekday } from '../../types/models';
+import { useUserStore } from '../../stores/useUserStore';
+import { useWeekdayStore } from '../../stores/useWeekdayStore';
+import { useRouteVisibilityStore } from '../../stores/useRouteVisibilityStore';
 
-const containerStyle = {
-  width: '100%',
-  height: '100%'
-};
-
-const defaultCenter = {
-  lat: 51.0281,
-  lng: 7.5653
-};
-
-const defaultZoom = 10;
-
-// Map options to remove all controls for mobile optimization
-const mapOptions = {
-  disableDefaultUI: true, // Removes all default UI controls
-  zoomControl: false, // Removes zoom controls
-  mapTypeControl: false, // Removes map type controls (satellite, terrain, etc.)
-  streetViewControl: false, // Removes street view control
-  fullscreenControl: false, // Removes fullscreen control
-  gestureHandling: 'greedy', // Allows single finger pan and zoom
-  styles: [
-    {
-      featureType: 'poi',
-      elementType: 'labels',
-      stylers: [{ visibility: 'off' }] // Hides points of interest labels
-    }
-  ]
-};
-
-export interface MapContainerProps {
-  apiKey: string;
-}
-
-export const MapContainer: React.FC<MapContainerProps> = ({ apiKey }) => {
+/**
+ * Main container component for the map that integrates all map features
+ */
+export const MapContainer: React.FC<MapContainerProps> = ({
+  apiKey
+}) => {
+  // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: apiKey,
+    libraries,
     language: 'de',
     region: 'DE'
   });
 
-  if (!isLoaded) {
+  // Map state
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
+
+  // Get selected user and weekday from stores
+  const { selectedUserId } = useUserStore();
+  const { selectedWeekday } = useWeekdayStore();
+  const { showOnlyOwnRoute } = useRouteVisibilityStore();
+
+  // Data hooks
+  const { data: employees = [], isLoading: employeesLoading, refetch: refetchEmployees } = useEmployees();
+  const { data: patients = [], isLoading: patientsLoading, error: patientsError, refetch: refetchPatients } = usePatients();
+  const { data: appointments = [], isLoading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useAppointmentsByWeekday(selectedWeekday as Weekday);
+  const { data: routes = [], isLoading: routesLoading, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedWeekday as Weekday });
+
+  // Routen basierend auf Sichtbarkeit filtern
+  const visibleRoutes = useMemo(() => {
+    if (showOnlyOwnRoute) {
+      // Nur die Route des ausgewählten Mitarbeiters
+      return routes.filter(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
+    } else {
+      // Alle Routen für den Tag
+      return routes.filter(route => route.weekday === selectedWeekday);
+    }
+  }, [routes, selectedUserId, selectedWeekday, showOnlyOwnRoute]);
+
+  // Marker-Berechnung mit useMemo
+  const markers = useMemo(() => {
+    if (!isLoaded) return [];
+    const newMarkers = [];
+    
+    // Mitarbeiter-Marker basierend auf Sichtbarkeit anzeigen
+    for (const employee of employees) {
+      if (employee.latitude && employee.longitude) {
+        // Finde die Route für diesen Mitarbeiter am ausgewählten Tag
+        const route = visibleRoutes.find(r => r.employee_id === employee.id);
+        
+        // Bei "nur eigene Route": nur den ausgewählten Mitarbeiter anzeigen
+        // Bei "alle Routen": alle Mitarbeiter mit Routen anzeigen
+        if (showOnlyOwnRoute) {
+          // Nur der ausgewählte Mitarbeiter
+          if (employee.id === selectedUserId && route) {
+            const marker = createEmployeeMarkerData(employee, route.id);
+            if (marker) {
+              newMarkers.push({ ...marker, isInactive: false });
+            }
+          }
+        } else {
+          // Alle Mitarbeiter mit Koordinaten anzeigen (mit oder ohne Route)
+          const marker = createEmployeeMarkerData(employee, route?.id);
+          if (marker) {
+            // Mitarbeiter ohne Route sind nicht inaktiv, sondern normal sichtbar
+            const isInactive = false; // Immer false, damit sie in ihrer Farbe angezeigt werden
+            newMarkers.push({ ...marker, isInactive });
+          }
+        }
+      }
+    }
+    
+    // Appointments/Patients für sichtbare Routen
+    if (patients.length > 0 && appointments.length > 0 && visibleRoutes.length > 0) {
+      const appointmentPositions = new Map();
+      
+      // Positionen für alle Termine in allen sichtbaren Routen setzen
+      visibleRoutes.forEach(route => {
+        const routeOrder = parseRouteOrder(route.route_order);
+        routeOrder.forEach((appointmentId, idx) => {
+          appointmentPositions.set(appointmentId, { position: idx + 1, routeId: route.id });
+        });
+      });
+      
+      // Nur HB-Termine (Hausbesuch) anzeigen
+      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && a.visit_type === 'HB');
+      
+      for (const appointment of appointmentsForDay) {
+        const patient = patients.find(p => p.id === appointment.patient_id);
+        if (patient) {
+          const posInfo = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
+          const position = posInfo ? posInfo.position : undefined;
+          const routeId = posInfo ? posInfo.routeId : undefined;
+          
+          if (routeId) {
+            // Prüfe, ob der Termin zur Route des ausgewählten Mitarbeiters gehört
+            const route = visibleRoutes.find(r => r.id === routeId);
+            const isOwnRoute = route && route.employee_id === selectedUserId;
+            
+            // Bei "nur eigene Route": nur Termine der eigenen Route anzeigen
+            // Bei "alle Routen": alle Termine der sichtbaren Routen anzeigen
+            if (!showOnlyOwnRoute || isOwnRoute) {
+              const baseMarker = createPatientMarkerData(patient, appointment, position, routeId);
+              if (baseMarker) {
+                const isInactive = !route;
+                newMarkers.push({ ...baseMarker, isInactive });
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return newMarkers;
+  }, [isLoaded, employees, patients, appointments, visibleRoutes, selectedWeekday]);
+
+  // Route-Polylines für alle sichtbaren Routen
+  const routePaths = useMemo(() => {
+    return visibleRoutes.map(route => {
+      const employee = employees.find(e => e.id === route.employee_id);
+      const tourNumber = employee?.tour_number;
+      const color = tourNumber ? routeLineColors[(Math.abs(tourNumber) - 1) % routeLineColors.length] : '#9E9E9E';
+      
+      return {
+        employeeId: route.employee_id,
+        routeId: route.id,
+        routeOrder: parseRouteOrder(route.route_order),
+        color,
+        polyline: route.polyline,
+        totalDistance: route.total_distance || 0,
+        totalDuration: route.total_duration || 0,
+        employeeName: employee ? `${employee.first_name} ${employee.last_name}` : 'Unknown Employee'
+      };
+    });
+  }, [visibleRoutes, employees]);
+
+  // Fehler- und Ladezustände
+  const isLoading = employeesLoading || patientsLoading || appointmentsLoading || routesLoading || !isLoaded;
+  const error = mapError || (patientsError instanceof Error ? patientsError.message : null) || (appointmentsError instanceof Error ? appointmentsError.message : null) || (routesError instanceof Error ? routesError.message : null);
+
+  if (isLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center',
-        height: '100%'
-      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
         <CircularProgress />
       </Box>
     );
   }
 
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">Fehler beim Laden der Daten: {error}</Alert>
+      </Box>
+    );
+  }
+
   return (
-    <GoogleMap
-      mapContainerStyle={containerStyle}
-      center={defaultCenter}
-      zoom={defaultZoom}
-      options={mapOptions}
-    />
+    <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={defaultCenter}
+        zoom={defaultZoom}
+        onLoad={setMap}
+        onUnmount={() => setMap(null)}
+        options={mapOptions}
+      >
+        <RoutePolylines routes={routePaths} map={map} />
+        <MapMarkers
+          markers={markers}
+          patients={patients}
+          employees={employees}
+          appointments={appointments}
+          routes={routes}
+        />
+      </GoogleMap>
+    </Box>
   );
 };
