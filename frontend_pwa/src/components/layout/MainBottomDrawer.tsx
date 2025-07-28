@@ -19,6 +19,7 @@ import { useEmployees } from '../../services/queries/useEmployees';
 import UserSearchDrawer from '../user/UserSelectDrawer';
 import { employeeTypeColors } from '../../utils/colors';
 import { WeekdayCalendar } from '../route/WeekdayCalendar';
+import { RouteList } from '../route/RouteList';
 import { useRouteVisibilityStore } from '../../stores/useRouteVisibilityStore';
 
 /**
@@ -162,6 +163,9 @@ export const MainBottomDrawer: React.FC = () => {
             </Box>
           </Box>
         </Box>
+
+        {/* Route List */}
+        <RouteList />
 
         {/* Divider */}
         <Divider sx={{ mx: 3, mb: 2 }} />
