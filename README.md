@@ -14,30 +14,41 @@ Laden Sie die Beispieldatei [`docker-compose.example.yml`](docker-compose.exampl
 cp docker-compose.example.yml docker-compose.yml
 ```
 
-### 2. Umgebungsvariablen anpassen
+### 2. Docker Compose anpassen
 
-Öffnen Sie die Datei `docker-compose.yml` und passen Sie die folgenden Umgebungsvariablen an:
+Öffnen Sie die Datei `docker-compose.yml` und passen Sie die folgenden Konfigurationen an:
+
+#### 2.1 Umgebungsvariablen
 
 **Erforderliche Umgebungsvariablen:**
 - `SECRET_KEY`: Ein sicherer Schlüssel für die Flask-Anwendung
 - `GOOGLE_MAPS_API_KEY`: Ihr Google Maps API-Schlüssel für Geocoding und Routenplanung
 - `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (Comma-separated)
-- `XLSX_IMPORT_PATH`: Pfad zum Ordner mit den Excel-Dateien für den Import
-
-**Hinweis zu XLSX_IMPORT_PATH:**
-Der angegebene Pfad sollte folgende Unterordner enthalten:
-- `Mitarbeiterliste/` - für Mitarbeiter-Excel-Dateien
-- `Export_PalliDoc/` - für Patienten-Excel-Dateien
-
-Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner aus.
 
 ```yaml
 environment:
   - SECRET_KEY=your_secret_key_here
   - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
   - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
-  - XLSX_IMPORT_PATH=/path/to/your/excel/files
 ```
+
+#### 2.2 Excel-Import konfigurieren
+
+Die Excel-Dateien werden über ein Docker Volume gemountet. In der `docker-compose.yml` ist bereits folgendes Volume konfiguriert:
+
+```yaml
+volumes:
+  - /path/to/xlsx/files:/backend/data/excel_import
+```
+
+**Wichtig:** Ersetzen Sie `/path/to/xlsx/files` mit dem tatsächlichen Pfad zu Ihren Excel-Dateien auf dem Host-System.
+
+**Ordnerstruktur:**
+Der gemountete Ordner sollte folgende Unterordner enthalten:
+- `Mitarbeiterliste/` - für Mitarbeiter-Excel-Dateien
+- `Export_PalliDoc/` - für Patienten-Excel-Dateien
+
+Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner aus.
 
 ### 3. Container starten
 
@@ -47,10 +58,14 @@ Starten Sie die Container mit Docker Compose:
 docker-compose up -d
 ```
 
-Die Anwendung ist anschließend unter folgenden URLs und der Host-IP erreichbar:
-- Frontend-Web: `http://localhost:3000`
-- Frontend-PWA: `http://localhost:3001`
-- Backend: `http://localhost:9000`
+#### 3.1 Zugriff auf die Anwendung
+
+Die Anwendung ist anschließend unter folgenden URLs erreichbar:
+- **Frontend-Web**: `http://localhost:3000`
+- **Frontend-PWA**: `http://localhost:3001`
+- **Backend**: `http://localhost:9000`
+
+#### 3.2 Container verwalten
 
 Zum Stoppen der Container:
 ```bash

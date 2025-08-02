@@ -5,11 +5,11 @@ services:
     pull_policy: always
     volumes:
       - ./backend/data:/backend/data
+      - /path/to/xlsx/files:/backend/data/excel_import
     environment:
       - SECRET_KEY=your_secret_key_here
       - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
       - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000
-      - XLSX_IMPORT_PATH=/path/to/xlsx/files
     ports:
       - "9000:9000"
     restart: unless-stopped
