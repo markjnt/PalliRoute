@@ -71,16 +71,9 @@ export const employeesApi = {
     },
 
     // Import employees from Excel file
-    async import(file: File): Promise<EmployeeImportResponse> {
+    async import(): Promise<EmployeeImportResponse> {
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            const response = await api.post('/employees/import', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            const response = await api.post('/employees/import');
             return response.data;
         } catch (error) {
             console.error('Failed to import employees from Excel:', error);

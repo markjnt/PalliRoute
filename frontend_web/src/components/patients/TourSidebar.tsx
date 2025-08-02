@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import {
     Today as TodayIcon,
-    Upload as UploadIcon,
+    Refresh as RefreshIcon,
     Event as CalendarIcon,
     Route as RouteIcon,
     DeleteForever as DeleteForeverIcon,
@@ -26,7 +26,6 @@ import {
 } from '@mui/icons-material';
 import { Weekday } from '../../types/models';
 import { ToursView } from './ToursView';
-import { PatientExcelImport } from './PatientImport';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport } from '../../services/queries/usePatients';
@@ -43,8 +42,8 @@ interface TourPlanSidebarProps {
 export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
-    const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [lastImportTime, setLastImportTime] = useState<Date | null>(null);
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const queryClient = useQueryClient();
@@ -82,19 +81,29 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         setSelectedWeekday(event.target.value as Weekday);
     }, [setSelectedWeekday]);
 
-    // Import dialog handlers
-    const handleImportDialogOpen = useCallback(() => {
-        setImportDialogOpen(true);
-    }, []);
-
-    const handleImportDialogClose = useCallback(() => {
-        setImportDialogOpen(false);
-    }, []);
-
-    const handleImportSuccess = useCallback((response: any) => {
-        handleImportDialogClose();
-        setNotification('Import erfolgreich abgeschlossen.', 'success');
-    }, [handleImportDialogClose, setNotification]);
+    const handleImport = async () => {
+        try {
+            const result = await patientImportMutation.mutateAsync();
+            setLastImportTime(new Date());
+            
+            // Add calendar week to success message if available
+            let message = result.message;
+            if (result.calendar_week) {
+                message += ` (KW ${result.calendar_week})`;
+            }
+            
+            setNotification(message, 'success');
+        } catch (error: any) {
+            console.error('Error importing patients:', error);
+            let message = 'Fehler beim Importieren der Patienten';
+            if (error?.response?.data?.error) {
+                message = error.response.data.error;
+            } else if (error?.message) {
+                message = error.message;
+            }
+            setNotification(message, 'error');
+        }
+    };
 
     // Memoize weekday name mapping
     const getWeekdayName = useCallback((day: Weekday): string => {
@@ -237,11 +246,16 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     <Button
                         variant="contained"
                         fullWidth
-                        startIcon={<UploadIcon />}
-                        onClick={handleImportDialogOpen}
-                        disabled={!employees.length}
+                        startIcon={<RefreshIcon />}
+                        onClick={handleImport}
+                        disabled={!employees.length || patientImportMutation.isPending}
                     >
-                        Excel Import
+                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${lastImportTime ? ` (zuletzt ${lastImportTime.toLocaleString('de-DE', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            day: '2-digit',
+                            month: '2-digit'
+                        })})` : ''}`}
                     </Button>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -272,11 +286,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 <ToursView selectedDay={selectedWeekday} />
             </Box>
 
-            <PatientExcelImport
-                open={importDialogOpen}
-                onClose={handleImportDialogClose}
-                onSuccess={handleImportSuccess}
-            />
+
         </Box>
     );
 }; 

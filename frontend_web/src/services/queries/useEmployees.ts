@@ -121,7 +121,7 @@ export const useImportEmployees = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (file: File) => employeesApi.import(file),
+    mutationFn: () => employeesApi.import(),
     onSuccess: () => {
       // Invalidate employees list to refresh after import
       queryClient.invalidateQueries({ queryKey: employeeKeys.all });

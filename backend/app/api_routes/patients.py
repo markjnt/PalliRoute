@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
+import os
 from app import db
 from app.models.patient import Patient
 from app.models.appointment import Appointment
@@ -41,15 +42,31 @@ def import_patients():
     2. Import new patients from the Excel file
     3. Create new appointments based on the imported data
     """
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+    # Get directory path from config
+    directory_path = current_app.config.get('PATIENTS_IMPORT_PATH')
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
+    if not directory_path:
+        return jsonify({"error": "PATIENTS_IMPORT_PATH not configured"}), 400
     
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
+    # Validate directory path
+    if not os.path.exists(directory_path):
+        return jsonify({"error": f"Directory not found: {directory_path}"}), 400
+    
+    if not os.path.isdir(directory_path):
+        return jsonify({"error": f"Path is not a directory: {directory_path}"}), 400
+    
+    # Find the newest Excel file in the directory
+    excel_files = []
+    for file in os.listdir(directory_path):
+        if file.endswith(('.xlsx', '.xls')):
+            file_path = os.path.join(directory_path, file)
+            excel_files.append((file_path, os.path.getmtime(file_path)))
+    
+    if not excel_files:
+        return jsonify({"error": f"No Excel files found in directory: {directory_path}"}), 400
+    
+    # Get the newest file
+    newest_file = max(excel_files, key=lambda x: x[1])[0]
     
     try:
         # Clear the database first
@@ -67,8 +84,8 @@ def import_patients():
         print(f"Deleted {route_count} routes, {appointment_count} appointments and {patient_count} patients")
         
         # Import the new data
-        print(f"Starting import from file: {file.filename}")
-        result = ExcelImportService.import_patients(file)
+        print(f"Starting import from file: {newest_file}")
+        result = ExcelImportService.import_patients(newest_file)
         patients = result['patients']
         appointments = result['appointments']
         
@@ -80,7 +97,7 @@ def import_patients():
         
         # Prepare the response
         return jsonify({
-            "message": f"Successfully imported {len(patients)} patients, {len(appointments)} appointments, and {len(routes)} routes for calendar week {calendar_week}",
+            "message": f"Erfolgreich {len(patients)} Patienten, {len(appointments)} Termine und {len(routes)} Touren importiert",
             "patient_count": len(patients),
             "appointment_count": len(appointments),
             "route_count": len(routes),

@@ -25,16 +25,9 @@ export const patientsApi = {
     },
 
     // Import patients from Excel file
-    async import(file: File): Promise<PatientImportResponse> {
+    async import(): Promise<PatientImportResponse> {
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            const response = await api.post('/patients/import', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            const response = await api.post('/patients/import');
             return response.data;
         } catch (error) {
             console.error('Failed to import patients from Excel:', error);

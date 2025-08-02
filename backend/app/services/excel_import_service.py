@@ -106,7 +106,7 @@ class ExcelImportService:
             raise Exception(f"Error deleting data: {str(e)}")
 
     @staticmethod
-    def import_employees(file) -> Dict[str, List[Any]]:
+    def import_employees(file_path) -> Dict[str, List[Any]]:
         """
         Import employees from Excel file
         Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Tournummer (optional)
@@ -115,7 +115,7 @@ class ExcelImportService:
             # First delete all existing data
             ExcelImportService.delete_all_data()
             
-            df = pd.read_excel(file)
+            df = pd.read_excel(file_path)
             required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang', 'Gebiet']
             
             # Validate columns
@@ -206,7 +206,7 @@ class ExcelImportService:
             raise Exception(f"Fehler beim Importieren der Mitarbeiter: {str(e)}")
 
     @staticmethod
-    def import_patients(file) -> Dict[str, List[Any]]:
+    def import_patients(file_path) -> Dict[str, List[Any]]:
         """
         Import patients and their appointments from Excel file
         Expected columns: Gebiet, Touren, Nachname, Vorname, Ort, PLZ, Strasse, KW,
@@ -224,7 +224,7 @@ class ExcelImportService:
             print("Step 1: Loading Excel file and validating columns...")
             custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
                                '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
-            df = pd.read_excel(file, keep_default_na=False, na_values=custom_na_values)
+            df = pd.read_excel(file_path, keep_default_na=False, na_values=custom_na_values)
             required_columns = [
                 'Gebiet', 'Touren', 'Nachname', 'Vorname', 'Ort', 'PLZ', 'Strasse', 'KW',
                 'Montag', 'Uhrzeit/Info Montag', 'Dienstag', 'Uhrzeit/Info Dienstag', 

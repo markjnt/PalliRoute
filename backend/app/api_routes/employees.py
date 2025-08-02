@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
+import os
 from app import db
 from app.models.employee import Employee
 from app.models.route import Route
@@ -122,18 +123,34 @@ def delete_employee(id):
 
 @employees_bp.route('/import', methods=['POST'])
 def import_employees():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+    # Get directory path from config
+    directory_path = current_app.config.get('EMPLOYEES_IMPORT_PATH')
     
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
+    if not directory_path:
+        return jsonify({"error": "EMPLOYEES_IMPORT_PATH not configured"}), 400
     
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
+    # Validate directory path
+    if not os.path.exists(directory_path):
+        return jsonify({"error": f"Directory not found: {directory_path}"}), 400
+    
+    if not os.path.isdir(directory_path):
+        return jsonify({"error": f"Path is not a directory: {directory_path}"}), 400
+    
+    # Find the newest Excel file in the directory
+    excel_files = []
+    for file in os.listdir(directory_path):
+        if file.endswith(('.xlsx', '.xls')):
+            file_path = os.path.join(directory_path, file)
+            excel_files.append((file_path, os.path.getmtime(file_path)))
+    
+    if not excel_files:
+        return jsonify({"error": f"No Excel files found in directory: {directory_path}"}), 400
+    
+    # Get the newest file
+    newest_file = max(excel_files, key=lambda x: x[1])[0]
     
     try:
-        result = ExcelImportService.import_employees(file)
+        result = ExcelImportService.import_employees(newest_file)
         added_employees = result['added']
         updated_employees = result['updated']
         

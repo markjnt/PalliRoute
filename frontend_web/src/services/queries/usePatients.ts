@@ -35,7 +35,7 @@ export const usePatientImport = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (file: File) => patientsApi.import(file),
+    mutationFn: () => patientsApi.import(),
     onSuccess: () => {
       // Patienten-Daten im Cache invalidieren
       queryClient.invalidateQueries({ queryKey: patientKeys.all });

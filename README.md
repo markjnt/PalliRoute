@@ -18,11 +18,25 @@ cp docker-compose.example.yml docker-compose.yml
 
 Öffnen Sie die Datei `docker-compose.yml` und passen Sie die folgenden Umgebungsvariablen an:
 
+**Erforderliche Umgebungsvariablen:**
+- `SECRET_KEY`: Ein sicherer Schlüssel für die Flask-Anwendung
+- `GOOGLE_MAPS_API_KEY`: Ihr Google Maps API-Schlüssel für Geocoding und Routenplanung
+- `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (Comma-separated)
+- `XLSX_IMPORT_PATH`: Pfad zum Ordner mit den Excel-Dateien für den Import
+
+**Hinweis zu XLSX_IMPORT_PATH:**
+Der angegebene Pfad sollte folgende Unterordner enthalten:
+- `Mitarbeiterliste/` - für Mitarbeiter-Excel-Dateien
+- `Export_PalliDoc/` - für Patienten-Excel-Dateien
+
+Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner aus.
+
 ```yaml
 environment:
   - SECRET_KEY=your_secret_key_here
   - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
   - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
+  - XLSX_IMPORT_PATH=/path/to/your/excel/files
 ```
 
 ### 3. Container starten
