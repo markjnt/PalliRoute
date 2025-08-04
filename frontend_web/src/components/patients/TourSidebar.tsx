@@ -32,6 +32,7 @@ import { usePatients, usePatientImport } from '../../services/queries/usePatient
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
 
@@ -43,9 +44,9 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [isOptimizing, setIsOptimizing] = useState(false);
-    const [lastImportTime, setLastImportTime] = useState<Date | null>(null);
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
+    const { lastPatientImportTime, setLastPatientImportTime } = useLastUpdateStore();
     const queryClient = useQueryClient();
     const { hiddenPolylines, hideAllPolylines, showAllPolylines, showAllMarkers } = useRouteVisibility();
 
@@ -84,7 +85,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const handleImport = async () => {
         try {
             const result = await patientImportMutation.mutateAsync();
-            setLastImportTime(new Date());
+            setLastPatientImportTime(new Date());
             
             // Add calendar week to success message if available
             let message = result.message;
@@ -250,7 +251,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         onClick={handleImport}
                         disabled={!employees.length || patientImportMutation.isPending}
                     >
-                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${lastImportTime ? ` (zuletzt ${lastImportTime.toLocaleString('de-DE', { 
+                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${lastPatientImportTime ? ` (zuletzt ${new Date(lastPatientImportTime).toLocaleString('de-DE', { 
                             hour: '2-digit', 
                             minute: '2-digit',
                             day: '2-digit',

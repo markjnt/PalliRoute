@@ -41,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEmployees, useDeleteEmployee, useToggleEmployeeActive, useImportEmployees } from '../../services/queries/useEmployees';
 import AreaList from '../area_select/AreaList';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -103,7 +104,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
     const [areaSelectionOpen, setAreaSelectionOpen] = useState(false);
-    const [lastImportTime, setLastImportTime] = useState<Date | null>(null);
     const { currentArea, setCurrentArea } = useAreaStore();
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -122,6 +122,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const toggleEmployeeActiveMutation = useToggleEmployeeActive();
     const importEmployeesMutation = useImportEmployees();
     const { setNotification } = useNotificationStore();
+    const { lastEmployeeImportTime, setLastEmployeeImportTime } = useLastUpdateStore();
 
     const handleAreaChange = () => {
         setAreaSelectionOpen(true);
@@ -194,7 +195,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         try {
             const result = await importEmployeesMutation.mutateAsync();
             const totalEmployees = result.added_employees.length;
-            setLastImportTime(new Date());
+            setLastEmployeeImportTime(new Date());
             setNotification(`${totalEmployees} Mitarbeiter wurden erfolgreich importiert`, 'success');
         } catch (error: any) {
             console.error('Error importing employees:', error);
@@ -406,7 +407,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     startIcon={<RefreshIcon />}
                     disabled={importEmployeesMutation.isPending}
                 >
-                    {importEmployeesMutation.isPending ? 'Importiere...' : `Excel Import${lastImportTime ? ` (zuletzt ${lastImportTime.toLocaleString('de-DE', { 
+                    {importEmployeesMutation.isPending ? 'Importiere...' : `Excel Import${lastEmployeeImportTime ? ` (zuletzt ${new Date(lastEmployeeImportTime).toLocaleString('de-DE', { 
                         hour: '2-digit', 
                         minute: '2-digit',
                         day: '2-digit',
