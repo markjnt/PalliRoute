@@ -27,7 +27,7 @@ class Config:
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
     
     # Import configuration
-    xlsx_base_path = os.environ.get('XLSX_IMPORT_PATH') or os.path.join(basedir, 'data', 'excel_import')
+    xlsx_base_path = os.environ.get('XLSX_IMPORT_PATH_DEV') or os.path.join(basedir, 'data', 'excel_import')
     EMPLOYEES_IMPORT_PATH = os.path.join(xlsx_base_path, 'Mitarbeiterliste') if xlsx_base_path else None
     PATIENTS_IMPORT_PATH = os.path.join(xlsx_base_path, 'Export_PalliDoc') if xlsx_base_path else None
 

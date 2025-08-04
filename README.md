@@ -34,19 +34,21 @@ environment:
 
 #### 2.2 Excel-Import konfigurieren
 
-Die Excel-Dateien werden über ein Docker Volume gemountet. In der `docker-compose.yml` ist bereits folgendes Volume konfiguriert:
+Die Excel-Dateien werden über Docker Volumes gemountet. In der `docker-compose.yml` sind bereits folgende Volumes konfiguriert:
 
 ```yaml
 volumes:
-  - /path/to/xlsx/files:/backend/data/excel_import
+  - ./backend/data:/backend/data
+  - /path/to/xlsx/Mitarbeiterliste:/backend/data/excel_import/Mitarbeiterliste
+  - /path/to/xlsx/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
 ```
 
-**Wichtig:** Ersetzen Sie `/path/to/xlsx/files` mit dem tatsächlichen Pfad zu Ihren Excel-Dateien auf dem Host-System.
+**Wichtig:** Ersetzen Sie die Pfade `/path/to/xlsx/Mitarbeiterliste` und `/path/to/xlsx/Export_PalliDoc` mit den tatsächlichen Pfaden zu Ihren Excel-Dateien auf dem Host-System.
 
 **Ordnerstruktur:**
-Der gemountete Ordner sollte folgende Unterordner enthalten:
-- `Mitarbeiterliste/` - für Mitarbeiter-Excel-Dateien
-- `Export_PalliDoc/` - für Patienten-Excel-Dateien
+In den jeweiligen gemounteten Ordnern sollten sich die entsprechenden Excel-Dateien befinden:
+- `Mitarbeiterliste/` - hier die Mitarbeiterliste-Excel-Dateien ablegen
+- `Export_PalliDoc/` - hier die PalliDoc-Export-Listen-Excel-Dateien ablegen
 
 Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner aus.
 
