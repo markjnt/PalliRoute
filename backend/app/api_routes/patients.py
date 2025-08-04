@@ -67,6 +67,7 @@ def import_patients():
     
     # Get the newest file
     newest_file = max(excel_files, key=lambda x: x[1])[0]
+    print(f"Newest file: {newest_file}")
     
     try:
         # Clear the database first
