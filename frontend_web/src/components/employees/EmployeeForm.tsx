@@ -65,7 +65,6 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             city: employee?.city || '',
             function: employee?.function || 'Pflegekraft',
             work_hours: employee?.work_hours || 100,
-            tour_number: employee?.tour_number || undefined,
             is_active: employee?.is_active ?? true,
             area: employee?.area || 'Nordkreis',
         },
