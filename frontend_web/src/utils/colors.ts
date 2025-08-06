@@ -39,14 +39,46 @@ export const routeLineColors: string[] = [
     '#008080', // Teal
     '#BC8F8F', // Rosy Brown
     '#4682B4', // Steel Blue
-    '#D2691E'  // Chocolate
+    '#D2691E', // Chocolate
+    '#9370DB', // Medium Purple
+    '#32CD32', // Lime Green
+    '#FF69B4', // Hot Pink
+    '#00BFFF', // Deep Sky Blue
+    '#FFD700', // Gold
+    '#8B008B', // Dark Magenta
+    '#00FA9A', // Medium Spring Green
+    '#FF7F50', // Coral
+    '#6A5ACD', // Slate Blue
+    '#98FB98', // Pale Green
+    '#DDA0DD', // Plum
+    '#F0E68C', // Khaki
+    '#E6E6FA', // Lavender
+    '#FFA07A', // Light Salmon
+    '#87CEEB', // Sky Blue
+    '#D8BFD8', // Thistle
+    '#F5DEB3', // Wheat
+    '#B0E0E6', // Powder Blue
+    '#FFB6C1', // Light Pink
+    '#C0C0C0', // Silver
+    '#90EE90', // Light Green
+    '#D3D3D3', // Light Grey
+    '#FFC0CB', // Pink
+    '#ADD8E6', // Light Blue
+    '#F0F8FF', // Alice Blue
+    '#F5F5DC', // Beige
+    '#FFE4E1', // Misty Rose
+    '#E0FFFF', // Light Cyan
+    '#FFFACD', // Lemon Chiffon
+    '#F0FFF0', // Honeydew
+    '#FFF0F5', // Lavender Blush
+    '#F8F8FF'  // Ghost White
 ];
 
-// Helper function to get color for a tour number
-export const getColorForTour = (tourNumber: number | undefined): string => {
-    if (!tourNumber) return '#9E9E9E'; // Default grey for undefined tour
+// Helper function to get color for an employee ID
+export const getColorForTour = (employeeId: number | undefined): string => {
+    if (!employeeId) return '#9E9E9E'; // Default grey for undefined employee
     
-    // Ensure tourNumber is a positive number and convert to zero-based index
-    const index = (Math.abs(tourNumber) - 1) % routeLineColors.length;
+    // Ensure employeeId is a positive number and convert to zero-based index
+    const index = (Math.abs(employeeId) - 1) % routeLineColors.length;
     return routeLineColors[index];
 }; 

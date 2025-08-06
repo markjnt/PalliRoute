@@ -259,13 +259,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             type: 'singleSelect',
             valueOptions: ['Nordkreis', 'Südkreis'],
         },
-        {
-            field: 'tour_number',
-            headerName: 'Tournummer',
-            width: 110,
-            filterable: true,
-            type: 'number',
-        },
         { 
             field: 'street', 
             headerName: 'Straße', 

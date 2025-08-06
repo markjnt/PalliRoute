@@ -118,8 +118,16 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const routeId = route?.id;
     const isVisible = routeId !== undefined ? !hiddenPolylines.has(routeId) : false;
 
-    // 3. Patients for this tour (based on tour assignment)
-    const tourPatients = patients.filter(p => p.tour === employee.tour_number);
+    // Get patients for this tour based on appointments for this employee and day
+    const tourPatients = React.useMemo(() => {
+        const patientIds = new Set<number>();
+        appointments.forEach(app => {
+            if (app.employee_id === employee.id && app.weekday === selectedDay) {
+                patientIds.add(app.patient_id);
+            }
+        });
+        return patients.filter(p => patientIds.has(p.id || 0));
+    }, [appointments, employee.id, selectedDay, patients]);
 
     const handleDropPatient = async (item: PatientDragItem) => {
         try {
@@ -137,7 +145,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             if (item.appointmentIds.length > 0) {
                 await moveAppointment.mutateAsync({
                     appointmentId: item.appointmentIds[0],
-                    sourceEmployeeId: item.sourceTourNumber || 0,
+                    sourceEmployeeId: item.sourceEmployeeId || 0,
                     targetEmployeeId: employee.id || 0
                 });
             }
@@ -156,8 +164,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             handleDropPatient(item);
         },
         canDrop: (item) => {
-            // Drop auf eigene Tour verhindern
-            return employee.is_active && item.sourceTourNumber !== employee.tour_number;
+            // Drop auf eigenen Mitarbeiter verhindern
+            return employee.is_active && item.sourceEmployeeId !== employee.id;
         },
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
@@ -201,9 +209,9 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         try {
             await batchMoveAppointments.mutateAsync({
                 sourceEmployeeId: employee.id || 0,
-                targetEmployeeId
+                targetEmployeeId,
+                weekday: selectedDay
             });
-            
             handleMenuClose();
             resetLoading();
             setNotification('Alle Patienten erfolgreich zugewiesen', 'success');
@@ -267,37 +275,40 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         }
     };
 
-    // Filter active employees with tour numbers
+    // Filter active employees
     const availableEmployees = employees
-        .filter(emp => emp.is_active && 
-                emp.tour_number !== undefined && 
-                emp.tour_number !== null && 
-                emp.tour_number !== employee.tour_number)
-        .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
+        .filter(emp => emp.is_active && emp.id !== employee.id)
+        .sort((a, b) => a.last_name.localeCompare(b.last_name));
 
-    // Get inactive employees with tour numbers
+    // Get inactive employees
     const inactiveEmployees = employees
-        .filter(emp => !emp.is_active && 
-                emp.tour_number !== undefined && 
-                emp.tour_number !== null && 
-                emp.tour_number !== employee.tour_number)
-        .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
+        .filter(emp => !emp.is_active && emp.id !== employee.id)
+        .sort((a, b) => a.last_name.localeCompare(b.last_name));
 
-    // Count patients in each tour
-    const patientCountByTour = React.useMemo(() => {
+    // Count patients for each employee
+    const patientCountByEmployee = React.useMemo(() => {
         const counts = new Map<number, number>();
         employees.forEach(emp => {
-            if (emp.tour_number !== undefined && emp.tour_number !== null) {
-                counts.set(emp.tour_number, 0);
+            counts.set(emp.id || 0, 0);
+        });
+        
+        // Count patients based on their appointments for the selected day
+        const patientIdsByEmployee = new Map<number, Set<number>>();
+        appointments.forEach(app => {
+            if (app.weekday === selectedDay && app.employee_id) {
+                if (!patientIdsByEmployee.has(app.employee_id)) {
+                    patientIdsByEmployee.set(app.employee_id, new Set());
+                }
+                patientIdsByEmployee.get(app.employee_id)!.add(app.patient_id);
             }
         });
-        patients.forEach((p: Patient) => {
-            if (p.tour !== undefined && p.tour !== null) {
-                counts.set(p.tour, (counts.get(p.tour) || 0) + 1);
-            }
+        
+        patientIdsByEmployee.forEach((patientIds, employeeId) => {
+            counts.set(employeeId, patientIds.size);
         });
+        
         return counts;
-    }, [employees, patients]);
+    }, [employees, patients, appointments, selectedDay]);
 
     // Filtere Termine für den ausgewählten Tag und diesen Mitarbeiter
     const employeeAppointments = appointments.filter(a => 
@@ -405,6 +416,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     
     // Define the border style based on drag and drop state
     const getBorderStyle = () => {
+        const tourColor = employee.id ? getColorForTour(employee.id) : '#9E9E9E';
+        
         if (isOver && canDrop) {
             return {
                 borderColor: 'success.main',
@@ -416,13 +429,14 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         if (canDrop) {
             return {
                 borderColor: 'info.main',
-                borderStyle: employee.tour_number ? 'solid' : 'dashed',
-                borderWidth: employee.tour_number ? 5 : 2
+                borderStyle: 'solid',
+                borderWidth: 2
             };
         }
         return {
-            borderLeft: employee.tour_number ? 5 : 2,
-            borderColor: employee.tour_number ? getColorForTour(employee.tour_number) : 'grey.400',
+            borderWidth: 2.5,
+            borderColor: tourColor,
+            borderStyle: 'solid'
         };
     };
 
@@ -481,24 +495,12 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                             component="h3" 
                             sx={{ 
                                 fontWeight: 'bold',
-                                color: employee.tour_number ? getColorForTour(employee.tour_number) : 'text.primary'
-                            }}
-                        >
-                            {employee.tour_number ? `Tour ${employee.tour_number}:` : ''}
-                        </Typography>
-                        
-                        <Typography 
-                            variant="h6" 
-                            component="h3" 
-                            sx={{ 
-                                fontWeight: 'medium',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1
+                                color: employee.id ? getColorForTour(employee.id) : 'text.primary'
                             }}
                         >
                             {employee.first_name} {employee.last_name}
                         </Typography>
+                        
                     </Box>
                     
                     {/* Employee status and function info */}
@@ -652,7 +654,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                     </Typography>
                                     
                                     {availableEmployees.map((emp) => {
-                                        const patientCount = patientCountByTour.get(emp.tour_number!) || 0;
+                                        const patientCount = patientCountByEmployee.get(emp.id || 0) || 0;
                                         const isEmpty = patientCount === 0;
                                         
                                         return (
@@ -666,27 +668,33 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                     }
                                                 }}
                                             >
-                                                <ListItemIcon>
-                                                    <PersonIcon 
-                                                        fontSize="small" 
-                                                        sx={{ color: getColorForTour(emp.tour_number!) }} 
-                                                    />
-                                                </ListItemIcon>
                                                 <ListItemText>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Typography variant="body2">
-                                                            {emp.first_name} {emp.last_name}
-                                                        </Typography>
                                                         <Chip
-                                                            label={`Tour ${emp.tour_number}`}
+                                                            label={`${emp.first_name} ${emp.last_name}`}
                                                             size="small"
                                                             sx={{
                                                                 height: 20,
-                                                                bgcolor: getColorForTour(emp.tour_number!),
+                                                                bgcolor: emp.id ? getColorForTour(emp.id) : 'primary.main',
                                                                 color: 'white',
                                                                 '& .MuiChip-label': {
                                                                     px: 1,
                                                                     fontSize: '0.75rem'
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Chip
+                                                            label={emp.function}
+                                                            size="small"
+                                                            variant="outlined"
+                                                            sx={{
+                                                                height: 20,
+                                                                fontSize: '0.7rem',
+                                                                borderColor: employeeTypeColors[emp.function] || employeeTypeColors.default,
+                                                                color: employeeTypeColors[emp.function] || employeeTypeColors.default,
+                                                                '& .MuiChip-label': {
+                                                                    px: 1,
+                                                                    fontSize: '0.7rem'
                                                                 }
                                                             }}
                                                         />
@@ -731,7 +739,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                             Inaktive Touren
                                         </Typography>,
                                         ...inactiveEmployees.map((emp) => {
-                                            const patientCount = patientCountByTour.get(emp.tour_number!) || 0;
+                                            const patientCount = patientCountByEmployee.get(emp.id || 0) || 0;
                                             const isEmpty = patientCount === 0;
                                             return (
                                                 <MenuItem 
@@ -744,25 +752,10 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                         py: 1
                                                     }}
                                                 >
-                                                    <ListItemIcon>
-                                                        <PersonIcon 
-                                                            fontSize="small" 
-                                                            sx={{ 
-                                                                color: 'error.main',
-                                                                opacity: 0.7
-                                                            }} 
-                                                        />
-                                                    </ListItemIcon>
                                                     <ListItemText>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Typography 
-                                                                variant="body2"
-                                                                sx={{ opacity: 0.7 }}
-                                                            >
-                                                                {emp.first_name} {emp.last_name}
-                                                            </Typography>
                                                             <Chip
-                                                                label={`Tour ${emp.tour_number}`}
+                                                                label={`${emp.first_name} ${emp.last_name}`}
                                                                 size="small"
                                                                 sx={{
                                                                     height: 20,
@@ -772,6 +765,22 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                                                     '& .MuiChip-label': {
                                                                         px: 1,
                                                                         fontSize: '0.75rem'
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <Chip
+                                                                label={emp.function}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    fontSize: '0.7rem',
+                                                                    borderColor: employeeTypeColors[emp.function] || employeeTypeColors.default,
+                                                                    color: employeeTypeColors[emp.function] || employeeTypeColors.default,
+                                                                    opacity: 0.7,
+                                                                    '& .MuiChip-label': {
+                                                                        px: 1,
+                                                                        fontSize: '0.7rem'
                                                                     }
                                                                 }}
                                                             />

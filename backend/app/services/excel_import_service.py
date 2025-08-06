@@ -109,7 +109,7 @@ class ExcelImportService:
     def import_employees(file_path) -> Dict[str, List[Any]]:
         """
         Import employees from Excel file
-        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Tournummer (optional)
+        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet
         """
         try:
             # First delete all existing data
@@ -139,10 +139,7 @@ class ExcelImportService:
             # 2. Batch-Geocoding
             geocode_results = ExcelImportService.batch_geocode_addresses(unique_address_tuples, max_workers=10)
 
-            # 3. Existierende Tournummern einmalig abfragen
-            existing_tour_numbers = set(emp.tour_number for emp in Employee.query.filter(Employee.tour_number.isnot(None)).all())
-
-            # 4. Employees anlegen
+            # 3. Employees anlegen
             for idx, row in df.iterrows():
                 try:
                     stellenumfang = str(row['Stellenumfang']).replace('%', '')
@@ -153,19 +150,6 @@ class ExcelImportService:
                     area = str(row['Gebiet']).strip()
                     if area not in valid_areas:
                         raise ValueError(f"Ungültiges Gebiet '{area}'. Muss einer der folgenden Werte sein: {', '.join(valid_areas)}")
-
-                    tour_number = None
-                    if 'Tournummer' in df.columns and pd.notna(row['Tournummer']):
-                        if str(row['Tournummer']).strip() != '':
-                            try:
-                                tour_number = int(row['Tournummer'])
-                                if tour_number in existing_tour_numbers:
-                                    raise ValueError(f"Ein Mitarbeiter mit der Tournummer {tour_number} existiert bereits")
-                                existing_tour_numbers.add(tour_number)
-                            except ValueError as ve:
-                                if "existiert bereits" in str(ve):
-                                    raise ve
-                                raise ValueError(f"Tournummer muss eine Ganzzahl sein, ist aber {row['Tournummer']}")
 
                     street = str(row['Strasse']).strip()
                     zip_code = str(row['PLZ']).strip()
@@ -186,7 +170,6 @@ class ExcelImportService:
                         longitude=longitude,
                         function=function,
                         work_hours=work_hours,
-                        tour_number=tour_number,
                         area=area,
                         is_active=True
                     )
@@ -253,25 +236,10 @@ class ExcelImportService:
             print("Step 2: Creating patient records...")
             patients = []
             for _, row in df.iterrows():
-                # Extract tour number from "Tour X Name" format to integer
-                tour_number = None
-                if pd.notna(row['Touren']):
-                    tour_text = str(row['Touren']).strip()
-                    try:
-                        numbers = re.findall(r'\d+', tour_text)
-                        if numbers:
-                            tour_number = int(numbers[0])
-                            print(f"  Extracted tour number {tour_number} from '{tour_text}'")
-                        else:
-                            print(f"  Warning: No numeric values found in '{tour_text}'")
-                    except Exception as e:
-                        print(f"  Warning: Error extracting tour number: {str(e)}")
-                # Geocode the address to get latitude and longitude
                 street = str(row['Strasse'])
                 zip_code = str(row['PLZ'])
                 city = str(row['Ort'])
                 latitude, longitude = geocode_results.get((street.strip(), zip_code.strip(), city.strip()), (None, None))
-                # Create patient with integer tour_number
                 patient = Patient(
                     first_name=str(row['Vorname']),
                     last_name=str(row['Nachname']),
@@ -283,8 +251,7 @@ class ExcelImportService:
                     phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
                     phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
                     calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,
-                    area=str(row['Gebiet']) if pd.notna(row['Gebiet']) else None,
-                    tour=tour_number
+                    area=str(row['Gebiet']) if pd.notna(row['Gebiet']) else None
                 )
                 patients.append(patient)
             # Save all patients to the database to get IDs
@@ -293,149 +260,93 @@ class ExcelImportService:
             db.session.commit()
             print(f"Saved {len(patients)} patients successfully")
             
-            # Prüfe auf Patienten ohne Tour-Zuordnung
-            patients_without_tour = [p for p in patients if p.tour is None]
-            if patients_without_tour:
-                # Fehler ausgeben bei Patienten ohne Tour
-                patient_names = [f"{p.last_name}, {p.first_name}" for p in patients_without_tour]
-                raise ValueError(f"Fehler: Folgende Patienten haben keine Tour-Zuordnung: {', '.join(patient_names[:5])}" + 
-                                (f" und {len(patient_names) - 5} weitere" if len(patient_names) > 5 else ""))
+            # Step 3: Load all employees
+            print("Step 3: Loading employees...")
+            employees = Employee.query.all()
+            print(f"Found {len(employees)} employees")
             
-            # Step 3: Load all employees with tour numbers
-            print("Step 3: Loading employees with tour numbers...")
-            employees_with_tours = Employee.query.filter_by(is_active=True).filter(Employee.tour_number.isnot(None)).all()
-            print(f"Found {len(employees_with_tours)} employees with tour numbers")
-            
-            # Group patients by tour number for easy lookup
-            patients_by_tour = {}
-            for patient in patients:
-                if patient.tour is not None:
-                    if patient.tour not in patients_by_tour:
-                        patients_by_tour[patient.tour] = []
-                    patients_by_tour[patient.tour].append(patient)
-                    
-            print(f"Grouped patients by {len(patients_by_tour)} different tour numbers")
-            
-            # Step 4: Create appointments by processing each employee (tour)
-            print("Step 4: Creating appointments tour by tour...")
+            # Step 4: Create appointments for each patient and assign to employee by last name from 'Touren'
+            print("Step 4: Creating appointments for each patient...")
             appointments = []
             weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag']
-            
-            # Gehe Tour für Tour (Mitarbeiter für Mitarbeiter) durch
-            for employee in employees_with_tours:
-                tour_number = employee.tour_number
-                print(f"\nProcessing Tour {tour_number} for employee: {employee.first_name} {employee.last_name} (ID: {employee.id})")
-                
-                # Finde alle Patienten für diese Tour (anhand der tour-Nummer aus dem Patient-Modell)
-                tour_patients = patients_by_tour.get(tour_number, [])
-                
-                if not tour_patients:
-                    print(f"  Warning: No patients found for tour {tour_number}")
+            for _, row in df.iterrows():
+                patient = next((p for p in patients if 
+                               p.last_name == str(row['Nachname']).strip() and
+                               p.first_name == str(row['Vorname']).strip() and
+                               p.street == str(row['Strasse']).strip()), None)
+                if not patient:
+                    print(f"  Warning: Patient not found for row {row}")
                     continue
-                
-                print(f"  Processing {len(tour_patients)} patients for employee {employee.first_name} {employee.last_name}")
-                
-                # Verarbeite jeden Patienten dieser Tour
-                for patient in tour_patients:
-                    patient_key = f"{patient.last_name}_{patient.first_name}_{patient.street}"
-                    
-                    # Finde die entsprechende Zeile in der Excel-Datei für diesen Patienten
-                    excel_rows = df[(df['Nachname'] == patient.last_name) & 
-                                 (df['Vorname'] == patient.first_name) & 
-                                 (df['Strasse'] == patient.street)]
-                    
-                    if excel_rows.empty:
-                        print(f"  Warning: Could not find Excel data for patient {patient.first_name} {patient.last_name}")
-                        continue
-                    
-                    # Es sollte nur eine passende Zeile geben
-                    excel_row = excel_rows.iloc[0]
-                    
-                    print(f"  Creating appointments for patient {patient.first_name} {patient.last_name} (ID: {patient.id})")
-                    patient_appointments = []
-                    
-                    # Gehe alle 5 Wochentage für diesen Patienten durch
-                    for weekday in weekdays:
-                        weekday_value = excel_row[weekday]
-                        visit_type = None
-                        duration = 0
-                        
-                        if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
-                            # Konvertiere den Wert in einen String und verarbeite ihn
-                            visit_info = str(weekday_value).strip().upper()
-                            
-                            # Besuchstyp bestimmen
-                            if "HB" in visit_info:
-                                visit_type = "HB"
-                            elif "NA" in visit_info:
-                                visit_type = "NA"
-                            elif "TK" in visit_info:
-                                visit_type = "TK"
-                            else:
-                                # Standard: HB wenn nicht anders angegeben, aber ein Wert existiert
-                                visit_type = "HB"
-                            duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)  # Zentrale Dauerzuweisung
-                        
-                        # Hole die Zeit/Info für diesen Tag
-                        time_info_column = f"Uhrzeit/Info {weekday}"
-                        time_info = None
-                        if time_info_column in excel_row and not pd.isna(excel_row[time_info_column]):
-                            time_info = str(excel_row[time_info_column])
-                        
-                        # Zeitinfo parsen, wenn vorhanden
-                        appointment_time = None
-                        if time_info and ':' in time_info:
-                            try:
-                                time_parts = time_info.split(':')
-                                hour, minute = int(time_parts[0]), int(time_parts[1])
-                                appointment_time = time(hour, minute)
-                            except (ValueError, IndexError):
-                                # Falls Parsing fehlschlägt, Zeit auf None lassen
-                                pass
-                        
-                        # Deutsche Wochentagsnamen in englische umwandeln (lowercase)
-                        weekday_map = {
-                            'Montag': 'monday',
-                            'Dienstag': 'tuesday',
-                            'Mittwoch': 'wednesday',
-                            'Donnerstag': 'thursday',
-                            'Freitag': 'friday'
-                        }
-                        english_weekday = weekday_map.get(weekday, weekday.lower())
-                        
-                        # Wenn Visit-Type None ist, setze einen leeren String
-                        # Datenbank-Modell erwartet einen String, keine None-Werte
-                        visit_type_value = visit_type if visit_type is not None else ""
-                        
-                        # Termin erstellen mit englischem Wochentag
-                        appointment = Appointment(
-                            patient_id=patient.id,
-                            employee_id=employee.id,
-                            weekday=english_weekday,
-                            time=appointment_time,
-                            visit_type=visit_type_value,
-                            duration=duration,
-                            info=time_info,
-                            area=patient.area
-                        )
-                        patient_appointments.append(appointment)
-                        appointments.append(appointment)
-                        visit_type_display = visit_type if visit_type else "LEER"
-                        print(f"    Added {visit_type_display} appointment on {weekday} ({english_weekday}) for patient at {appointment_time or 'unspecified time'}")
-                    
-                    print(f"  Created {len(patient_appointments)} appointments for patient {patient.first_name} {patient.last_name}")
-            
-            # Step 5: Save all appointments to the database
-            print(f"\nStep 5: Saving {len(appointments)} appointments to database...")
+                mitarbeiter_nachname_raw = str(row['Touren']).strip() if pd.notna(row['Touren']) else None
+                if not mitarbeiter_nachname_raw:
+                    print(f"  Warning: No employee last name in 'Touren' for patient {patient.first_name} {patient.last_name}")
+                    continue
+                # Suche Mitarbeiter, dessen Nachname als Substring in der Spalte steht
+                matching_employees = [e for e in employees if e.last_name.lower() in mitarbeiter_nachname_raw.lower()]
+                if len(matching_employees) == 0:
+                    print(f"  Warning: No employee found with last name in '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}")
+                    continue
+                if len(matching_employees) > 1:
+                    print(f"  Warning: Multiple employees match '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}: {[e.last_name for e in matching_employees]}")
+                employee = matching_employees[0]
+                for weekday in weekdays:
+                    weekday_value = row[weekday]
+                    visit_type = None
+                    duration = 0
+                    if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
+                        visit_info = str(weekday_value).strip().upper()
+                        if "HB" in visit_info:
+                            visit_type = "HB"
+                        elif "NA" in visit_info:
+                            visit_type = "NA"
+                        elif "TK" in visit_info:
+                            visit_type = "TK"
+                        else:
+                            visit_type = "HB"
+                        duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
+                    time_info_column = f"Uhrzeit/Info {weekday}"
+                    time_info = None
+                    if time_info_column in row and not pd.isna(row[time_info_column]):
+                        time_info = str(row[time_info_column])
+                    appointment_time = None
+                    if time_info and ':' in time_info:
+                        try:
+                            time_parts = time_info.split(':')
+                            hour, minute = int(time_parts[0]), int(time_parts[1])
+                            appointment_time = time(hour, minute)
+                        except (ValueError, IndexError):
+                            pass
+                    weekday_map = {
+                        'Montag': 'monday',
+                        'Dienstag': 'tuesday',
+                        'Mittwoch': 'wednesday',
+                        'Donnerstag': 'thursday',
+                        'Freitag': 'friday'
+                    }
+                    english_weekday = weekday_map.get(weekday, weekday.lower())
+                    visit_type_value = visit_type if visit_type is not None else ""
+                    appointment = Appointment(
+                        patient_id=patient.id,
+                        employee_id=employee.id,
+                        weekday=english_weekday,
+                        time=appointment_time,
+                        visit_type=visit_type_value,
+                        duration=duration,
+                        info=time_info,
+                        area=patient.area
+                    )
+                    appointments.append(appointment)
+            print(f"  Created {len(appointments)} appointments.")
             db.session.add_all(appointments)
             db.session.commit()
+            print(f"  Saved {len(appointments)} appointments to database.")
             
             # Step 6: Create routes for each employee by weekday (only HB appointments)
             print("\nStep 6: Creating routes for each employee by weekday...")
             routes = []
             
             # Mapping von employee_id auf area für schnellen Zugriff
-            employee_id_to_area = {emp.id: emp.area for emp in employees_with_tours}
+            employee_id_to_area = {emp.id: emp.area for emp in employees}
             
             # Gruppiere Termine nach Mitarbeiter und Wochentag
             employee_weekday_appointments = {}
@@ -473,9 +384,9 @@ class ExcelImportService:
             else:
                 print("  No routes to save")
             
-            # Step 7: Erstelle leere Routen für alle Mitarbeiter mit Tour-Nummern für jeden Wochentag,
+            # Step 7: Erstelle leere Routen für alle Mitarbeiter für jeden Wochentag,
             # falls noch keine Route existiert
-            print("\nStep 7: Creating empty routes for all employees with tour numbers...")
+            print("\nStep 7: Creating empty routes for all employees...")
             weekday_map = {
                 'Montag': 'monday',
                 'Dienstag': 'tuesday',
@@ -486,7 +397,8 @@ class ExcelImportService:
             english_weekdays = list(weekday_map.values())
             
             empty_routes = []
-            for employee in employees_with_tours:
+            all_employees = Employee.query.all()
+            for employee in all_employees:
                 for weekday in english_weekdays:
                     # Prüfen, ob bereits eine Route für diesen Mitarbeiter und Tag existiert
                     existing_route = Route.query.filter_by(
@@ -502,7 +414,7 @@ class ExcelImportService:
                             route_order=json.dumps([]),  # Leere Route
                             total_duration=0,
                             total_distance=0,
-                            area=employee_id_to_area.get(employee.id, '')
+                            area=employee.area or ''
                         )
                         db.session.add(new_route)
                         empty_routes.append(new_route)

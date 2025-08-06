@@ -28,7 +28,7 @@ import { useDrag } from 'react-dnd';
 import { Patient, Appointment, Weekday} from '../../types/models';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useEmployees } from '../../services/queries/useEmployees';
-import { getColorForTour } from '../../utils/colors';
+import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useMoveAppointment, useAppointmentsByPatient } from '../../services/queries/useAppointments';
 import WeekdayOverview from './WeekdayOverview';
@@ -83,7 +83,11 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             type: DragItemTypes.PATIENT,
             patientId: patient.id || 0,
             appointmentIds: appointments.map(a => a.id || 0).filter(id => id !== 0),
-            sourceTourNumber: patient.tour
+            sourceEmployeeId: (() => {
+                // Get source employee ID from patient's appointments
+                const patientAppointment = appointments.find(app => app.employee_id);
+                return patientAppointment?.employee_id || undefined;
+            })()
         },
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging()
@@ -107,8 +111,8 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         try {
             setLoading('Patient wird zugewiesen...');
             const targetEmployee = employees.find(e => e.id === employeeId);
-            if (!targetEmployee || !targetEmployee.tour_number) {
-                setNotification('Ungültiger Mitarbeiter oder keine Tour-Nummer zugewiesen', 'error');
+            if (!targetEmployee) {
+                setNotification('Ungültiger Mitarbeiter', 'error');
                 return;
             }
 
@@ -155,10 +159,9 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         }
     };
 
-    // Filter employees with tour numbers (auch inaktive)
-    const availableEmployees = employees
-        .filter(emp => emp.tour_number !== undefined && emp.tour_number !== null)
-        .sort((a, b) => (a.tour_number || 0) - (b.tour_number || 0));
+    // Filter all employees
+    const availableEmployees = [...employees]
+        .sort((a, b) => a.last_name.localeCompare(b.last_name));
 
     return (
         <Card 
@@ -295,36 +298,35 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                 }
                             }}
                         >
-                            <ListItemIcon>
-                                <PersonIcon 
-                                    fontSize="small" 
-                                    sx={{ 
-                                        color: getColorForTour(employee.tour_number!),
-                                        opacity: disabled ? 0.7 : 1
-                                    }} 
-                                />
-                            </ListItemIcon>
                             <ListItemText>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Typography 
-                                        variant="body2"
-                                        sx={{
-                                            opacity: disabled ? 0.7 : 1
-                                        }}
-                                    >
-                                        {employee.first_name} {employee.last_name}
-                                    </Typography>
                                     <Chip
-                                        label={`Tour ${employee.tour_number}`}
+                                        label={`${employee.first_name} ${employee.last_name}`}
                                         size="small"
                                         sx={{
                                             height: 20,
-                                            bgcolor: getColorForTour(employee.tour_number!),
+                                            bgcolor: getColorForTour(employee.id),
                                             color: 'white',
                                             opacity: disabled ? 0.7 : 1,
                                             '& .MuiChip-label': {
                                                 px: 1,
                                                 fontSize: '0.75rem'
+                                            }
+                                        }}
+                                    />
+                                    <Chip
+                                        label={employee.function}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{
+                                            height: 20,
+                                            fontSize: '0.7rem',
+                                            borderColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
+                                            color: employeeTypeColors[employee.function] || employeeTypeColors.default,
+                                            opacity: disabled ? 0.7 : 1,
+                                            '& .MuiChip-label': {
+                                                px: 1,
+                                                fontSize: '0.7rem'
                                             }
                                         }}
                                     />
@@ -431,6 +433,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                         <WeekdayOverview
                             appointments={patientAppointments}
                             selectedDay={selectedDay}
+                            employees={employees}
                         />
                     </Box>
                 </Box>

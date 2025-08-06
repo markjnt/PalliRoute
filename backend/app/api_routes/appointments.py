@@ -62,61 +62,47 @@ def move_appointment():
         # Get the appointment and its patient
         appointment = Appointment.query.get_or_404(appointment_id)
         patient_id = appointment.patient_id
+        weekday = appointment.weekday  # Get the weekday of the specific appointment
         
-        # Get all appointments for this patient
-        patient_appointments = Appointment.query.filter_by(patient_id=patient_id).all()
+        # Get all appointments for this patient for this specific weekday
+        patient_appointments = Appointment.query.filter_by(patient_id=patient_id, weekday=weekday).all()
         
-        # Get the patient object
-        patient = Patient.query.get(patient_id)
-        # Get the target employee and their tour_number
-        target_employee = Employee.query.get(target_employee_id)
-        if target_employee:
-            patient.tour = target_employee.tour_number
+        # Get source route for this weekday
+        source_route = Route.query.filter_by(
+            employee_id=source_employee_id,
+            weekday=weekday
+        ).first()
         
-        # Get all routes for both employees for all weekdays
-        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        # Get target route for this weekday
+        target_route = Route.query.filter_by(
+            employee_id=target_employee_id,
+            weekday=weekday
+        ).first()
         
-        for weekday in weekdays:
-            # Get source route
-            source_route = Route.query.filter_by(
-                employee_id=source_employee_id,
-                weekday=weekday
-            ).first()
+        # Update appointment's employee
+        appointment.employee_id = target_employee_id
+        
+        if source_route:
+            # Remove appointment from source route
+            route_order = source_route.get_route_order()
+            if appointment.id in route_order:
+                route_order.remove(appointment.id)
+                source_route.set_route_order(route_order)
             
-            # Get target route
-            target_route = Route.query.filter_by(
-                employee_id=target_employee_id,
-                weekday=weekday
-            ).first()
+            # Plan source route
+            route_planner.plan_route(weekday, source_employee_id)
+        
+        if target_route and appointment.visit_type == 'HB':
+            # Only add HB appointments to route order
+            route_order = target_route.get_route_order()
+            route_order.append(appointment.id)
+            target_route.set_route_order(route_order)
             
-            # Find appointment for this weekday
-            weekday_appointment = next((app for app in patient_appointments if app.weekday == weekday), None)
-            
-            if weekday_appointment:
-                # Update appointment's employee
-                weekday_appointment.employee_id = target_employee_id
-                
-                if source_route:
-                    # Remove appointment from source route
-                    route_order = source_route.get_route_order()
-                    if weekday_appointment.id in route_order:
-                        route_order.remove(weekday_appointment.id)
-                        source_route.set_route_order(route_order)
-                    
-                    # Plan source route
-                    route_planner.plan_route(weekday, source_employee_id)
-                
-                if target_route and weekday_appointment.visit_type == 'HB':
-                    # Only add HB appointments to route order
-                    route_order = target_route.get_route_order()
-                    route_order.append(weekday_appointment.id)
-                    target_route.set_route_order(route_order)
-                    
-                    # Optimize target route
-                    route_optimizer.optimize_route(weekday, target_employee_id)
+            # Optimize target route
+            route_optimizer.optimize_route(weekday, target_employee_id)
         
         db.session.commit()
-        return jsonify({'message': 'Appointments moved successfully'})
+        return jsonify({'message': 'Appointment moved successfully'})
         
     except Exception as e:
         db.session.rollback()
@@ -125,69 +111,59 @@ def move_appointment():
 @appointments_bp.route('/batchmove', methods=['POST'])
 def batch_move_appointments():
     """
-    Move all appointments from source employee to target employee
+    Move all appointments from source employee to target employee for a specific weekday
     Expected JSON body: {
         "source_employee_id": 1,
-        "target_employee_id": 2
+        "target_employee_id": 2,
+        "weekday": "monday"
     }
     """
     try:
         data = request.get_json()
-        if not data or not all(k in data for k in ['source_employee_id', 'target_employee_id']):
+        if not data or not all(k in data for k in ['source_employee_id', 'target_employee_id', 'weekday']):
             return jsonify({'error': 'Missing required fields'}), 400
 
         source_employee_id = data['source_employee_id']
         target_employee_id = data['target_employee_id']
+        weekday = data['weekday']
 
-        # Get all appointments for source employee
-        appointments = Appointment.query.filter_by(employee_id=source_employee_id).all()
+        # Get all appointments for source employee for this specific weekday
+        appointments = Appointment.query.filter_by(employee_id=source_employee_id, weekday=weekday).all()
         
-        # Get all routes for both employees for all weekdays
-        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        # Get source route for this weekday
+        source_route = Route.query.filter_by(
+            employee_id=source_employee_id,
+            weekday=weekday
+        ).first()
         
-        for weekday in weekdays:
-            # Get source route
-            source_route = Route.query.filter_by(
-                employee_id=source_employee_id,
-                weekday=weekday
-            ).first()
+        # Get target route for this weekday
+        target_route = Route.query.filter_by(
+            employee_id=target_employee_id,
+            weekday=weekday
+        ).first()
+        
+        if source_route:
+            # Clear source route order
+            source_route.set_route_order([])
+            # Plan source route
+            route_planner.plan_route(weekday, source_employee_id)
+        
+        if target_route:
+            # Get all HB appointments for this weekday
+            weekday_appointments = [app for app in appointments if app.visit_type == 'HB']
+            appointment_ids = [app.id for app in weekday_appointments]
             
-            # Get target route
-            target_route = Route.query.filter_by(
-                employee_id=target_employee_id,
-                weekday=weekday
-            ).first()
+            # Add appointments to target route order
+            route_order = target_route.get_route_order()
+            route_order.extend(appointment_ids)
+            target_route.set_route_order(route_order)
             
-            if source_route:
-                # Clear source route order
-                source_route.set_route_order([])
-                # Plan source route
-                route_planner.plan_route(weekday, source_employee_id)
-            
-            if target_route:
-                # Get all HB appointments for this weekday
-                weekday_appointments = [app for app in appointments if app.weekday == weekday and app.visit_type == 'HB']
-                appointment_ids = [app.id for app in weekday_appointments]
-                
-                # Add appointments to target route order
-                route_order = target_route.get_route_order()
-                route_order.extend(appointment_ids)
-                target_route.set_route_order(route_order)
-                
-                # Optimize target route
-                route_optimizer.optimize_route(weekday, target_employee_id)
+            # Optimize target route
+            route_optimizer.optimize_route(weekday, target_employee_id)
         
         # Update all appointments to new employee
         for appointment in appointments:
             appointment.employee_id = target_employee_id
-        # Update tour only once per patient
-        patient_ids = set([appointment.patient_id for appointment in appointments])
-        target_employee = Employee.query.get(target_employee_id)
-        if target_employee:
-            for patient_id in patient_ids:
-                patient = Patient.query.get(patient_id)
-                if patient:
-                    patient.tour = target_employee.tour_number
         
         db.session.commit()
         return jsonify({'message': 'Appointments moved successfully'})

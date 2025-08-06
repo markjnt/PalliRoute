@@ -209,20 +209,6 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField
-                                fullWidth
-                                id="tour_number"
-                                name="tour_number"
-                                label="Tournummer"
-                                type="number"
-                                value={formik.values.tour_number || ''}
-                                onChange={formik.handleChange}
-                                InputProps={{
-                                    inputProps: { min: 0 }
-                                }}
-                            />
-                        </Grid>
                         <Grid size={{ xs: 12 }}>
                             <FormControlLabel
                                 control={

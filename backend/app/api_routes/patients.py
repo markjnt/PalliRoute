@@ -12,7 +12,6 @@ patients_bp = Blueprint('patients', __name__)
 def get_patients():
     calendar_week = request.args.get('calendar_week', type=int)
     area = request.args.get('area', type=str)
-    tour = request.args.get('tour', type=str)
     
     query = Patient.query
     
@@ -21,9 +20,6 @@ def get_patients():
     
     if area:
         query = query.filter_by(area=area)
-    
-    if tour:
-        query = query.filter_by(tour=tour)
     
     patients = query.all()
     return jsonify([patient.to_dict() for patient in patients]), 200

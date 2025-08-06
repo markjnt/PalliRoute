@@ -9,7 +9,7 @@ import { useAppointmentsByWeekday } from '../../services/queries/useAppointments
 import { useRoutes } from '../../services/queries/useRoutes';
 import { MapMarkers } from './MapMarkers';
 import { RoutePolylines } from './RoutePolylines';
-import { routeLineColors } from '../../utils/colors';
+import { routeLineColors, getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
@@ -137,8 +137,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const routePaths = useMemo(() => {
     return visibleRoutes.map(route => {
       const employee = employees.find(e => e.id === route.employee_id);
-      const tourNumber = employee?.tour_number;
-      const color = tourNumber ? routeLineColors[(Math.abs(tourNumber) - 1) % routeLineColors.length] : '#9E9E9E';
+      const color = employee?.id ? getColorForTour(employee.id) : '#9E9E9E';
       
       return {
         employeeId: route.employee_id,

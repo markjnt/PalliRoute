@@ -24,7 +24,6 @@ export interface Employee {
     longitude?: number;
     function: string;
     work_hours: number;
-    tour_number?: number;
     is_active: boolean;
     area: Area;
     created_at?: string;
@@ -73,7 +72,6 @@ export interface Patient {
     phone2?: string;
     calendar_week?: number;
     area?: string; // Nordkreis or Südkreis
-    tour?: number; // Numerische Tour-ID
     created_at?: string;
     updated_at?: string;
     appointments?: Appointment[];

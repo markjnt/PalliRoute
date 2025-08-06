@@ -16,7 +16,6 @@ class Patient(db.Model):
     phone2 = db.Column(db.String(50))
     calendar_week = db.Column(db.Integer)
     area = db.Column(db.String(50))  # Nordkreis or Südkreis
-    tour = db.Column(db.Integer)  # Direkte Nummer der Tour (1, 2, 3, etc.)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -38,7 +37,6 @@ class Patient(db.Model):
             'phone2': self.phone2,
             'calendar_week': self.calendar_week,
             'area': self.area,
-            'tour': self.tour,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'appointments': [appointment.to_dict() for appointment in self.appointments]
@@ -57,6 +55,5 @@ class Patient(db.Model):
             phone1=data.get('phone1'),
             phone2=data.get('phone2'),
             calendar_week=data.get('calendar_week'),
-            area=data.get('area'),
-            tour=data.get('tour')
+            area=data.get('area')
         )

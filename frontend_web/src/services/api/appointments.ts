@@ -59,11 +59,12 @@ export const appointmentsApi = {
         }
     },
 
-    async batchMoveAppointments(sourceEmployeeId: number, targetEmployeeId: number): Promise<void> {
+    async batchMoveAppointments(sourceEmployeeId: number, targetEmployeeId: number, weekday: string): Promise<void> {
         try {
             await api.post('/appointments/batchmove', {
                 source_employee_id: sourceEmployeeId,
-                target_employee_id: targetEmployeeId
+                target_employee_id: targetEmployeeId,
+                weekday
             });
         } catch (error) {
             console.error('Fehler beim Batch-Verschieben der Termine:', error);

@@ -14,7 +14,6 @@ class Employee(db.Model):
     longitude = db.Column(db.Float, nullable=True)
     function = db.Column(db.String(100), nullable=False)
     work_hours = db.Column(db.Float, nullable=False)  # Percentage of full-time (e.g., 100.0)
-    tour_number = db.Column(db.Integer, nullable=True)  # Tour number for employee
     area = db.Column(db.String(50), nullable=True)  # Area for employee
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -37,7 +36,6 @@ class Employee(db.Model):
             'longitude': self.longitude,
             'function': self.function,
             'work_hours': self.work_hours,
-            'tour_number': self.tour_number,
             'area': self.area,
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),
@@ -56,7 +54,6 @@ class Employee(db.Model):
             longitude=data.get('longitude'),
             function=data.get('function'),
             work_hours=data.get('work_hours'),
-            tour_number=data.get('tour_number'),
             area=data.get('area'),
             is_active=data.get('is_active', True)
         )

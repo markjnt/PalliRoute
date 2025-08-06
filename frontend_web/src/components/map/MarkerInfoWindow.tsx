@@ -65,13 +65,13 @@ const getUtilizationColor = (utilization: number) => {
 
 // Neue Komponente für Tour-Info-Box
 const TourInfoBox: React.FC<{
-  tourNumber: number;
+  employeeName: string;
   area: string;
   utilization?: number; // Prozent, optional
   tourColor: string;
   durationMinutes?: number;
   targetMinutes?: number;
-}> = ({ tourNumber, area, utilization, tourColor, durationMinutes, targetMinutes }) => {
+}> = ({ employeeName, area, utilization, tourColor, durationMinutes, targetMinutes }) => {
   const isNord = area?.includes('Nordkreis');
   const areaLabel = isNord ? 'N' : 'S';
   const barColor = utilization !== undefined && utilization > 100 ? 'error.main' : 'success.main';
@@ -93,31 +93,40 @@ const TourInfoBox: React.FC<{
       alignItems: 'flex-start',
       boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Chip
-            label={`Tour ${tourNumber}`}
-            size="small"
-            sx={{
-              bgcolor: 'rgba(255,255,255,0.18)',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              letterSpacing: 0.5
-            }}
-          />
-          <Chip
-            label={areaLabel}
-            size="small"
-            sx={{
-              bgcolor: isNord ? 'primary.main' : 'secondary.main',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              letterSpacing: 0.5
-            }}
-          />
-        </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1, minWidth: 0 }}>
+            {employeeName && (
+              <Chip
+                label={employeeName}
+                size="small"
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.18)',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '0.9rem',
+                  letterSpacing: 0.5,
+                  maxWidth: '120px',
+                  '& .MuiChip-label': {
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }
+                }}
+              />
+            )}
+            <Chip
+              label={areaLabel}
+              size="small"
+              sx={{
+                bgcolor: isNord ? 'primary.main' : 'secondary.main',
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                letterSpacing: 0.5,
+                flexShrink: 0
+              }}
+            />
+          </Box>
         {/* Zeit-Box ganz rechts, falls Platz */}
         {durationMinutes !== undefined && targetMinutes !== undefined && (
           <Box sx={{
@@ -203,7 +212,17 @@ const PatientInfoContent: React.FC<{
   if (marker.routeId) {
     route = routes.find(r => r.id === marker.routeId);
   }
-  const tourColor = patient.tour !== undefined && patient.tour !== null ? getColorForTour(patient.tour) : '#888';
+  
+  // Get tour color from patient's appointments
+  const patientAppointment = patientAppointments[0]; // Verwende den ersten Termin
+  let tourColor = '#888';
+  if (patientAppointment && patientAppointment.employee_id) {
+    const employee = employees.find(e => e.id === patientAppointment.employee_id);
+    if (employee && employee.id) {
+      tourColor = getColorForTour(employee.id);
+    }
+  }
+  
   const area = marker.routeArea || patient.area || '';
   // Auslastung berechnen, falls Route und Mitarbeiter vorhanden
   let utilization: number | undefined = undefined;
@@ -280,16 +299,25 @@ const PatientInfoContent: React.FC<{
           {patient.zip_code} {patient.city}
         </Typography>
       </Box>
-      {/* TourInfoBox für Patienten jetzt mit Auslastung und Zeit */}
-      {patient.tour !== undefined && patient.tour !== null && (
-        <TourInfoBox
-          tourNumber={patient.tour}
-          area={area}
-          utilization={utilization}
-          tourColor={tourColor}
-          durationMinutes={durationMinutes}
-          targetMinutes={targetMinutes}
-        />
+      
+      {/* TourInfoBox für Patienten */}
+      {patientAppointment && patientAppointment.employee_id && (
+        (() => {
+          const employee = employees.find(e => e.id === patientAppointment.employee_id);
+          if (employee) {
+            return (
+              <TourInfoBox
+                employeeName={`${employee.first_name.charAt(0)}. ${employee.last_name}`}
+                area={area}
+                utilization={utilization}
+                tourColor={tourColor}
+                durationMinutes={durationMinutes}
+                targetMinutes={targetMinutes}
+              />
+            );
+          }
+          return null;
+        })()
       )}
     </>
   );
@@ -308,7 +336,7 @@ const EmployeeInfoContent: React.FC<{
   const workHours = employee.work_hours || 0;
   const targetMinutes = Math.round(420 * (workHours / 100));
   const utilization = targetMinutes > 0 ? (routeDuration / targetMinutes) * 100 : undefined;
-  const tourColor = employee.tour_number ? getColorForTour(employee.tour_number) : '#888';
+  const tourColor = employee.id ? getColorForTour(employee.id) : '#888';
   const area = route?.area || employee.area || '';
 
   return (
@@ -388,10 +416,10 @@ const EmployeeInfoContent: React.FC<{
           {employee.zip_code} {employee.city}
         </Typography>
       </Box>
-      {/* Nur noch die neue TourInfoBox für Mitarbeiter */}
-      {employee.tour_number && (
+      {/* TourInfoBox für alle Mitarbeiter */}
+      {employee.id && (
         <TourInfoBox
-          tourNumber={employee.tour_number}
+          employeeName=""
           area={area}
           utilization={utilization}
           tourColor={tourColor}

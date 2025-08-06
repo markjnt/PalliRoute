@@ -1,12 +1,13 @@
 import React from 'react';
 import { Box, Grid, Tooltip, Typography } from '@mui/material';
-import { Weekday, Appointment } from '../../types/models';
+import { Weekday, Appointment, Employee } from '../../types/models';
 
 interface WeekdayOverviewProps {
     appointments: Appointment[];
     selectedDay: Weekday;
     allWeekdays?: Weekday[];
     weekdayLabels?: string[];
+    employees?: Employee[];
 }
 
 const defaultAllWeekdays: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -16,7 +17,8 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
     appointments,
     selectedDay,
     allWeekdays = defaultAllWeekdays,
-    weekdayLabels = defaultWeekdayLabels
+    weekdayLabels = defaultWeekdayLabels,
+    employees = []
 }) => {
     // Funktion zum Abrufen des Besuchstyps für einen bestimmten Wochentag
     const getVisitTypeForWeekday = (weekday: Weekday): string | null => {
@@ -28,6 +30,13 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
     const getInfoForWeekday = (weekday: Weekday): string | null => {
         const appt = appointments.find(a => a.weekday === weekday);
         return appt?.info || null;
+    };
+
+    // Funktion zum Abrufen des Mitarbeiters für einen bestimmten Wochentag
+    const getEmployeeForWeekday = (weekday: Weekday): Employee | null => {
+        const appt = appointments.find(a => a.weekday === weekday);
+        if (!appt?.employee_id) return null;
+        return employees.find(emp => emp.id === appt.employee_id) || null;
     };
 
     // Funktion zum Übersetzen des englischen Wochentags in Deutsch
@@ -68,6 +77,7 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                 {allWeekdays.map((weekday, idx) => {
                     const visit = getVisitTypeForWeekday(weekday);
                     const info = getInfoForWeekday(weekday);
+                    const employee = getEmployeeForWeekday(weekday);
                     const isSelectedDay = weekday === selectedDay;
                     return (
                         <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
@@ -77,6 +87,7 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                                             {getGermanWeekday(weekday)}: {visit || 'Kein Besuch'}
                                         </Typography>
+                                        {/* Mitarbeitername entfernt */}
                                         {info && (
                                             <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
                                                 {info}
@@ -94,6 +105,9 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                         alignItems: 'center',
                                         p: 0.5,
                                         borderRadius: 1,
+                                        minHeight: '80px', // Feste Mindesthöhe
+                                        height: '80px', // Feste Höhe für alle Boxen
+                                        justifyContent: 'space-between', // Gleichmäßige Verteilung
                                         bgcolor: isSelectedDay 
                                             ? visit ? getVisitTypeBgColor(visit) : 'rgba(0, 0, 0, 0.04)'
                                             : 'transparent',
@@ -115,6 +129,26 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                     >
                                         {visit || '–'}
                                     </Typography>
+                                    {employee ? (
+                                        <Typography 
+                                            variant="caption" 
+                                            color="text.secondary"
+                                            sx={{ 
+                                                fontSize: '0.65rem',
+                                                textAlign: 'center',
+                                                lineHeight: 1.2,
+                                                wordBreak: 'break-word',
+                                                overflow: 'hidden',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical'
+                                            }}
+                                        >
+                                            {employee.first_name.charAt(0)}. {employee.last_name}
+                                        </Typography>
+                                    ) : (
+                                        <Box sx={{ height: '16px' }} /> // Platzhalter für leere Boxen
+                                    )}
                                 </Box>
                             </Tooltip>
                         </Grid>

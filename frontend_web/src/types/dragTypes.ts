@@ -8,5 +8,5 @@ export interface PatientDragItem {
   type: typeof DragItemTypes.PATIENT;
   patientId: number;
   appointmentIds: number[];
-  sourceTourNumber?: number;
+  sourceEmployeeId?: number;
 } 
