@@ -43,12 +43,6 @@ def create_employee():
     if existing_employee:
         return jsonify({"error": f"Ein Mitarbeiter mit dem Namen {data['first_name']} {data['last_name']} existiert bereits"}), 400
     
-    # Check if tour_number already exists (if provided)
-    if 'tour_number' in data and data['tour_number'] is not None:
-        existing_tour = Employee.query.filter_by(tour_number=data['tour_number']).first()
-        if existing_tour:
-            return jsonify({"error": f"Ein Mitarbeiter mit der Tournummer {data['tour_number']} existiert bereits"}), 400
-    
     # Validate work_hours
     work_hours = data['work_hours']
     if not isinstance(work_hours, (int, float)) or work_hours < 0 or work_hours > 100:
@@ -62,7 +56,8 @@ def create_employee():
         city=data['city'],
         function=data['function'],
         work_hours=work_hours,
-        tour_number=data.get('tour_number'),
+        area=data.get('area'),
+        alias=data.get('alias'),
         is_active=data.get('is_active', True)
     )
     
@@ -82,17 +77,10 @@ def update_employee(id):
         if not isinstance(work_hours, (int, float)) or work_hours < 0 or work_hours > 100:
             return jsonify({"error": "Stellenumfang muss zwischen 0 und 100 liegen"}), 400
     
-    # Check if tour_number already exists (if being updated)
-    if 'tour_number' in data and data['tour_number'] is not None:
-        existing_tour = Employee.query.filter(
-            Employee.tour_number == data['tour_number'],
-            Employee.id != id
-        ).first()
-        if existing_tour:
-            return jsonify({"error": f"Ein Mitarbeiter mit der Tournummer {data['tour_number']} existiert bereits"}), 400
+
     
     fields = ['first_name', 'last_name', 'street', 'zip_code', 'city', 
-              'function', 'work_hours', 'tour_number', 'is_active']
+              'function', 'work_hours', 'area', 'alias', 'is_active']
     
     for field in fields:
         if field in data:

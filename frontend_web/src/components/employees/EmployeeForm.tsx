@@ -45,6 +45,7 @@ const validationSchema = Yup.object({
         .min(0, 'Stellenumfang muss mindestens 0% sein')
         .max(100, 'Stellenumfang kann maximal 100% sein'),
     area: Yup.string().oneOf(areaOptions.map(opt => opt.value)).required('Gebiet ist erforderlich'),
+    alias: Yup.string().optional(),
 });
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({
@@ -67,6 +68,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             work_hours: employee?.work_hours || 100,
             is_active: employee?.is_active ?? true,
             area: employee?.area || 'Nordkreis',
+            alias: employee?.alias || '',
         },
         validationSchema,
         onSubmit: async (values) => {
@@ -207,6 +209,18 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                     ))}
                                 </Select>
                             </FormControl>
+                        </Grid>
+                        <Grid size={{ xs: 12 }}>
+                            <TextField
+                                fullWidth
+                                id="alias"
+                                name="alias"
+                                label="Alias"
+                                value={formik.values.alias}
+                                onChange={formik.handleChange}
+                                error={formik.touched.alias && Boolean(formik.errors.alias)}
+                                helperText={formik.touched.alias && formik.errors.alias || "Optionaler Alias für den Mitarbeiter"}
+                            />
                         </Grid>
                         <Grid size={{ xs: 12 }}>
                             <FormControlLabel

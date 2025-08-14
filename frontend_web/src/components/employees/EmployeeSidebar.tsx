@@ -297,6 +297,15 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             )
         },
         {
+            field: 'alias',
+            headerName: 'Alias',
+            width: 150,
+            filterable: true,
+            renderCell: (params: GridRenderCellParams) => (
+                params.value || '-'
+            )
+        },
+        {
             field: 'actions',
             headerName: 'Aktionen',
             width: 100,

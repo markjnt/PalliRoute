@@ -109,7 +109,7 @@ class ExcelImportService:
     def import_employees(file_path) -> Dict[str, List[Any]]:
         """
         Import employees from Excel file
-        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet
+        Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet, Alias
         """
         try:
             # First delete all existing data
@@ -160,6 +160,13 @@ class ExcelImportService:
                     if function not in valid_functions:
                         raise ValueError(f"Ungültige Funktion '{function}'. Muss einer der folgenden Werte sein: {', '.join(valid_functions)}")
 
+                    # Handle alias field (optional) - support both "Alias" and "Aliasse" column names
+                    alias = None
+                    if 'Alias' in df.columns and pd.notna(row['Alias']):
+                        alias = str(row['Alias']).strip()
+                    elif 'Aliasse' in df.columns and pd.notna(row['Aliasse']):
+                        alias = str(row['Aliasse']).strip()
+
                     employee = Employee(
                         first_name=str(row['Vorname']).strip(),
                         last_name=str(row['Nachname']).strip(),
@@ -171,6 +178,7 @@ class ExcelImportService:
                         function=function,
                         work_hours=work_hours,
                         area=area,
+                        alias=alias,
                         is_active=True
                     )
                     added_employees.append(employee)
@@ -194,6 +202,8 @@ class ExcelImportService:
         Import patients and their appointments from Excel file
         Expected columns: Gebiet, Touren, Nachname, Vorname, Ort, PLZ, Strasse, KW,
                           Montag, Uhrzeit/Info Montag, Dienstag, Uhrzeit/Info Dienstag, etc.
+        Optional columns: Zuständige Montag, Zuständige Dienstag, Zuständige Mittwoch, 
+                         Zuständige Donnerstag, Zuständige Freitag (contain employee aliases)
         Returns a dictionary with 'patients' and 'appointments' lists
         
         Importablauf:
@@ -201,6 +211,8 @@ class ExcelImportService:
         2. Mitarbeiter für Mitarbeiter (Tour für Tour) durchgehen
         3. Für jeden Mitarbeiter alle zugehörigen Patienten finden
         4. Für jeden Patienten alle 5 Wochentage durchgehen und Termine erstellen
+        5. Wenn "Zuständige [Wochentag]" Spalten vorhanden sind und einen Alias enthalten,
+           wird der Termin dem entsprechenden Mitarbeiter zugeordnet, sonst dem Standard-Mitarbeiter
         """
         try:
             # Step 1: Load the Excel file and validate columns
@@ -214,11 +226,24 @@ class ExcelImportService:
                 'Mittwoch', 'Uhrzeit/Info Mittwoch', 'Donnerstag', 'Uhrzeit/Info Donnerstag',
                 'Freitag', 'Uhrzeit/Info Freitag', 'Telefon', 'Telefon2'
             ]
+            
+            # Optional columns for specific employee assignment
+            optional_responsible_columns = [
+                'Zuständige Montag', 'Zuständige Dienstag', 'Zuständige Mittwoch', 
+                'Zuständige Donnerstag', 'Zuständige Freitag'
+            ]
 
             # Validate columns
             if not all(col in df.columns for col in required_columns):
                 missing = [col for col in required_columns if col not in df.columns]
                 raise ValueError(f"Fehlende Spalten: {', '.join(missing)}")
+
+            # Check for optional responsible employee columns
+            found_responsible_columns = [col for col in optional_responsible_columns if col in df.columns]
+            if found_responsible_columns:
+                print(f"Found optional responsible employee columns: {found_responsible_columns}")
+            else:
+                print("No optional responsible employee columns found - using default assignment from 'Touren' column")
 
             # 1. Patientenadressen extrahieren und deduplizieren
             patient_address_tuples = []
@@ -265,10 +290,18 @@ class ExcelImportService:
             employees = Employee.query.all()
             print(f"Found {len(employees)} employees")
             
-            # Step 4: Create appointments for each patient and assign to employee by last name from 'Touren'
+            # Step 4: Create appointments for each patient and assign to employee by last name from 'Touren' or specific alias columns
             print("Step 4: Creating appointments for each patient...")
             appointments = []
             weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag']
+            
+            # Check for new responsible employee columns
+            responsible_columns = [f"Zuständige {weekday}" for weekday in weekdays]
+            has_responsible_columns = any(col in df.columns for col in responsible_columns)
+            
+            if has_responsible_columns:
+                print(f"  Found responsible employee columns: {[col for col in responsible_columns if col in df.columns]}")
+            
             for _, row in df.iterrows():
                 patient = next((p for p in patients if 
                                p.last_name == str(row['Nachname']).strip() and
@@ -277,10 +310,13 @@ class ExcelImportService:
                 if not patient:
                     print(f"  Warning: Patient not found for row {row}")
                     continue
+                
+                # Default employee assignment from 'Touren' column
                 mitarbeiter_nachname_raw = str(row['Touren']).strip() if pd.notna(row['Touren']) else None
                 if not mitarbeiter_nachname_raw:
                     print(f"  Warning: No employee last name in 'Touren' for patient {patient.first_name} {patient.last_name}")
                     continue
+                
                 # Suche Mitarbeiter, dessen Nachname als Substring in der Spalte steht
                 matching_employees = [e for e in employees if e.last_name.lower() in mitarbeiter_nachname_raw.lower()]
                 if len(matching_employees) == 0:
@@ -288,7 +324,9 @@ class ExcelImportService:
                     continue
                 if len(matching_employees) > 1:
                     print(f"  Warning: Multiple employees match '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}: {[e.last_name for e in matching_employees]}")
-                employee = matching_employees[0]
+                
+                default_employee = matching_employees[0]
+                
                 for weekday in weekdays:
                     weekday_value = row[weekday]
                     visit_type = None
@@ -304,6 +342,23 @@ class ExcelImportService:
                         else:
                             visit_type = "HB"
                         duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
+                    
+                    # Check if there's a specific responsible employee for this weekday
+                    responsible_column = f"Zuständige {weekday}"
+                    assigned_employee = default_employee
+                    
+                    if has_responsible_columns and responsible_column in df.columns:
+                        responsible_alias = row.get(responsible_column)
+                        if pd.notna(responsible_alias) and str(responsible_alias).strip() != "":
+                            alias = str(responsible_alias).strip()
+                            # Find employee by alias
+                            alias_employee = next((e for e in employees if e.alias and e.alias.strip() == alias), None)
+                            if alias_employee:
+                                assigned_employee = alias_employee
+                                print(f"  Assigned appointment for {patient.first_name} {patient.last_name} on {weekday} to employee {alias_employee.first_name} {alias_employee.last_name} (alias: {alias})")
+                            else:
+                                print(f"  Warning: No employee found with alias '{alias}' for patient {patient.first_name} {patient.last_name} on {weekday}, using default employee")
+                    
                     time_info_column = f"Uhrzeit/Info {weekday}"
                     time_info = None
                     if time_info_column in row and not pd.isna(row[time_info_column]):
@@ -327,7 +382,7 @@ class ExcelImportService:
                     visit_type_value = visit_type if visit_type is not None else ""
                     appointment = Appointment(
                         patient_id=patient.id,
-                        employee_id=employee.id,
+                        employee_id=assigned_employee.id,
                         weekday=english_weekday,
                         time=appointment_time,
                         visit_type=visit_type_value,
@@ -351,7 +406,7 @@ class ExcelImportService:
             # Gruppiere Termine nach Mitarbeiter und Wochentag
             employee_weekday_appointments = {}
             for app in appointments:
-                if app.visit_type == 'HB':  # Nur HB-Termine berücksichtigen
+                if app.visit_type in ('HB', 'NA'):  # Nur HB- und NA-Termine berücksichtigen (TK nicht routen)
                     key = (app.employee_id, app.weekday)
                     if key not in employee_weekday_appointments:
                         employee_weekday_appointments[key] = []

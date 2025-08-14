@@ -101,8 +101,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         });
       });
       
-      // Nur HB-Termine (Hausbesuch) anzeigen
-      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && a.visit_type === 'HB');
+      // HB- und NA-Termine (Hausbesuch und Neuaufnahme) anzeigen
+      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && (a.visit_type === 'HB' || a.visit_type === 'NA'));
       
       for (const appointment of appointmentsForDay) {
         const patient = patients.find(p => p.id === appointment.patient_id);

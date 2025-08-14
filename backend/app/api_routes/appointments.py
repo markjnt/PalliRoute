@@ -92,8 +92,8 @@ def move_appointment():
             # Plan source route
             route_planner.plan_route(weekday, source_employee_id)
         
-        if target_route and appointment.visit_type == 'HB':
-            # Only add HB appointments to route order
+        if target_route and appointment.visit_type in ('HB', 'NA'):
+            # Only add HB and NA appointments to route order (exclude TK)
             route_order = target_route.get_route_order()
             route_order.append(appointment.id)
             target_route.set_route_order(route_order)
@@ -149,8 +149,8 @@ def batch_move_appointments():
             route_planner.plan_route(weekday, source_employee_id)
         
         if target_route:
-            # Get all HB appointments for this weekday
-            weekday_appointments = [app for app in appointments if app.visit_type == 'HB']
+            # Get all HB and NA appointments for this weekday
+            weekday_appointments = [app for app in appointments if app.visit_type in ('HB', 'NA')]
             appointment_ids = [app.id for app in weekday_appointments]
             
             # Add appointments to target route order

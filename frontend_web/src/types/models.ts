@@ -26,6 +26,7 @@ export interface Employee {
     work_hours: number;
     is_active: boolean;
     area: Area;
+    alias?: string;
     created_at?: string;
     updated_at?: string;
 }

@@ -64,8 +64,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
     // Appointments/Patients
     if (patients.length > 0 && appointments.length > 0) {
-      // Nur HB-Termine (Hausbesuch)
-      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && a.visit_type === 'HB');
+      // Nur HB- und NA-Termine (Hausbesuch und Neuaufnahme)
+      const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && (a.visit_type === 'HB' || a.visit_type === 'NA'));
       const appointmentPositions = new Map();
       routes.forEach(route => {
         const routeOrder = parseRouteOrder(route.route_order);

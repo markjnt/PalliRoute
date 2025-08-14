@@ -340,8 +340,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const naPatients = getFilteredPatients('NA');
     const emptyTypePatients = getFilteredPatients('');
     
-    // Sort HB patients by route order
-    const sortedHbPatients = React.useMemo(() => {
+    // Sort route patients (HB + NA) by route order
+    const sortedRoutePatients = React.useMemo(() => {
         // Find route for this employee on the selected day
         const route = routes.find(r => 
             r.employee_id === employee.id && 
@@ -350,10 +350,12 @@ export const TourContainer: React.FC<TourContainerProps> = ({
 
         // Create appointment ID to patient mapping
         const appointmentToPatient = new Map<number, Patient>();
-        hbPatients.forEach(patient => {
-            // Find all HB appointments for this patient
+        const allRoutePatients = [...hbPatients, ...naPatients]; // Include both HB and NA patients
+        
+        allRoutePatients.forEach(patient => {
+            // Find all HB and NA appointments for this patient
             const patientAppts = getPatientAppointments(patient.id || 0)
-                .filter(app => app.visit_type === 'HB');
+                .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
             
             // Map appointment IDs to the patient
             patientAppts.forEach(app => {
@@ -397,19 +399,19 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 }
             }
             
-            // Add any remaining HB patients not in the route_order
-            hbPatients.forEach(patient => {
+            // Add any remaining HB/NA patients not in the route_order
+            allRoutePatients.forEach(patient => {
                 if (!orderedPatients.includes(patient)) {
                     orderedPatients.push(patient);
                 }
             });
         } else {
-            // No route exists, just use all HB patients
-            orderedPatients.push(...hbPatients);
+            // No route exists, just use all HB and NA patients
+            orderedPatients.push(...allRoutePatients);
         }
         
         return orderedPatients;
-    }, [employee.id, selectedDay, hbPatients, routes, getPatientAppointments]);
+    }, [employee.id, selectedDay, hbPatients, naPatients, routes, getPatientAppointments]);
     
     // Check if there are any patients with appointments for the selected day
     const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0 || emptyTypePatients.length > 0;
@@ -892,9 +894,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 {hasAppointmentsForDay ? (
                     <>
                         <TourSections
-                            sortedHbPatients={sortedHbPatients}
+                            sortedRoutePatients={sortedRoutePatients}
                             tkPatients={tkPatients}
-                            naPatients={naPatients}
                             emptyTypePatients={emptyTypePatients}
                             getPatientAppointments={getPatientAppointments}
                             selectedDay={selectedDay}
