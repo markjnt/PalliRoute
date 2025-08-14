@@ -75,8 +75,8 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay }) => {
         e.is_active && !hasPatientInEmployee(e.id || 0)
     );
     
-    // Inactive employees (all, regardless of patients)
-    const inactiveEmployees = allEmployees.filter(e => !e.is_active);
+    // Inactive employees (excluding doctors)
+    const inactiveEmployees = allEmployees.filter(e => !e.is_active && e.function !== 'Arzt' && e.function !== 'Honorararzt');
     
     if (loadingEmployees || loadingPatients || loadingAppointments || loadingRoutes) {
         return (

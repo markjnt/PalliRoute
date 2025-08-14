@@ -431,7 +431,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
 
             <Divider />
 
-            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2, width: '100%' }}>
+            <Box sx={{ flexGrow: 1, p: 2, width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                     <Button
                         variant="outlined"
@@ -464,64 +464,66 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                         <CircularProgress />
                     </Box>
                 ) : (
-                    <DataGrid
-                        rows={employees}
-                        columns={columns}
-                        hideFooter={true}
-                        disableRowSelectionOnClick
-                        localeText={{
-                            noRowsLabel: 'Keine Einträge',
-                            filterPanelAddFilter: 'Filter hinzufügen',
-                            filterPanelDeleteIconLabel: 'Löschen',
-                            filterPanelInputLabel: 'Wert',
-                            filterPanelInputPlaceholder: 'Filterwert',
-                            filterOperatorContains: 'enthält',
-                            filterOperatorEquals: 'ist gleich',
-                            filterOperatorStartsWith: 'beginnt mit',
-                            filterOperatorEndsWith: 'endet mit',
-                            filterOperatorIsEmpty: 'ist leer',
-                            filterOperatorIsNotEmpty: 'ist nicht leer',
-                            filterOperatorIs: 'ist',
-                            filterOperatorNot: 'ist nicht',
-                            filterOperatorAfter: 'ist nach',
-                            filterOperatorOnOrAfter: 'ist am oder nach',
-                            filterOperatorBefore: 'ist vor',
-                            filterOperatorOnOrBefore: 'ist am oder vor',
-                            columnMenuFilter: 'Filter',
-                            columnMenuHideColumn: 'Spalte ausblenden',
-                            columnMenuShowColumns: 'Spalten anzeigen',
-                            columnMenuManageColumns: 'Spalten verwalten',
-                            columnMenuSortAsc: 'Aufsteigend sortieren',
-                            columnMenuSortDesc: 'Absteigend sortieren',
-                            columnMenuUnsort: 'Sortierung aufheben',
-                        }}
-                        sx={{
-                            '& .MuiDataGrid-cell': {
-                                py: 1
-                            },
-                            '& .MuiDataGrid-main': {
-                                overflow: 'auto',
-                                width: 'auto',
-                                minWidth: '100%',
-                            },
-                            '& .MuiDataGrid-virtualScroller': {
-                                overflow: 'auto !important'
-                            },
-                            '& .MuiDataGrid-filterIcon': {
-                                opacity: 1,
-                            },
-                            height: '100%',
-                            border: 'none'
-                        }}
-                        initialState={{
-                            filter: {
-                                filterModel: {
-                                    items: [],
-                                    quickFilterValues: [''],
+                    <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                        <DataGrid
+                            rows={employees}
+                            columns={columns}
+                            hideFooter={true}
+                            disableRowSelectionOnClick
+                            localeText={{
+                                noRowsLabel: 'Keine Einträge',
+                                filterPanelAddFilter: 'Filter hinzufügen',
+                                filterPanelDeleteIconLabel: 'Löschen',
+                                filterPanelInputLabel: 'Wert',
+                                filterPanelInputPlaceholder: 'Filterwert',
+                                filterOperatorContains: 'enthält',
+                                filterOperatorEquals: 'ist gleich',
+                                filterOperatorStartsWith: 'beginnt mit',
+                                filterOperatorEndsWith: 'endet mit',
+                                filterOperatorIsEmpty: 'ist leer',
+                                filterOperatorIsNotEmpty: 'ist nicht leer',
+                                filterOperatorIs: 'ist',
+                                filterOperatorNot: 'ist nicht',
+                                filterOperatorAfter: 'ist nach',
+                                filterOperatorOnOrAfter: 'ist am oder nach',
+                                filterOperatorBefore: 'ist vor',
+                                filterOperatorOnOrBefore: 'ist am oder vor',
+                                columnMenuFilter: 'Filter',
+                                columnMenuHideColumn: 'Spalte ausblenden',
+                                columnMenuShowColumns: 'Spalten anzeigen',
+                                columnMenuManageColumns: 'Spalten verwalten',
+                                columnMenuSortAsc: 'Aufsteigend sortieren',
+                                columnMenuSortDesc: 'Absteigend sortieren',
+                                columnMenuUnsort: 'Sortierung aufheben',
+                            }}
+                            sx={{
+                                '& .MuiDataGrid-cell': {
+                                    py: 1
                                 },
-                            },
-                        }}
-                    />
+                                '& .MuiDataGrid-main': {
+                                    overflow: 'auto',
+                                    width: 'auto',
+                                    minWidth: '100%',
+                                },
+                                '& .MuiDataGrid-virtualScroller': {
+                                    overflow: 'auto !important'
+                                },
+                                '& .MuiDataGrid-filterIcon': {
+                                    opacity: 1,
+                                },
+                                height: '100%',
+                                border: 'none'
+                            }}
+                            initialState={{
+                                filter: {
+                                    filterModel: {
+                                        items: [],
+                                        quickFilterValues: [''],
+                                    },
+                                },
+                            }}
+                        />
+                    </Box>
                 )}
             </Box>
 
