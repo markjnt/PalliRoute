@@ -6,19 +6,28 @@ WORKDIR /backend
 RUN mkdir -p /backend/data && \
     chmod 777 /backend/data
 
-# Copy requirements first for better layer caching
+# System deps (nur falls für andere Pakete nötig)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+# WICHTIG: Erst pip & wheel updaten, dann googlemaps installieren
+RUN pip install --no-cache-dir --upgrade pip wheel \
+ && pip install --no-cache-dir googlemaps==4.10.0
+
+# Requirements separat, damit layer caching greift
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the backend code
+# Copy backend code
 COPY backend/ .
 
-# Set environment variables
+# Env vars
 ENV FLASK_APP=run.py
 ENV FLASK_ENV=production
 
-# Expose the port
+# Expose port
 EXPOSE 9000
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=8", "--timeout=300"] 
+# Run app
+CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=8", "--timeout=300"]
