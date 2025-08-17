@@ -3,10 +3,14 @@ import { Box, CircularProgress, Alert } from '@mui/material';
 import { MapContainer } from '../map/MapContainer';
 import { useGoogleMapsApiKey } from '../../services/queries/useGoogleMapsApiKey';
 
+interface MapViewProps {
+  onMapClick?: () => void;
+}
+
 /**
  * Main Map View component that manages API key fetching and shows the map
  */
-export const MapView: React.FC = () => {
+export const MapView: React.FC<MapViewProps> = ({ onMapClick }) => {
   const { data: apiKey, isLoading, error } = useGoogleMapsApiKey();
 
   if (error) {
@@ -32,7 +36,7 @@ export const MapView: React.FC = () => {
 
   return (
     <Box sx={{ position: 'relative', height: '110%' }}>
-      <MapContainer apiKey={apiKey!} />
+      <MapContainer apiKey={apiKey!} onMapClick={onMapClick} />
     </Box>
   );
 }; 

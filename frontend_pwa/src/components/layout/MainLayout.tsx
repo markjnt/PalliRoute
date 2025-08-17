@@ -88,7 +88,7 @@ const MainLayout: React.FC = () => {
       bottom: 0
     }}>
       <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <MapView />
+        <MapView onMapClick={handleBottomSheetClose} />
         
         {/* Apple-design weekday selection button - bottom left */}
         <Box

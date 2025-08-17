@@ -3,6 +3,7 @@ import { Route, Patient, Appointment, Employee, Weekday } from './models';
 // Main props for the map container
 export interface MapContainerProps {
   apiKey: string;
+  onMapClick?: () => void;
 }
 
 // Marker data for map

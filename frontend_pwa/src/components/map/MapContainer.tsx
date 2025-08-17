@@ -18,7 +18,8 @@ import { useWeekdayStore } from '../../stores/useWeekdayStore';
  * Main container component for the map that integrates all map features
  */
 export const MapContainer: React.FC<MapContainerProps> = ({
-  apiKey
+  apiKey,
+  onMapClick
 }) => {
   // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
@@ -166,6 +167,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         zoom={defaultZoom}
         onLoad={setMap}
         onUnmount={() => setMap(null)}
+        onClick={onMapClick}
         options={mapOptions}
       >
         <RoutePolylines routes={routePaths} map={map} />
