@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface RouteCompletionState {
-  completedStops: Set<number>; // Set of completed appointment IDs
+  currentWeekday: string | null;
+  completedStops: Set<number>; // Set of completed appointment IDs for current day only
+  setCurrentWeekday: (weekday: string) => void;
   toggleStop: (appointmentId: number) => void;
   setStopCompleted: (appointmentId: number, completed: boolean) => void;
   clearCompletedStops: () => void;
@@ -12,7 +14,21 @@ interface RouteCompletionState {
 export const useRouteCompletionStore = create<RouteCompletionState>()(
   persist(
     (set, get) => ({
+      currentWeekday: null,
       completedStops: new Set(),
+      
+      setCurrentWeekday: (weekday: string) => {
+        set((state) => {
+          // If switching to a different day, clear all completed stops
+          if (state.currentWeekday !== weekday) {
+            return {
+              currentWeekday: weekday,
+              completedStops: new Set()
+            };
+          }
+          return { currentWeekday: weekday };
+        });
+      },
       
       toggleStop: (appointmentId: number) => {
         set((state) => {
@@ -50,6 +66,7 @@ export const useRouteCompletionStore = create<RouteCompletionState>()(
       name: 'pwa-route-completion-storage',
       // Convert Set to Array for storage and back
       partialize: (state) => ({
+        currentWeekday: state.currentWeekday,
         completedStops: Array.from(state.completedStops),
       }),
       onRehydrateStorage: () => (state) => {

@@ -160,4 +160,43 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
     console.warn(`No coordinates for patient: ${patient.first_name} ${patient.last_name}`);
     return null;
   }
+};
+
+// Calculate bounds for a route to center the map on it
+export const calculateRouteBounds = (
+  routes: any[], 
+  employees: Employee[], 
+  patients: Patient[], 
+  appointments: any[]
+): google.maps.LatLngBounds | null => {
+  if (!routes || routes.length === 0) return null;
+  
+  const bounds = new google.maps.LatLngBounds();
+  let hasValidPoints = false;
+  
+  // Add employee position to bounds
+  for (const route of routes) {
+    const employee = employees.find(e => e.id === route.employee_id);
+    if (employee && employee.latitude && employee.longitude) {
+      bounds.extend(new google.maps.LatLng(employee.latitude, employee.longitude));
+      hasValidPoints = true;
+    }
+    
+    // Add patient positions from route order
+    if (route.route_order) {
+      const routeOrder = parseRouteOrder(route.route_order);
+      for (const appointmentId of routeOrder) {
+        const appointment = appointments.find(a => a.id === appointmentId);
+        if (appointment) {
+          const patient = patients.find(p => p.id === appointment.patient_id);
+          if (patient && patient.latitude && patient.longitude) {
+            bounds.extend(new google.maps.LatLng(patient.latitude, patient.longitude));
+            hasValidPoints = true;
+          }
+        }
+      }
+    }
+  }
+  
+  return hasValidPoints ? bounds : null;
 }; 
