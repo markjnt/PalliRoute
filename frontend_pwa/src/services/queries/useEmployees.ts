@@ -93,21 +93,3 @@ export const useDeleteEmployee = () => {
     },
   });
 };
-
-
-
-// Hook to import employees from Excel
-export const useImportEmployees = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (file: File) => employeesApi.import(file),
-    onSuccess: () => {
-      // Invalidate employees list to refresh after import
-      queryClient.invalidateQueries({ queryKey: employeeKeys.all });
-      queryClient.invalidateQueries({ queryKey: patientKeys.all });
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
-      queryClient.invalidateQueries({ queryKey: routeKeys.all });
-    },
-  });
-}; 
