@@ -33,8 +33,6 @@ jobs:
           # platforms: linux/amd64
           push: true
           tags: markjnt/palliroute-backend
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-frontend-web:
     runs-on: ubuntu-latest
@@ -61,8 +59,6 @@ jobs:
           # platforms: linux/amd64
           push: true
           tags: markjnt/palliroute-frontend-web
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-frontend-pwa:
     runs-on: ubuntu-latest
@@ -89,5 +85,3 @@ jobs:
           # platforms: linux/amd64
           push: true
           tags: markjnt/palliroute-frontend-pwa
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
