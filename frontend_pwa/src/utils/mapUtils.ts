@@ -24,6 +24,7 @@ export const mapOptions: google.maps.MapOptions = {
   streetViewControl: false, // Removes street view control
   fullscreenControl: false, // Removes fullscreen control
   gestureHandling: 'greedy', // Allows single finger pan and zoom
+  clickableIcons: false, // Disables clicking on place names and cities
   styles: [
     {
       featureType: 'poi',

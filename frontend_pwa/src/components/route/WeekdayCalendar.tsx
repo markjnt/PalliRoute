@@ -41,7 +41,7 @@ export const WeekdayCalendar: React.FC = () => {
         display: 'flex',
         width: '100%',
         justifyContent: 'space-between',
-        px: 1,
+        px: 2,
         py: 1,
       }}
     >

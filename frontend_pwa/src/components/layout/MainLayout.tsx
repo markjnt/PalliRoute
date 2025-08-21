@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Box, IconButton, SwipeableDrawer, Button, Menu, MenuItem, Typography } from '@mui/material';
-import { Person as PersonIcon, Menu as MenuIcon, CalendarToday as CalendarIcon } from '@mui/icons-material';
+import { Menu as MenuIcon, CalendarToday as CalendarIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { MapView } from './MainViewMap';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { MainBottomSheet } from './MainBottomSheet';
 import UserSearchDrawer from '../user/UserSelectSheet';
+import { UserSelectionButton } from '../user/UserSelectionButton';
 
 const MainLayout: React.FC = () => {
   const { selectedUserId } = useUserStore();
   const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
   const navigate = useNavigate();
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
-  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [isTestSheetOpen, setIsTestSheetOpen] = useState(false);
   const [isWeekdayMenuOpen, setIsWeekdayMenuOpen] = useState(false);
   const [weekdayMenuAnchor, setWeekdayMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -32,13 +33,14 @@ const MainLayout: React.FC = () => {
     setIsUserDrawerOpen(false);
   };
 
-  const handleBottomSheetToggle = () => {
-    setIsBottomSheetOpen(!isBottomSheetOpen);
+  const handleTestSheetToggle = () => {
+    setIsTestSheetOpen(!isTestSheetOpen);
   };
 
-  const handleBottomSheetClose = () => {
-    setIsBottomSheetOpen(false);
+  const handleTestSheetClose = () => {
+    setIsTestSheetOpen(false);
   };
+
 
   const handleWeekdayButtonClick = (event: React.MouseEvent<HTMLElement>) => {
     setWeekdayMenuAnchor(event.currentTarget);
@@ -66,6 +68,21 @@ const MainLayout: React.FC = () => {
     return weekdayMap[weekday] || weekday;
   };
 
+  // Get current weekday and check if it's a weekday
+  const getCurrentWeekday = () => {
+    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const weekdayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDay = weekdayMap[today] as any;
+    
+    // Only return if it's a weekday (Monday-Friday)
+    if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(currentDay)) {
+      return currentDay;
+    }
+    return null;
+  };
+
+  const currentWeekday = getCurrentWeekday();
+
   const weekdays = [
     { value: 'monday', label: 'Montag' },
     { value: 'tuesday', label: 'Dienstag' },
@@ -80,7 +97,6 @@ const MainLayout: React.FC = () => {
       height: '100vh', 
       display: 'flex', 
       flexDirection: 'column',
-      overflow: 'hidden', // Prevent scrolling outside viewport
       position: 'fixed', // Fix position to prevent viewport issues
       top: 0,
       left: 0,
@@ -88,7 +104,10 @@ const MainLayout: React.FC = () => {
       bottom: 0
     }}>
       <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <MapView onMapClick={handleBottomSheetClose} />
+        <MapView onMapClick={handleTestSheetClose} />
+        
+        {/* User selection button - top */}
+        <UserSelectionButton onUserSwitch={handleUserSwitch} />
         
         {/* Apple-design weekday selection button - bottom left */}
         <Box
@@ -109,6 +128,7 @@ const MainLayout: React.FC = () => {
               border: '1px solid rgba(255, 255, 255, 0.2)',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)',
               color: '#007AFF',
+              position: 'relative',
               '&:hover': {
                 bgcolor: 'rgba(255, 255, 255, 1)',
                 transform: 'scale(1.05)',
@@ -125,13 +145,30 @@ const MainLayout: React.FC = () => {
             <Typography
               variant="body1"
               sx={{
-                fontWeight: 600,
-                fontSize: '1rem',
+                fontWeight: currentWeekday === selectedWeekday ? 700 : 600,
+                fontSize: currentWeekday === selectedWeekday ? '1.1rem' : '1rem',
                 lineHeight: 1,
+                color: currentWeekday === selectedWeekday && selectedWeekday !== selectedWeekday ? '#007AFF' : 'inherit',
               }}
             >
               {getGermanWeekday(selectedWeekday)}
             </Typography>
+            
+            {/* Current day indicator */}
+            {currentWeekday === selectedWeekday && (
+              <Box
+                sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  backgroundColor: '#007AFF',
+                  position: 'absolute',
+                  bottom: 4,
+                  border: '1px solid rgba(0, 122, 255, 0.2)',
+                  boxShadow: '0 2px 4px rgba(0, 122, 255, 0.3)',
+                }}
+              />
+            )}
           </IconButton>
         </Box>
 
@@ -145,7 +182,7 @@ const MainLayout: React.FC = () => {
           }}
         >
           <IconButton
-            onClick={handleBottomSheetToggle}
+            onClick={handleTestSheetToggle}
             sx={{
               width: 56,
               height: 56,
@@ -198,9 +235,10 @@ const MainLayout: React.FC = () => {
                 px: 0,
                 minHeight: 'auto',
                 justifyContent: 'center',
+                position: 'relative',
                 color: selectedWeekday === weekday.value ? '#007AFF' : '#1d1d1f',
                 fontWeight: selectedWeekday === weekday.value ? 600 : 400,
-                fontSize: '1rem',
+                fontSize: currentWeekday === weekday.value ? '1.1rem' : '1rem',
                 '&:hover': {
                   bgcolor: 'transparent',
                 },
@@ -212,15 +250,31 @@ const MainLayout: React.FC = () => {
               <Typography variant="body1" sx={{ fontWeight: 'inherit' }}>
                 {getGermanWeekday(weekday.value)}
               </Typography>
+              
+              {/* Current day indicator */}
+              {currentWeekday === weekday.value && (
+                <Box
+                  sx={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    backgroundColor: '#007AFF',
+                    position: 'absolute',
+                    bottom: 2,
+                    border: '1px solid rgba(0, 122, 255, 0.2)',
+                    boxShadow: '0 1px 2px rgba(0, 122, 255, 0.3)',
+                  }}
+                />
+              )}
             </MenuItem>
           ))}
         </Menu>
 
         <MainBottomSheet 
-          open={isBottomSheetOpen}
-          onClose={handleBottomSheetClose}
-          onUserSwitch={handleUserSwitch} 
+          isOpen={isTestSheetOpen}
+          onClose={handleTestSheetClose}
         />
+
         <UserSearchDrawer
           open={isUserDrawerOpen}
           onClose={handleDrawerClose}

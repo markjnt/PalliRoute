@@ -33,6 +33,8 @@ interface RouteStop {
   address: string;
   visitType: string;
   time?: string;
+  phone1?: string;
+  phone2?: string;
   isCompleted: boolean;
 }
 
@@ -105,15 +107,17 @@ export const RouteList: React.FC = () => {
         if (appointment) {
           const patient = patients.find(p => p.id === appointment.patient_id);
           if (patient) {
-                         stops.push({
-               id: appointmentId,
-               position: index + 1,
-               patientName: `${patient.first_name} ${patient.last_name}`,
-               address: `${patient.street}, ${patient.zip_code} ${patient.city}`,
-               visitType: appointment.visit_type,
-               time: appointment.time,
-               isCompleted: isStopCompleted(appointmentId),
-             });
+                                     stops.push({
+              id: appointmentId,
+              position: index + 1,
+              patientName: `${patient.first_name} ${patient.last_name}`,
+              address: `${patient.street}, ${patient.zip_code} ${patient.city}`,
+              visitType: appointment.visit_type,
+              time: appointment.time,
+              phone1: patient.phone1,
+              phone2: patient.phone2,
+              isCompleted: isStopCompleted(appointmentId),
+            });
           }
         }
       });
@@ -137,7 +141,8 @@ export const RouteList: React.FC = () => {
       return {
         id: appointment.id || 0,
         patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unbekannter Patient',
-        phone: patient?.phone1 || patient?.phone2 || 'Keine Telefonnummer',
+        phone1: patient?.phone1,
+        phone2: patient?.phone2,
         time: appointment.time,
         isCompleted: isStopCompleted(appointment.id || 0),
       };
@@ -311,6 +316,49 @@ export const RouteList: React.FC = () => {
                     </Typography>
                   </Box>
                 )}
+                
+                {(stop.phone1 || stop.phone2) && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                    {stop.phone1 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#8E8E93',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            const cleanPhone = stop.phone1!.replace(/\s+/g, '');
+                            window.location.href = `tel:${cleanPhone}`;
+                          }}
+                        >
+                          {stop.phone1}
+                        </Typography>
+                      </Box>
+                    )}
+                    {stop.phone2 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#8E8E93',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            const cleanPhone = stop.phone2!.replace(/\s+/g, '');
+                            window.location.href = `tel:${cleanPhone}`;
+                          }}
+                        >
+                          {stop.phone2}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
               </Box>
 
               {/* Checkbox */}
@@ -403,18 +451,48 @@ export const RouteList: React.FC = () => {
                       />
                     </Box>
                     
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: '#8E8E93',
-                          fontSize: '0.75rem'
-                        }}
-                      >
-                        {tkApp.phone}
-                      </Typography>
-                    </Box>
+                    {(tkApp.phone1 || tkApp.phone2) && (
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        {tkApp.phone1 && (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: '#8E8E93',
+                                fontSize: '0.75rem',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                const cleanPhone = tkApp.phone1!.replace(/\s+/g, '');
+                                window.location.href = `tel:${cleanPhone}`;
+                              }}
+                            >
+                              {tkApp.phone1}
+                            </Typography>
+                          </Box>
+                        )}
+                        {tkApp.phone2 && (
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: '#8E8E93',
+                                fontSize: '0.75rem',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                const cleanPhone = tkApp.phone2!.replace(/\s+/g, '');
+                                window.location.href = `tel:${cleanPhone}`;
+                              }}
+                            >
+                              {tkApp.phone2}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
                     
                     {tkApp.time && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
