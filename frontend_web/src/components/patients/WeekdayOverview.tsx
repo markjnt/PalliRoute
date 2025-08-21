@@ -39,6 +39,13 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
         return employees.find(emp => emp.id === appt.employee_id) || null;
     };
 
+    // Funktion zum Abrufen des Mitarbeiters für den ausgewählten Tag
+    const getSelectedDayEmployee = (): Employee | null => {
+        const appt = appointments.find(a => a.weekday === selectedDay);
+        if (!appt?.employee_id) return null;
+        return employees.find(emp => emp.id === appt.employee_id) || null;
+    };
+
     // Funktion zum Übersetzen des englischen Wochentags in Deutsch
     const getGermanWeekday = (weekday: Weekday): string => {
         switch (weekday) {
@@ -78,6 +85,7 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                     const visit = getVisitTypeForWeekday(weekday);
                     const info = getInfoForWeekday(weekday);
                     const employee = getEmployeeForWeekday(weekday);
+                    const selectedDayEmployee = getSelectedDayEmployee();
                     const isSelectedDay = weekday === selectedDay;
                     return (
                         <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
@@ -129,7 +137,7 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                     >
                                         {visit || '–'}
                                     </Typography>
-                                    {employee && weekday !== selectedDay ? (
+                                    {employee && (visit === 'NA' || employee.id !== selectedDayEmployee?.id) ? (
                                         <Typography 
                                             variant="caption" 
                                             color="text.secondary"

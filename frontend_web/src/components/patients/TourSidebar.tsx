@@ -24,8 +24,9 @@ import {
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
-import { Weekday } from '../../types/models';
+import { Weekday, Employee } from '../../types/models';
 import { ToursView } from './ToursView';
+import { SearchField } from './SearchField';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport } from '../../services/queries/usePatients';
@@ -44,6 +45,18 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filteredResults, setFilteredResults] = useState<{
+        filteredActiveOtherEmployeesWithPatients: Employee[];
+        filteredActiveOtherEmployeesWithoutPatients: Employee[];
+        filteredInactiveEmployees: Employee[];
+        filteredDoctors: Employee[];
+    }>({
+        filteredActiveOtherEmployeesWithPatients: [],
+        filteredActiveOtherEmployeesWithoutPatients: [],
+        filteredInactiveEmployees: [],
+        filteredDoctors: []
+    });
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const { lastPatientImportTime, setLastPatientImportTime } = useLastUpdateStore();
@@ -104,6 +117,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             }
             setNotification(message, 'error');
         }
+    };
+
+    // Handle clear search
+    const handleClearSearch = () => {
+        setSearchTerm('');
     };
 
     // Memoize weekday name mapping
@@ -283,8 +301,20 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
             <Divider />
 
+            <SearchField
+                selectedDay={selectedWeekday}
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                onClearSearch={handleClearSearch}
+                onFilteredResultsChange={setFilteredResults}
+            />
+
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-                <ToursView selectedDay={selectedWeekday} />
+                <ToursView 
+                    selectedDay={selectedWeekday} 
+                    searchTerm={searchTerm}
+                    filteredResults={filteredResults}
+                />
             </Box>
 
 

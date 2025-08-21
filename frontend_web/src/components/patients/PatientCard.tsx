@@ -65,8 +65,9 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     const moveAppointment = useMoveAppointment();
     const { data: patientAppointments = [], isLoading, error } = useAppointmentsByPatient(patient.id ?? 0);
     
-    // Get current employee ID from appointments
-    const currentEmployeeId = patientAppointments[0]?.employee_id;
+    // Get current employee ID from the selected day appointment
+    const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
+    const currentEmployeeId = selectedDayAppointment?.employee_id;
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -82,11 +83,14 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         item: {
             type: DragItemTypes.PATIENT,
             patientId: patient.id || 0,
-            appointmentIds: appointments.map(a => a.id || 0).filter(id => id !== 0),
+            appointmentIds: appointments
+                .filter(app => app.weekday === selectedDay)
+                .map(a => a.id || 0)
+                .filter(id => id !== 0),
             sourceEmployeeId: (() => {
-                // Get source employee ID from patient's appointments
-                const patientAppointment = appointments.find(app => app.employee_id);
-                return patientAppointment?.employee_id || undefined;
+                // Get source employee ID from the selected day appointment
+                const selectedDayAppointment = appointments.find(app => app.weekday === selectedDay);
+                return selectedDayAppointment?.employee_id || undefined;
             })()
         },
         collect: (monitor) => ({
@@ -122,17 +126,24 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 return;
             }
 
-            // Get current employee ID from appointments
-            const currentEmployeeId = patientAppointments[0]?.employee_id;
-            if (!currentEmployeeId) {
-                setNotification('Kein aktueller Mitarbeiter gefunden', 'error');
+            // Find the appointment for the selected day
+            const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
+            if (!selectedDayAppointment) {
+                setNotification('Kein Termin für den ausgewählten Tag gefunden', 'error');
                 return;
             }
 
-            // Nur ein Request nötig, Backend verschiebt alle Termine des Patienten
-            if (patientAppointments.length > 0 && typeof patientAppointments[0].id === 'number') {
+            // Get current employee ID from the selected day appointment
+            const currentEmployeeId = selectedDayAppointment.employee_id;
+            if (!currentEmployeeId) {
+                setNotification('Kein aktueller Mitarbeiter für den ausgewählten Tag gefunden', 'error');
+                return;
+            }
+
+            // Use the appointment for the selected day
+            if (typeof selectedDayAppointment.id === 'number') {
                 await moveAppointment.mutateAsync({
-                    appointmentId: patientAppointments[0].id, // irgendein Termin des Patienten reicht
+                    appointmentId: selectedDayAppointment.id,
                     sourceEmployeeId: currentEmployeeId,
                     targetEmployeeId: employeeId
                 });

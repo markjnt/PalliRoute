@@ -138,17 +138,27 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             if (!patient) {
                 resetLoading();
                 console.error(`Patient mit ID ${patientId} nicht gefunden`);
-                setNotification('Kein aktueller Mitarbeiter gefunden', 'error');
+                setNotification('Patient nicht gefunden', 'error');
                 return;
             }
 
-            if (item.appointmentIds.length > 0) {
-                await moveAppointment.mutateAsync({
-                    appointmentId: item.appointmentIds[0],
-                    sourceEmployeeId: item.sourceEmployeeId || 0,
-                    targetEmployeeId: employee.id || 0
-                });
+            if (item.appointmentIds.length === 0) {
+                resetLoading();
+                setNotification('Kein Termin für den ausgewählten Tag gefunden', 'error');
+                return;
             }
+
+            if (!item.sourceEmployeeId) {
+                resetLoading();
+                setNotification('Kein aktueller Mitarbeiter für den ausgewählten Tag gefunden', 'error');
+                return;
+            }
+
+            await moveAppointment.mutateAsync({
+                appointmentId: item.appointmentIds[0],
+                sourceEmployeeId: item.sourceEmployeeId,
+                targetEmployeeId: employee.id || 0
+            });
             resetLoading();
             setNotification('Patient erfolgreich zugewiesen', 'success');
         } catch (error) {
