@@ -10,13 +10,7 @@ employees_bp = Blueprint('employees', __name__)
 
 @employees_bp.route('/', methods=['GET'])
 def get_employees():
-    is_active = request.args.get('active', type=bool)
-    query = Employee.query
-    
-    if is_active is not None:
-        query = query.filter_by(is_active=is_active)
-    
-    employees = query.all()
+    employees = Employee.query.all()
     return jsonify([employee.to_dict() for employee in employees]), 200
 
 @employees_bp.route('/<int:id>', methods=['GET'])
@@ -57,8 +51,7 @@ def create_employee():
         function=data['function'],
         work_hours=work_hours,
         area=data.get('area'),
-        alias=data.get('alias'),
-        is_active=data.get('is_active', True)
+        alias=data.get('alias')
     )
     
     db.session.add(new_employee)
@@ -80,7 +73,7 @@ def update_employee(id):
 
     
     fields = ['first_name', 'last_name', 'street', 'zip_code', 'city', 
-              'function', 'work_hours', 'area', 'alias', 'is_active']
+              'function', 'work_hours', 'area', 'alias']
     
     for field in fields:
         if field in data:

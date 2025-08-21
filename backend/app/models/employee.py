@@ -16,7 +16,6 @@ class Employee(db.Model):
     work_hours = db.Column(db.Float, nullable=False)  # Percentage of full-time (e.g., 100.0)
     area = db.Column(db.String(50), nullable=True)  # Area for employee
     alias = db.Column(db.String(500), nullable=True)  # Alias for employee
-    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -39,7 +38,6 @@ class Employee(db.Model):
             'work_hours': self.work_hours,
             'area': self.area,
             'alias': self.alias,
-            'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -57,6 +55,5 @@ class Employee(db.Model):
             function=data.get('function'),
             work_hours=data.get('work_hours'),
             area=data.get('area'),
-            alias=data.get('alias'),
-            is_active=data.get('is_active', True)
+            alias=data.get('alias')
         )

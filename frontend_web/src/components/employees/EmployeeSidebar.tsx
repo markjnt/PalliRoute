@@ -38,7 +38,7 @@ import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
 import { useAreaStore } from '../../stores/useAreaStore';
 import { useNavigate } from 'react-router-dom';
-import { useEmployees, useDeleteEmployee, useToggleEmployeeActive, useImportEmployees } from '../../services/queries/useEmployees';
+import { useEmployees, useDeleteEmployee, useImportEmployees } from '../../services/queries/useEmployees';
 import AreaList from '../area_select/AreaList';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
@@ -119,7 +119,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     // React Query hooks
     const { data: employees = [], isLoading, error } = useEmployees();
     const deleteEmployeeMutation = useDeleteEmployee();
-    const toggleEmployeeActiveMutation = useToggleEmployeeActive();
     const importEmployeesMutation = useImportEmployees();
     const { setNotification } = useNotificationStore();
     const { lastEmployeeImportTime, setLastEmployeeImportTime } = useLastUpdateStore();
@@ -165,31 +164,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         }
     };
 
-    const handleToggleAllActive = async (status: boolean) => {
-        try {
-            // Filter employees that need to be changed and have valid IDs
-            const employeesToToggle = employees.filter(emp => emp.is_active !== status && emp.id);
-            
-            // Update all employees in parallel
-            await Promise.all(
-                employeesToToggle.map(emp => 
-                    toggleEmployeeActiveMutation.mutateAsync({ id: emp.id!, isActive: status })
-                )
-            );
-        } catch (error) {
-            console.error('Error toggling all employees:', error);
-        }
-    };
 
-    const handleToggleActive = async (id: number, currentStatus: boolean) => {
-        try {
-            await toggleEmployeeActiveMutation.mutateAsync({ id, isActive: !currentStatus });
-            
-            // Events entfernt, React Query übernimmt die Datensynchronisierung
-        } catch (error) {
-            console.error('Error toggling employee status:', error);
-        }
-    };
 
     const handleImport = async () => {
         try {
@@ -217,26 +192,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     };
 
     const columns: GridColDef[] = [
-        {
-            field: 'is_active',
-            headerName: 'Status',
-            width: 100,
-            type: 'boolean',
-            filterable: true,
-            valueFormatter: (params: any) => params.value ? 'Aktiv' : 'Inaktiv',
-            renderCell: (params: GridRenderCellParams) => (
-                <Tooltip title={params.value ? 'Aktiv' : 'Inaktiv'}>
-                    <IconButton
-                        onClick={() => handleToggleActive(params.row.id, params.row.is_active)}
-                        color={params.row.is_active ? 'success' : 'error'}
-                        size="small"
-                        disabled={toggleEmployeeActiveMutation.isPending}
-                    >
-                        {params.row.is_active ? <ActiveIcon /> : <InactiveIcon />}
-                    </IconButton>
-                </Tooltip>
-            ),
-        },
+
         { 
             field: 'last_name', 
             headerName: 'Nachname', 
@@ -432,26 +388,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             <Divider />
 
             <Box sx={{ flexGrow: 1, p: 2, width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleToggleAllActive(true)}
-                        disabled={toggleEmployeeActiveMutation.isPending}
-                        startIcon={<ActiveIcon />}
-                    >
-                        Alle aktivieren
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleToggleAllActive(false)}
-                        disabled={toggleEmployeeActiveMutation.isPending}
-                        startIcon={<InactiveIcon />}
-                    >
-                        Alle deaktivieren
-                    </Button>
-                </Box>
+
 
                 {error instanceof Error && (
                     <Alert severity="error" sx={{ mb: 2 }}>

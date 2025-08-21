@@ -15,7 +15,6 @@ interface SearchFieldProps {
     onFilteredResultsChange: (results: {
         filteredActiveOtherEmployeesWithPatients: Employee[];
         filteredActiveOtherEmployeesWithoutPatients: Employee[];
-        filteredInactiveEmployees: Employee[];
         filteredDoctors: Employee[];
     }) => void;
 }
@@ -73,18 +72,15 @@ export const SearchField: React.FC<SearchFieldProps> = ({
     const doctors = allEmployees.filter(e => e.function === 'Arzt' || e.function === 'Honorararzt');
     const otherEmployees = allEmployees.filter(e => e.function !== 'Arzt' && e.function !== 'Honorararzt');
     
-    // Other employees with patients (active only)
+    // Other employees with patients
     const activeOtherEmployeesWithPatients = otherEmployees.filter(e => 
-        e.is_active && hasPatientInEmployee(e.id || 0)
+        hasPatientInEmployee(e.id || 0)
     );
     
-    // Other employees without patients (active only)
+    // Other employees without patients
     const activeOtherEmployeesWithoutPatients = otherEmployees.filter(e => 
-        e.is_active && !hasPatientInEmployee(e.id || 0)
+        !hasPatientInEmployee(e.id || 0)
     );
-    
-    // Inactive employees (excluding doctors)
-    const inactiveEmployees = allEmployees.filter(e => !e.is_active && e.function !== 'Arzt' && e.function !== 'Honorararzt');
 
     // Search functionality
     const filteredActiveOtherEmployeesWithPatients = useMemo(() => {
@@ -129,16 +125,7 @@ export const SearchField: React.FC<SearchFieldProps> = ({
         });
     }, [activeOtherEmployeesWithoutPatients, searchTerm]);
 
-    const filteredInactiveEmployees = useMemo(() => {
-        if (!searchTerm.trim()) return inactiveEmployees;
-        
-        const searchLower = searchTerm.toLowerCase();
-        
-        return inactiveEmployees.filter(employee => {
-            const employeeName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
-            return employeeName.includes(searchLower) || employee.function.toLowerCase().includes(searchLower);
-        });
-    }, [inactiveEmployees, searchTerm]);
+
 
     const filteredDoctors = useMemo(() => {
         if (!searchTerm.trim()) return doctors;
@@ -173,7 +160,6 @@ export const SearchField: React.FC<SearchFieldProps> = ({
 
     const totalResults = filteredActiveOtherEmployeesWithPatients.length + 
                         filteredActiveOtherEmployeesWithoutPatients.length + 
-                        filteredInactiveEmployees.length + 
                         filteredDoctors.length;
 
     // Pass filtered results to parent component
@@ -181,13 +167,11 @@ export const SearchField: React.FC<SearchFieldProps> = ({
         onFilteredResultsChange({
             filteredActiveOtherEmployeesWithPatients,
             filteredActiveOtherEmployeesWithoutPatients,
-            filteredInactiveEmployees,
             filteredDoctors
         });
     }, [
         filteredActiveOtherEmployeesWithPatients,
         filteredActiveOtherEmployeesWithoutPatients,
-        filteredInactiveEmployees,
         filteredDoctors,
         onFilteredResultsChange
     ]);

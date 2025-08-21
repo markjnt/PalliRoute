@@ -59,21 +59,17 @@ export const employeesApi = {
         }
     },
 
-    // Toggle employee active status
-    async toggleActive(id: number, isActive: boolean): Promise<Employee> {
-        try {
-            const response = await api.put(`/employees/${id}`, { is_active: isActive });
-            return response.data;
-        } catch (error) {
-            console.error(`Failed to toggle active status for employee with ID ${id}:`, error);
-            throw error;
-        }
-    },
-
     // Import employees from Excel file
-    async import(): Promise<EmployeeImportResponse> {
+    async import(file: File): Promise<EmployeeImportResponse> {
         try {
-            const response = await api.post('/employees/import');
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await api.post('/employees/import', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
             return response.data;
         } catch (error) {
             console.error('Failed to import employees from Excel:', error);

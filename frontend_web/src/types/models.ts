@@ -24,15 +24,13 @@ export interface Employee {
     longitude?: number;
     function: string;
     work_hours: number;
-    is_active: boolean;
     area: Area;
     alias?: string;
     created_at?: string;
     updated_at?: string;
 }
 
-export interface EmployeeFormData extends Omit<Employee, 'id' | 'created_at' | 'updated_at' | 'is_active'> {
-    is_active?: boolean;
+export interface EmployeeFormData extends Omit<Employee, 'id' | 'created_at' | 'updated_at'> {
 }
 
 export interface EmployeeImportResponse {

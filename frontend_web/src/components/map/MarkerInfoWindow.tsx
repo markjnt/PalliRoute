@@ -350,14 +350,9 @@ const EmployeeInfoContent: React.FC<{
         pb: 0.5,
         mb: 1,
         p: 0.5,
-        bgcolor: employee.is_active ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+        bgcolor: 'rgba(52, 52, 52, 0.1)',
         borderRadius: 1
       }}>
-        {employee.is_active ? (
-          <ActiveIcon sx={{ color: 'success.main', mr: 1 }} />
-        ) : (
-          <InactiveIcon sx={{ color: 'error.main', mr: 1 }} />
-        )}
         <Typography variant="subtitle1" component="div" sx={{ 
           fontWeight: 'bold',
           flexGrow: 1,

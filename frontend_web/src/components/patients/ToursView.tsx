@@ -16,7 +16,6 @@ interface ToursViewProps {
     filteredResults: {
         filteredActiveOtherEmployeesWithPatients: Employee[];
         filteredActiveOtherEmployeesWithoutPatients: Employee[];
-        filteredInactiveEmployees: Employee[];
         filteredDoctors: Employee[];
     };
 }
@@ -74,14 +73,12 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
     
 
     
-    // Inactive employees (excluding doctors)
-    const inactiveEmployees = allEmployees.filter(e => !e.is_active && e.function !== 'Arzt' && e.function !== 'Honorararzt');
+
 
     // Use filtered results from SearchField component
     const {
         filteredActiveOtherEmployeesWithPatients,
         filteredActiveOtherEmployeesWithoutPatients,
-        filteredInactiveEmployees,
         filteredDoctors
     } = filteredResults;
 
@@ -91,30 +88,22 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
         return filteredActiveOtherEmployeesWithPatients;
     }, [filteredActiveOtherEmployeesWithPatients]);
 
-    // 2. Ärzte: Active doctors with patients
-    const activeDoctorsWithPatients = React.useMemo(() => {
-        return filteredDoctors.filter(doctor => doctor.is_active && hasPatientInEmployee(doctor.id || 0));
+    // 2. Ärzte: Doctors with patients
+    const doctorsWithPatients = React.useMemo(() => {
+        return filteredDoctors.filter(doctor => hasPatientInEmployee(doctor.id || 0));
     }, [filteredDoctors, appointments, selectedDay]);
 
-    // 3. Leere Pflegetouren: Active other employees without patients
-    const activeOtherEmployeesWithoutPatients = React.useMemo(() => {
+    // 3. Leere Pflegetouren: Other employees without patients
+    const otherEmployeesWithoutPatients = React.useMemo(() => {
         return filteredActiveOtherEmployeesWithoutPatients;
     }, [filteredActiveOtherEmployeesWithoutPatients]);
 
-    // 4. Leere Ärztetouren: Active doctors without patients
-    const activeDoctorsWithoutPatients = React.useMemo(() => {
-        const allActiveDoctors = filteredDoctors.filter(doctor => doctor.is_active);
-        return allActiveDoctors.filter(doctor => 
+    // 4. Leere Ärztetouren: Doctors without patients
+    const doctorsWithoutPatients = React.useMemo(() => {
+        return filteredDoctors.filter(doctor => 
             !hasPatientInEmployee(doctor.id || 0)
         );
     }, [filteredDoctors, appointments, selectedDay]);
-
-    // 5. Inaktive Mitarbeiter: All inactive employees (doctors and other employees)
-    const allInactiveEmployees = React.useMemo(() => {
-        const inactiveOtherEmployees = filteredInactiveEmployees;
-        const inactiveDoctors = filteredDoctors.filter(doctor => !doctor.is_active);
-        return [...inactiveOtherEmployees, ...inactiveDoctors];
-    }, [filteredInactiveEmployees, filteredDoctors]);
 
     if (loadingEmployees || loadingPatients || loadingAppointments || loadingRoutes) {
         return (
@@ -199,8 +188,8 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                 </Box>
             )}
 
-            {/* 2. Ärzte - Active doctors with patients */}
-            {activeDoctorsWithPatients.length > 0 && (
+            {/* 2. Ärzte - Doctors with patients */}
+            {doctorsWithPatients.length > 0 && (
                 <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                     <Box sx={{ 
                         display: 'flex', 
@@ -241,7 +230,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                             }
                         }
                     }}>
-                        {activeDoctorsWithPatients.map((employee: Employee) => (
+                        {doctorsWithPatients.map((employee: Employee) => (
                             <TourContainer
                                 key={`doctor-${employee.id}`}
                                 employee={employee}
@@ -256,8 +245,8 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                 </Box>
             )}
 
-            {/* 3. Leere Pflegetouren - Active other employees without patients */}
-            {activeOtherEmployeesWithoutPatients.length > 0 && (
+            {/* 3. Leere Pflegetouren - Other employees without patients */}
+            {otherEmployeesWithoutPatients.length > 0 && (
                 <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                     <Box sx={{ 
                         display: 'flex', 
@@ -298,7 +287,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                             }
                         }
                     }}>
-                        {activeOtherEmployeesWithoutPatients.map((employee: Employee) => (
+                        {otherEmployeesWithoutPatients.map((employee: Employee) => (
                             <TourContainer
                                 key={`empty-pflege-${employee.id}`}
                                 employee={employee}
@@ -313,8 +302,8 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                 </Box>
             )}
 
-            {/* 4. Leere Ärztetouren - Active doctors without patients */}
-            {activeDoctorsWithoutPatients.length > 0 && (
+            {/* 4. Leere Ärztetouren - Doctors without patients */}
+            {doctorsWithoutPatients.length > 0 && (
                 <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                     <Box sx={{ 
                         display: 'flex', 
@@ -355,66 +344,9 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                             }
                         }
                     }}>
-                        {activeDoctorsWithoutPatients.map((employee: Employee) => (
+                        {doctorsWithoutPatients.map((employee: Employee) => (
                             <TourContainer
                                 key={`empty-doctor-${employee.id}`}
-                                employee={employee}
-                                employees={filteredEmployees}
-                                patients={patients}
-                                appointments={appointments}
-                                selectedDay={selectedDay}
-                                routes={filteredRoutes}
-                            />
-                        ))}
-                    </Box>
-                </Box>
-            )}
-
-            {/* 5. Inaktive Mitarbeiter - All inactive employees */}
-            {allInactiveEmployees.length > 0 && (
-                <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        mb: 2,
-                        justifyContent: 'space-between' 
-                    }}>
-                        <Typography variant="h6" component="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Cancel />
-                            Inaktive Mitarbeiter
-                        </Typography>
-                    </Box>
-                    
-                    <Box sx={{
-                        display: 'flex', 
-                        flexWrap: 'wrap', 
-                        gap: 1,
-                        '& > *': { 
-                            flexGrow: 1,
-                            flexShrink: 1,
-                            flexBasis: {
-                                xs: '100%',
-                                sm: 'calc(100% - 16px)',
-                                md: '47%',
-                                lg: '31%',
-                                xl: '23%'
-                            },
-                            minWidth: {
-                                xs: '280px',
-                                sm: '320px',
-                                md: '340px'
-                            },
-                            maxWidth: {
-                                xs: '100%',
-                                sm: '100%',
-                                md: '100%',
-                                lg: '900px'
-                            }
-                        }
-                    }}>
-                        {allInactiveEmployees.map((employee: Employee) => (
-                            <TourContainer
-                                key={`inactive-${employee.id}`}
                                 employee={employee}
                                 employees={filteredEmployees}
                                 patients={patients}
@@ -430,10 +362,9 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
             {/* Show message when no results found */}
             {searchTerm && 
              activeOtherEmployeesWithPatients.length === 0 && 
-             activeDoctorsWithPatients.length === 0 && 
-             activeOtherEmployeesWithoutPatients.length === 0 && 
-             activeDoctorsWithoutPatients.length === 0 && 
-             allInactiveEmployees.length === 0 && (
+             doctorsWithPatients.length === 0 && 
+             otherEmployeesWithoutPatients.length === 0 && 
+             doctorsWithoutPatients.length === 0 && (
                 <Alert severity="info" sx={{ my: 2 }}>
                     Keine Ergebnisse für "{searchTerm}" gefunden.
                 </Alert>

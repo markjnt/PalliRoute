@@ -49,12 +49,10 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const [filteredResults, setFilteredResults] = useState<{
         filteredActiveOtherEmployeesWithPatients: Employee[];
         filteredActiveOtherEmployeesWithoutPatients: Employee[];
-        filteredInactiveEmployees: Employee[];
         filteredDoctors: Employee[];
     }>({
         filteredActiveOtherEmployeesWithPatients: [],
         filteredActiveOtherEmployeesWithoutPatients: [],
-        filteredInactiveEmployees: [],
         filteredDoctors: []
     });
     

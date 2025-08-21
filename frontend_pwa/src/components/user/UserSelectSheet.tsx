@@ -222,27 +222,6 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
                         </Box>
 
                         <Box display="flex" flexWrap="wrap" gap={1}>
-                          {employee.is_active ? (
-                            <Chip
-                              label="Aktiv"
-                              size="small"
-                              sx={{
-                                bgcolor: '#e8f5e8',
-                                color: '#2e7d32',
-                                fontSize: '0.75rem',
-                              }}
-                            />
-                          ) : (
-                            <Chip
-                              label="Inaktiv"
-                              size="small"
-                              sx={{
-                                bgcolor: '#ffebee',
-                                color: '#c62828',
-                                fontSize: '0.75rem',
-                              }}
-                            />
-                          )}
                           {employee.city && (
                             <Chip
                               label={employee.city}

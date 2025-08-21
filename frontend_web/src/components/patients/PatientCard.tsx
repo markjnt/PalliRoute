@@ -120,11 +120,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 return;
             }
 
-            // Prevent assigning to a deactivated employee
-            if (!targetEmployee.is_active) {
-                setNotification('Der Mitarbeiter ist deaktiviert. Bitte wählen Sie einen aktiven Mitarbeiter.', 'error');
-                return;
-            }
+
 
             // Find the appointment for the selected day
             const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
@@ -293,8 +289,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             >
                 {availableEmployees.map((employee) => {
                     const isCurrentEmployee = employee.id === currentEmployeeId;
-                    const isInactive = !employee.is_active;
-                    const disabled = isCurrentEmployee || isInactive;
+                    const disabled = isCurrentEmployee;
                     const menuItem = (
                         <MenuItem 
                             key={employee.id}
@@ -345,11 +340,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             </ListItemText>
                         </MenuItem>
                     );
-                    return isInactive ? (
-                        <Tooltip key={employee.id} title="Mitarbeiter ist deaktiviert" arrow placement="left">
-                            <span style={{ display: 'block' }}>{menuItem}</span>
-                        </Tooltip>
-                    ) : menuItem;
+                    return menuItem;
                 })}
             </Menu>
             

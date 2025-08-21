@@ -94,27 +94,7 @@ export const useDeleteEmployee = () => {
   });
 };
 
-// Hook to toggle employee active status
-export const useToggleEmployeeActive = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => 
-      employeesApi.toggleActive(id, isActive),
-    onSuccess: (updatedEmployee) => {
-      // Invalidate and refetch
-      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: employeeKeys.detail(updatedEmployee.id as number) });
-      
-      // Optionally update the cache directly
-      queryClient.setQueryData(
-        employeeKeys.lists(),
-        (oldEmployees: Employee[] = []) => 
-          oldEmployees.map(employee => (employee.id === updatedEmployee.id ? updatedEmployee : employee))
-      );
-    },
-  });
-};
+
 
 // Hook to import employees from Excel
 export const useImportEmployees = () => {

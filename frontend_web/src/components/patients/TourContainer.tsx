@@ -175,7 +175,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         },
         canDrop: (item) => {
             // Drop auf eigenen Mitarbeiter verhindern
-            return employee.is_active && item.sourceEmployeeId !== employee.id;
+            return item.sourceEmployeeId !== employee.id;
         },
         collect: (monitor) => ({
             isOver: !!monitor.isOver(),
@@ -285,14 +285,9 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         }
     };
 
-    // Filter active employees
+    // Filter available employees (excluding current employee)
     const availableEmployees = employees
-        .filter(emp => emp.is_active && emp.id !== employee.id)
-        .sort((a, b) => a.last_name.localeCompare(b.last_name));
-
-    // Get inactive employees
-    const inactiveEmployees = employees
-        .filter(emp => !emp.is_active && emp.id !== employee.id)
+        .filter(emp => emp.id !== employee.id)
         .sort((a, b) => a.last_name.localeCompare(b.last_name));
 
     // Count patients for each employee
@@ -522,12 +517,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                         gap: 1,
                         mt: 0.5
                     }}>
-                        <Tooltip title={`Funktion: ${employee.function} - ${employee.is_active ? 'Aktiv' : 'Inaktiv'}`}>
+                        <Tooltip title={`Funktion: ${employee.function}`}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {employee.is_active ? 
-                                    <CheckCircle color="success" fontSize="small" /> : 
-                                    <Cancel color="error" fontSize="small" />
-                                }
                                 
                                 {/* Employee function chip */}
                                 <Chip 
@@ -740,91 +731,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                                         );
                                     })}
                                     
-                                    {/* Show inactive employees if there are any */}
-                                    {inactiveEmployees.length > 0 && [
-                                        <Divider key="divider-inactive" sx={{ my: 1 }} />, 
-                                        <Typography 
-                                            key="inactive-title"
-                                            variant="subtitle2" 
-                                            sx={{ px: 2, py: 1, bgcolor: 'background.default', fontWeight: 'bold', color: 'error.main' }}
-                                        >
-                                            Inaktive Touren
-                                        </Typography>,
-                                        ...inactiveEmployees.map((emp) => {
-                                            const patientCount = patientCountByEmployee.get(emp.id || 0) || 0;
-                                            const isEmpty = patientCount === 0;
-                                            return (
-                                                <MenuItem 
-                                                    key={emp.id}
-                                                    onClick={() => emp.id && handleMoveAllPatients(emp.id)}
-                                                    disabled={true}
-                                                    sx={{
-                                                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                                                        opacity: 0.7,
-                                                        py: 1
-                                                    }}
-                                                >
-                                                    <ListItemText>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                            <Chip
-                                                                label={`${emp.first_name} ${emp.last_name}`}
-                                                                size="small"
-                                                                sx={{
-                                                                    height: 20,
-                                                                    bgcolor: 'error.light',
-                                                                    color: 'white',
-                                                                    opacity: 0.7,
-                                                                    '& .MuiChip-label': {
-                                                                        px: 1,
-                                                                        fontSize: '0.75rem'
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <Chip
-                                                                label={emp.function}
-                                                                size="small"
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    height: 20,
-                                                                    fontSize: '0.7rem',
-                                                                    borderColor: employeeTypeColors[emp.function] || employeeTypeColors.default,
-                                                                    color: employeeTypeColors[emp.function] || employeeTypeColors.default,
-                                                                    opacity: 0.7,
-                                                                    '& .MuiChip-label': {
-                                                                        px: 1,
-                                                                        fontSize: '0.7rem'
-                                                                    }
-                                                                }}
-                                                            />
-                                                            <Chip
-                                                                label="Inaktiv"
-                                                                size="small"
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    height: 20,
-                                                                    fontSize: '0.7rem',
-                                                                    borderColor: 'error.main',
-                                                                    color: 'error.main'
-                                                                }}
-                                                            />
-                                                            {!isEmpty && (
-                                                                <Typography 
-                                                                    variant="caption" 
-                                                                    sx={{ 
-                                                                        color: 'error.main',
-                                                                        fontSize: '0.7rem',
-                                                                        fontWeight: 'bold'
-                                                                    }}
-                                                                >
-                                                                    {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    </ListItemText>
-                                                </MenuItem>
-                                            );
-                                        })
-                                    ]}
+
                                 </Menu>
 
                                 {/* Eye icon button rechts daneben, gleiches Design */}

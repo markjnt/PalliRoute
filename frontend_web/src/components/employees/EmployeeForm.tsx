@@ -66,7 +66,6 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
             city: employee?.city || '',
             function: employee?.function || 'Pflegekraft',
             work_hours: employee?.work_hours || 100,
-            is_active: employee?.is_active ?? true,
             area: employee?.area || 'Nordkreis',
             alias: employee?.alias || '',
         },
@@ -222,18 +221,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({
                                 helperText={formik.touched.alias && formik.errors.alias || "Optionaler Alias für den Mitarbeiter"}
                             />
                         </Grid>
-                        <Grid size={{ xs: 12 }}>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={formik.values.is_active}
-                                        onChange={formik.handleChange}
-                                        name="is_active"
-                                    />
-                                }
-                                label="Aktiv"
-                            />
-                        </Grid>
+
                     </Grid>
                 </DialogContent>
                 <DialogActions>

@@ -178,8 +178,7 @@ class ExcelImportService:
                         function=function,
                         work_hours=work_hours,
                         area=area,
-                        alias=alias,
-                        is_active=True
+                        alias=alias
                     )
                     added_employees.append(employee)
                     db.session.add(employee)
