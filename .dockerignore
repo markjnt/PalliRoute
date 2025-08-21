@@ -12,6 +12,7 @@ venv/
 env/
 .env/
 ENV/
+backend/.env
 
 # Git
 .git
