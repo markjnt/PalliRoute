@@ -19,6 +19,40 @@
       background-repeat: no-repeat;
       background-size: cover;
     }
+    
+    /* Text-Markieren komplett deaktivieren */
+    * {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    /* Für Input-Felder und Textareas das Markieren erlauben */
+    input, textarea, [contenteditable="true"] {
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+      user-select: text;
+    }
+    
+    /* Zusätzliche PWA-Optimierungen */
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
+    
+    /* Verhindert das Ziehen von Bildern */
+    img {
+      -webkit-user-drag: none;
+      -khtml-user-drag: none;
+      -moz-user-drag: none;
+      -o-user-drag: none;
+    }
   </style>
   <meta
           name="description"

@@ -23,7 +23,15 @@ export const mapOptions: google.maps.MapOptions = {
   scaleControl: true,
   streetViewControl: false,
   rotateControl: false,
-  fullscreenControl: false
+  fullscreenControl: false,
+  clickableIcons: false,
+  styles: [
+    {
+      featureType: 'poi',
+      elementType: 'labels',
+      stylers: [{ visibility: 'off' }] // Hides points of interest labels
+    }
+  ]
 };
 
 // Map weekday names (English to German)
