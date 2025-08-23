@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, Button, Avatar, Chip, Typography } from '@mui/material';
-import { Person as PersonIcon, SwapHoriz as SwapHorizIcon } from '@mui/icons-material';
+import { Box, Avatar } from '@mui/material';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
 import { employeeTypeColors } from '../../utils/colors';
@@ -28,94 +27,40 @@ export const UserSelectionButton: React.FC<UserSelectionButtonProps> = ({ onUser
       sx={{
         position: 'absolute',
         top: 50,
-        left: 10,
-        right: 10,
+        left: 20,
         zIndex: 1000,
       }}
     >
-      <Button
+      <Avatar
         onClick={onUserSwitch}
         sx={{
-          width: '100%',
-          height: 64,
-          bgcolor: 'rgba(255, 255, 255, 0.95)',
+          width: 56,
+          height: 56,
+          bgcolor: selectedEmployee ? getEmployeeColor(selectedEmployee.function) : '#007AFF',
+          color: 'white',
+          fontSize: '1.2rem',
+          fontWeight: 600,
+          cursor: 'pointer',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.2)',
-          borderRadius: '16px',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08)',
-          color: '#1d1d1f',
-          textTransform: 'none',
-          justifyContent: 'space-between',
-          px: 3,
           '&:hover': {
-            bgcolor: 'rgba(255, 255, 255, 1)',
-            transform: 'scale(1.02)',
+            bgcolor: selectedEmployee ? getEmployeeColor(selectedEmployee.function) : '#007AFF',
+            transform: 'scale(1.05)',
             boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15), 0 6px 20px rgba(0, 0, 0, 0.1)',
           },
           '&:active': {
-            transform: 'scale(1)',
+            transform: 'scale(0.95)',
           },
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {selectedEmployee ? (
-            <>
-              <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  bgcolor: '#007AFF',
-                  color: 'white',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(0, 122, 255, 0.3)',
-                }}
-              >
-                {getInitials(selectedEmployee.first_name, selectedEmployee.last_name)}
-              </Avatar>
-              <Box sx={{ textAlign: 'left' }}>
-                <Typography
-                  variant="body1"
-                  sx={{
-                    fontWeight: 600,
-                    color: '#1d1d1f',
-                    fontSize: '1rem',
-                    lineHeight: 1.2,
-                  }}
-                >
-                  {`${selectedEmployee.first_name} ${selectedEmployee.last_name}`}
-                </Typography>
-                {selectedEmployee.function && (
-                  <Chip
-                    label={selectedEmployee.function}
-                    size="small"
-                    sx={{
-                      bgcolor: getEmployeeColor(selectedEmployee.function),
-                      color: 'white',
-                      fontSize: '0.7rem',
-                      fontWeight: 500,
-                      height: 18,
-                      mt: 0.5,
-                      '& .MuiChip-label': {
-                        px: 1,
-                      },
-                    }}
-                  />
-                )}
-              </Box>
-            </>
-          ) : (
-            <>
-              <PersonIcon sx={{ color: '#86868b', fontSize: 24 }} />
-              <Typography variant="body1" sx={{ color: '#86868b', fontWeight: 500 }}>
-                Mitarbeiter auswählen
-              </Typography>
-            </>
-          )}
-        </Box>
-        <SwapHorizIcon sx={{ color: '#007AFF', fontSize: 20 }} />
-      </Button>
+        {selectedEmployee ? (
+          getInitials(selectedEmployee.first_name, selectedEmployee.last_name)
+        ) : (
+          '?'
+        )}
+      </Avatar>
     </Box>
   );
 };

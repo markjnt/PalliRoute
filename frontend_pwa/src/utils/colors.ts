@@ -13,7 +13,7 @@ export const employeeTypeColors: Record<string, string> = {
     'default': '#9c27b0' // Purple - PDL, Physiotherapie, Pflegekraft, etc.
 };
 
-// Define route line colors (25 distinct colors, avoiding marker colors)
+// Define route line colors (avoiding colors used for visit types)
 export const routeLineColors: string[] = [
     '#FF1493', // Deep Pink
     '#00CED1', // Dark Turquoise

@@ -13,6 +13,7 @@ import { routeLineColors, getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
+import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
 
 /**
  * Main container component for the map that integrates all map features
@@ -37,6 +38,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   // Get selected user and weekday from stores
   const { selectedUserId } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
+  const { selectedEmployeeIds } = useAdditionalRoutesStore();
 
   // Data hooks
   const { data: employees = [], isLoading: employeesLoading, refetch: refetchEmployees } = useEmployees();
@@ -46,16 +48,23 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
   // Routen basierend auf Sichtbarkeit filtern
   const visibleRoutes = useMemo(() => {
-    // Immer nur die Route des ausgewählten Mitarbeiters anzeigen
-    return routes.filter(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
-  }, [routes, selectedUserId, selectedWeekday]);
+    // Hauptroute des ausgewählten Mitarbeiters
+    const mainRoute = routes.filter(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
+    
+    // Zusätzliche Routen der ausgewählten Mitarbeiter
+    const additionalRoutes = routes.filter(route => 
+      selectedEmployeeIds.includes(route.employee_id) && route.weekday === selectedWeekday
+    );
+    
+    return [...mainRoute, ...additionalRoutes];
+  }, [routes, selectedUserId, selectedWeekday, selectedEmployeeIds]);
 
   // Marker-Berechnung mit useMemo
   const markers = useMemo(() => {
     if (!isLoaded) return [];
     const newMarkers = [];
     
-    // Nur der ausgewählte Mitarbeiter anzeigen
+    // Hauptmitarbeiter anzeigen
     const selectedEmployee = employees.find(e => e.id === selectedUserId);
     if (selectedEmployee && selectedEmployee.latitude && selectedEmployee.longitude) {
       const route = visibleRoutes.find(r => r.employee_id === selectedEmployee.id);
@@ -65,11 +74,23 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       }
     }
     
-    // Appointments/Patients nur für die Route des ausgewählten Mitarbeiters
+    // Zusätzliche Mitarbeiter anzeigen
+    selectedEmployeeIds.forEach(employeeId => {
+      const employee = employees.find(e => e.id === employeeId);
+      if (employee && employee.latitude && employee.longitude) {
+        const route = visibleRoutes.find(r => r.employee_id === employee.id);
+        const marker = createEmployeeMarkerData(employee, route?.id);
+        if (marker) {
+          newMarkers.push({ ...marker, isInactive: false });
+        }
+      }
+    });
+    
+    // Appointments/Patients für alle sichtbaren Routen
     if (patients.length > 0 && appointments.length > 0 && visibleRoutes.length > 0) {
       const appointmentPositions = new Map();
       
-      // Positionen für alle Termine in der Route des ausgewählten Mitarbeiters setzen
+      // Positionen für alle Termine in allen sichtbaren Routen setzen
       visibleRoutes.forEach(route => {
         const routeOrder = parseRouteOrder(route.route_order);
         routeOrder.forEach((appointmentId, idx) => {
@@ -88,9 +109,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           const routeId = posInfo ? posInfo.routeId : undefined;
           
           if (routeId) {
-            // Prüfe, ob der Termin zur Route des ausgewählten Mitarbeiters gehört
+            // Prüfe, ob der Termin zu einer sichtbaren Route gehört
             const route = visibleRoutes.find(r => r.id === routeId);
-            if (route && route.employee_id === selectedUserId) {
+            if (route) {
               const baseMarker = createPatientMarkerData(patient, appointment, position, routeId);
               if (baseMarker) {
                 newMarkers.push({ ...baseMarker, isInactive: false });
@@ -102,7 +123,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
     
     return newMarkers;
-  }, [isLoaded, employees, patients, appointments, visibleRoutes, selectedWeekday, selectedUserId]);
+  }, [isLoaded, employees, patients, appointments, visibleRoutes, selectedWeekday, selectedUserId, selectedEmployeeIds]);
 
   // Route-Polylines für alle sichtbaren Routen
   const routePaths = useMemo(() => {

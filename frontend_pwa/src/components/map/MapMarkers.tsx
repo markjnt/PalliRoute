@@ -1,8 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import { Marker } from '@react-google-maps/api';
+import { Box } from '@mui/material';
 import { MarkerData } from '../../types/mapTypes';
 import { Appointment, Employee, Patient } from '../../types/models';
 import { createMarkerIcon, createMarkerLabel } from '../../utils/markerConfig';
+import { StopPopup } from './StopPopup';
+import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
+import { useWeekdayStore } from '../../stores/useWeekdayStore';
+import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
+import { getColorForTour } from '../../utils/colors';
+import { useUserStore } from '../../stores/useUserStore';
 
 interface MapMarkersProps {
   markers: MarkerData[];
@@ -46,9 +53,63 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
   routes
 }) => {
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
+  const { setCurrentWeekday } = useRouteCompletionStore();
+  const { selectedWeekday } = useWeekdayStore();
+  const { selectedEmployeeIds } = useAdditionalRoutesStore();
+  const { selectedUserId } = useUserStore();
 
   // Gruppiere alle Marker
   const markerGroups = useMemo(() => groupMarkersByLatLng(markers), [markers]);
+
+  // Find patient and appointment data for selected marker
+  const selectedPatient = useMemo(() => {
+    if (!selectedMarker || selectedMarker.type !== 'patient' || !selectedMarker.patientId) {
+      return undefined;
+    }
+    return patients.find(p => p.id === selectedMarker.patientId);
+  }, [selectedMarker, patients]);
+
+  const selectedAppointment = useMemo(() => {
+    if (!selectedMarker || selectedMarker.type !== 'patient' || !selectedMarker.appointmentId) {
+      return undefined;
+    }
+    return appointments.find(a => a.id === selectedMarker.appointmentId);
+  }, [selectedMarker, appointments]);
+
+  // Check if marker belongs to additional route (not main user route)
+  const isAdditionalRouteMarker = (marker: MarkerData): boolean => {
+    if (!marker.routeId) return false;
+    const route = routes.find(r => r.id === marker.routeId);
+    return route ? selectedEmployeeIds.includes(route.employee_id) : false;
+  };
+
+  // Get route color for a marker
+  const getMarkerRouteColor = (marker: MarkerData): string | null => {
+    if (!marker.routeId) return null;
+    const route = routes.find(r => r.id === marker.routeId);
+    if (!route) return null;
+    
+    // Main user route is always blue
+    if (route.employee_id === selectedUserId) {
+      return '#2196F3';
+    }
+    
+    // Additional routes get their assigned color
+    if (selectedEmployeeIds.includes(route.employee_id)) {
+      return getColorForTour(route.employee_id);
+    }
+    
+    return null;
+  };
+
+  // Handle marker click and set current weekday for completion tracking
+  const handleMarkerClick = (marker: MarkerData, displayPosition: google.maps.LatLng) => {
+    // Only set current weekday for main user route markers (not additional routes)
+    if (marker.type === 'patient' && !isAdditionalRouteMarker(marker)) {
+      setCurrentWeekday(selectedWeekday);
+    }
+    setSelectedMarker({ ...marker, displayPosition });
+  };
 
   return (
     <>
@@ -59,14 +120,37 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
           const { lat, lng } = offsetLatLng(origLat, origLng, idx, group.length);
           const displayPosition = new google.maps.LatLng(lat, lng);
           
+          // Check if this is an additional route marker
+          const isAdditionalRoute = isAdditionalRouteMarker(marker);
+          
+          // Get route color for this marker
+          const routeColor = getMarkerRouteColor(marker);
+          
           // Area-based styling
           let opacity = 1;
-          let icon = createMarkerIcon(
-            marker.type,
-            marker.employeeType,
-            marker.visitType,
-            marker.isInactive || false
-          );
+          
+          // For main user route: use standard colors (HB=blue, NA=red, etc.)
+          // For additional routes: use route color
+          let icon: google.maps.Symbol | undefined;
+          if (isAdditionalRoute && routeColor) {
+            // Additional route: use route color
+            icon = createMarkerIcon(
+              marker.type,
+              marker.employeeType,
+              marker.visitType,
+              marker.isInactive || false,
+              routeColor
+            );
+          } else {
+            // Main route: use standard colors
+            icon = createMarkerIcon(
+              marker.type,
+              marker.employeeType,
+              marker.visitType,
+              marker.isInactive || false
+            );
+          }
+          
           let label = marker.isInactive ? undefined : createMarkerLabel(marker.routePosition, marker.visitType, marker.label);
           
           if (marker.isInactive) {
@@ -79,11 +163,28 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
               position={displayPosition}
               icon={icon}
               label={label}
-              onClick={() => setSelectedMarker({ ...marker, displayPosition })}
+              onClick={() => handleMarkerClick(marker, displayPosition)}
               opacity={opacity}
             />
           );
         })
+      )}
+
+      {/* Stop Popup */}
+      {selectedMarker && selectedMarker.type === 'patient' && selectedMarker.displayPosition && (
+        <StopPopup
+          marker={selectedMarker}
+          patient={selectedPatient}
+          appointment={selectedAppointment}
+          onClose={() => setSelectedMarker(null)}
+          isAdditionalRoute={isAdditionalRouteMarker(selectedMarker)}
+          employee={(() => {
+            if (!selectedMarker.routeId) return undefined;
+            const route = routes.find(r => r.id === selectedMarker.routeId);
+            if (!route) return undefined;
+            return employees.find(e => e.id === route.employee_id);
+          })()}
+        />
       )}
     </>
   );

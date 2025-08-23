@@ -142,8 +142,8 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
     // Create position using coordinates from backend
     const position_coords = new google.maps.LatLng(patient.latitude, patient.longitude);
     
-    // If it's a HB (home visit) appointment and has a position, use it as the label
-    const label = appointment.visit_type === 'HB' && position ? position.toString() : undefined;
+    // If it has a position, use it as the label for all visit types
+    const label = position ? position.toString() : undefined;
     
     return {
       position: position_coords,

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { RoutePathData } from '../../types/mapTypes';
+import { getColorForTour } from '../../utils/colors';
+import { useUserStore } from '../../stores/useUserStore';
 
 interface RoutePolylinesProps {
   routes: RoutePathData[];
@@ -8,16 +10,18 @@ interface RoutePolylinesProps {
 
 /**
  * Renders route polylines on the map
- * Each route is rendered as a polyline with its specific color
+ * Main user route is always blue, additional routes get different colors
  */
 export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) => {
   const polylineRefs = useRef<{ [id: number]: google.maps.Polyline }>({});
   const previousDataRef = useRef<{ [id: number]: string }>({});
+  const { selectedUserId } = useUserStore();
 
   useEffect(() => {
     if (!map || !window.google || !window.google.maps.geometry) return;
 
-    for (const { routeId, polyline, color } of routes) {
+    // Display all routes passed from parent (already filtered)
+    for (const { routeId, polyline, employeeId } of routes) {
       const isEmpty = polyline == null || polyline === '';
       const oldEncoded = previousDataRef.current[routeId] || '';
 
@@ -31,13 +35,21 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
         continue;
       }
 
+      // Get color: main user route is always blue, additional routes get different colors
+      let routeColor: string;
+      if (employeeId === selectedUserId) {
+        routeColor = '#2196F3'; // Standard blue for main user route
+      } else {
+        routeColor = getColorForTour(employeeId); // Different color for additional routes
+      }
+
       // Neu erstellen, wenn noch nicht existiert
       if (!polylineRefs.current[routeId]) {
         const path = window.google.maps.geometry.encoding.decodePath(polyline);
         const polylineObj = new window.google.maps.Polyline({
           path,
           map,
-          strokeColor: color,
+          strokeColor: routeColor,
           strokeOpacity: 1.0,
           strokeWeight: 5,
         });
@@ -63,7 +75,7 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
         delete previousDataRef.current[id];
       }
     });
-  }, [routes, map]);
+  }, [routes, map, selectedUserId]);
 
   return null;
 }; 

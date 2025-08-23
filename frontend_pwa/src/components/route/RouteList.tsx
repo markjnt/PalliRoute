@@ -13,6 +13,7 @@ import {
   LocationOn as LocationIcon,
   AccessTime as TimeIcon,
   Phone as PhoneIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
@@ -35,6 +36,7 @@ interface RouteStop {
   time?: string;
   phone1?: string;
   phone2?: string;
+  info?: string;
   isCompleted: boolean;
 }
 
@@ -116,6 +118,7 @@ export const RouteList: React.FC = () => {
               time: appointment.time,
               phone1: patient.phone1,
               phone2: patient.phone2,
+              info: appointment.info,
               isCompleted: isStopCompleted(appointmentId),
             });
           }
@@ -138,14 +141,15 @@ export const RouteList: React.FC = () => {
     
     return tkApps.map(appointment => {
       const patient = patients.find(p => p.id === appointment.patient_id);
-      return {
-        id: appointment.id || 0,
-        patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unbekannter Patient',
-        phone1: patient?.phone1,
-        phone2: patient?.phone2,
-        time: appointment.time,
-        isCompleted: isStopCompleted(appointment.id || 0),
-      };
+          return {
+      id: appointment.id || 0,
+      patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unbekannter Patient',
+      phone1: patient?.phone1,
+      phone2: patient?.phone2,
+      time: appointment.time,
+      info: appointment.info,
+      isCompleted: isStopCompleted(appointment.id || 0),
+    };
     });
   }, [appointments, selectedUserId, selectedWeekday, patients, isStopCompleted]);
 
@@ -313,6 +317,25 @@ export const RouteList: React.FC = () => {
                       }}
                     >
                       {stop.time}
+                    </Typography>
+                  </Box>
+                )}
+                
+                {stop.info && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                    <InfoIcon sx={{ fontSize: 14, color: '#007AFF', mr: 0.5 }} />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#007AFF',
+                        fontSize: '0.75rem',
+                        bgcolor: 'rgba(0, 122, 255, 0.1)',
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: 1,
+                      }}
+                    >
+                      {stop.info}
                     </Typography>
                   </Box>
                 )}
@@ -505,6 +528,25 @@ export const RouteList: React.FC = () => {
                           }}
                         >
                           {tkApp.time}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {tkApp.info && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                        <InfoIcon sx={{ fontSize: 14, color: '#4CAF50', mr: 0.5 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#4CAF50',
+                            fontSize: '0.75rem',
+                            bgcolor: 'rgba(76, 175, 80, 0.1)',
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 1,
+                          }}
+                        >
+                          {tkApp.info}
                         </Typography>
                       </Box>
                     )}
