@@ -67,20 +67,28 @@ export const MainLayout: React.FC = () => {
         (mouseMoveEvent: MouseEvent) => {
             if (isResizing) {
                 mouseMoveEvent.preventDefault();
-                const delta = mouseMoveEvent.clientX - resizeRef.current.startX;
                 
-                // Berechne die verfügbare Breite für den Hauptinhalt
-                const availableWidth = window.innerWidth - rightSidebar.width;
-                const maxLeftSidebarWidth = availableWidth - MIN_MAIN_CONTENT_WIDTH;
-                
-                const newWidth = Math.min(
-                    Math.max(DEFAULT_SIDEBAR_WIDTH, resizeRef.current.startWidth + delta),
-                    maxLeftSidebarWidth
-                );
-                setLeftSidebarWidth(newWidth);
+                // Use requestAnimationFrame for smooth performance
+                requestAnimationFrame(() => {
+                    const delta = mouseMoveEvent.clientX - resizeRef.current.startX;
+                    
+                    // Berechne die verfügbare Breite für den Hauptinhalt
+                    const availableWidth = window.innerWidth - rightSidebar.width;
+                    const maxLeftSidebarWidth = availableWidth - MIN_MAIN_CONTENT_WIDTH;
+                    
+                    const newWidth = Math.min(
+                        Math.max(DEFAULT_SIDEBAR_WIDTH, resizeRef.current.startWidth + delta),
+                        maxLeftSidebarWidth
+                    );
+                    
+                    // Only update if width actually changed
+                    if (Math.abs(newWidth - leftSidebar.width) > 1) {
+                        setLeftSidebarWidth(newWidth);
+                    }
+                });
             }
         },
-        [isResizing, rightSidebar.width, setLeftSidebarWidth]
+        [isResizing, rightSidebar.width, setLeftSidebarWidth, leftSidebar.width]
     );
 
     // Right sidebar resize handlers
@@ -100,26 +108,48 @@ export const MainLayout: React.FC = () => {
         (mouseMoveEvent: MouseEvent) => {
             if (isRightResizing) {
                 mouseMoveEvent.preventDefault();
-                const delta = mouseMoveEvent.clientX - rightResizeRef.current.startX;
                 
-                // Berechne die verfügbare Breite für den Hauptinhalt
-                const availableWidth = window.innerWidth - leftSidebar.width;
-                const maxRightSidebarWidth = availableWidth - MIN_MAIN_CONTENT_WIDTH;
-                
-                const newWidth = Math.min(
-                    Math.max(DEFAULT_SIDEBAR_WIDTH, rightResizeRef.current.startWidth - delta),
-                    maxRightSidebarWidth
-                );
-                setRightSidebarWidth(newWidth);
+                // Use requestAnimationFrame for smooth performance
+                requestAnimationFrame(() => {
+                    const delta = mouseMoveEvent.clientX - rightResizeRef.current.startX;
+                    
+                    // Berechne die verfügbare Breite für den Hauptinhalt
+                    const availableWidth = window.innerWidth - leftSidebar.width;
+                    const maxRightSidebarWidth = availableWidth - MIN_MAIN_CONTENT_WIDTH;
+                    
+                    const newWidth = Math.min(
+                        Math.max(DEFAULT_SIDEBAR_WIDTH, rightResizeRef.current.startWidth - delta),
+                        maxRightSidebarWidth
+                    );
+                    
+                    // Only update if width actually changed
+                    if (Math.abs(newWidth - rightSidebar.width) > 1) {
+                        setRightSidebarWidth(newWidth);
+                    }
+                });
             }
         },
-        [isRightResizing, leftSidebar.width, setRightSidebarWidth]
+        [isRightResizing, leftSidebar.width, setRightSidebarWidth, rightSidebar.width]
     );
 
+    // Optimized event handling with passive listeners and throttling
     React.useEffect(() => {
-        if (isResizing || isRightResizing) {
-            window.addEventListener('mousemove', isResizing ? resize : resizeRight);
-            window.addEventListener('mouseup', isResizing ? stopResizing : stopRightResizing);
+        let currentResizeHandler: ((e: MouseEvent) => void) | null = null;
+        let currentStopHandler: (() => void) | null = null;
+
+        if (isResizing) {
+            currentResizeHandler = resize;
+            currentStopHandler = stopResizing;
+        } else if (isRightResizing) {
+            currentResizeHandler = resizeRight;
+            currentStopHandler = stopRightResizing;
+        }
+
+        if (currentResizeHandler && currentStopHandler) {
+            // Use passive: false for mousemove to allow preventDefault
+            window.addEventListener('mousemove', currentResizeHandler, { passive: false });
+            window.addEventListener('mouseup', currentStopHandler, { passive: true });
+            
             // Disable text selection and pointer events during resize
             document.body.style.userSelect = 'none';
             document.body.style.pointerEvents = 'none';
@@ -128,15 +158,18 @@ export const MainLayout: React.FC = () => {
             document.body.style.userSelect = '';
             document.body.style.pointerEvents = '';
         }
+
         return () => {
-            window.removeEventListener('mousemove', resize);
-            window.removeEventListener('mouseup', stopResizing);
-            window.removeEventListener('mousemove', resizeRight);
-            window.removeEventListener('mouseup', stopRightResizing);
+            if (currentResizeHandler) {
+                window.removeEventListener('mousemove', currentResizeHandler);
+            }
+            if (currentStopHandler) {
+                window.removeEventListener('mouseup', currentStopHandler);
+            }
             document.body.style.userSelect = '';
             document.body.style.pointerEvents = '';
         };
-    }, [resize, stopResizing, resizeRight, stopRightResizing, isResizing, isRightResizing]);
+    }, [isResizing, isRightResizing, resize, resizeRight, stopResizing, stopRightResizing]);
 
     const handleDrawerToggle = () => {
         setMobileOpen(!mobileOpen);
@@ -263,22 +296,33 @@ export const MainLayout: React.FC = () => {
                                 <ChevronLeftIcon />
                             </IconButton>
                             
-                            {/* Resize Handle */}
+                            {/* Optimized Resize Handle */}
                             <Box
                                 sx={{
                                     position: 'absolute',
                                     right: 0,
                                     top: 0,
                                     bottom: 0,
-                                    width: '5px',
+                                    width: '8px', // Slightly wider for better UX
                                     cursor: 'ew-resize',
                                     zIndex: 1210,
                                     '&:hover': {
                                         bgcolor: 'action.hover',
                                     },
-                                    transition: 'background-color 0.2s',
+                                    '&:active': {
+                                        bgcolor: 'action.selected',
+                                    },
+                                    // Remove transition during resize for better performance
+                                    transition: isResizing ? 'none' : 'background-color 0.2s',
+                                    // Optimize for touch devices
+                                    touchAction: 'none',
                                 }}
                                 onMouseDown={startResizing}
+                                onTouchStart={(e) => {
+                                    e.preventDefault();
+                                    const touch = e.touches[0];
+                                    startResizing({ clientX: touch.clientX } as React.MouseEvent);
+                                }}
                             />
                             
                             {/* Sidebar content */}
@@ -397,22 +441,33 @@ export const MainLayout: React.FC = () => {
                                 <ChevronRightIcon />
                             </IconButton>
                             
-                            {/* Resize Handle */}
+                            {/* Optimized Resize Handle */}
                             <Box
                                 sx={{
                                     position: 'absolute',
                                     left: 0,
                                     top: 0,
                                     bottom: 0,
-                                    width: '5px',
+                                    width: '8px', // Slightly wider for better UX
                                     cursor: 'ew-resize',
                                     zIndex: 1210,
                                     '&:hover': {
                                         bgcolor: 'action.hover',
                                     },
-                                    transition: 'background-color 0.2s',
+                                    '&:active': {
+                                        bgcolor: 'action.selected',
+                                    },
+                                    // Remove transition during resize for better performance
+                                    transition: isRightResizing ? 'none' : 'background-color 0.2s',
+                                    // Optimize for touch devices
+                                    touchAction: 'none',
                                 }}
                                 onMouseDown={startRightResizing}
+                                onTouchStart={(e) => {
+                                    e.preventDefault();
+                                    const touch = e.touches[0];
+                                    startRightResizing({ clientX: touch.clientX } as React.MouseEvent);
+                                }}
                             />
                             
                             {/* Sidebar content */}

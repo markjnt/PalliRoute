@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { Box, TextField, InputAdornment, Paper, IconButton, Typography } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 import { Patient, Appointment, Employee, Weekday } from '../../types/models';
@@ -7,17 +7,27 @@ import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useAreaStore } from '../../stores/useAreaStore';
 
+interface FilteredResults {
+    filteredActiveOtherEmployeesWithPatients: Employee[];
+    filteredActiveOtherEmployeesWithoutPatients: Employee[];
+    filteredDoctors: Employee[];
+}
+
 interface SearchFieldProps {
     selectedDay: Weekday;
     searchTerm: string;
     onSearchChange: (value: string) => void;
     onClearSearch: () => void;
-    onFilteredResultsChange: (results: {
-        filteredActiveOtherEmployeesWithPatients: Employee[];
-        filteredActiveOtherEmployeesWithoutPatients: Employee[];
-        filteredDoctors: Employee[];
-    }) => void;
+    onFilteredResultsChange: (results: FilteredResults) => void;
 }
+
+// Constants
+const DOCTOR_FUNCTIONS = ['Arzt', 'Honorararzt'] as const;
+const AREA_ORDER = {
+    'Nordkreis': 0,
+    'Südkreis': 1,
+    'default': 2
+} as const;
 
 export const SearchField: React.FC<SearchFieldProps> = ({ 
     selectedDay, 
@@ -32,21 +42,64 @@ export const SearchField: React.FC<SearchFieldProps> = ({
     const { data: appointments = [] } = useAppointmentsByWeekday(selectedDay);
     const { currentArea } = useAreaStore();
 
-    // Area filtering logic
-    const isAllAreas = currentArea === 'Nord- und Südkreis';
-    const filteredEmployees = isAllAreas ? employees : employees.filter(e => e.area === currentArea);
+    // Memoized utility functions
+    const getAreaOrder = useCallback((area?: string): number => {
+        if (!area) return AREA_ORDER.default;
+        if (area.includes('Nordkreis')) return AREA_ORDER.Nordkreis;
+        if (area.includes('Südkreis')) return AREA_ORDER.Südkreis;
+        return AREA_ORDER.default;
+    }, []);
 
-    // Get all employees
-    const allEmployees = [...filteredEmployees]
-        .sort((a, b) => {
-            // First sort by area (Nordkreis first, then Südkreis)
-            const getAreaOrder = (area?: string) => {
-                if (!area) return 2;
-                if (area.includes('Nordkreis')) return 0;
-                if (area.includes('Südkreis')) return 1;
-                return 2;
-            };
-            
+    const isDoctor = useCallback((employee: Employee): boolean => {
+        return DOCTOR_FUNCTIONS.includes(employee.function as any);
+    }, []);
+
+    const hasPatientInEmployee = useCallback((employeeId: number): boolean => {
+        return appointments.some(app => 
+            app.weekday === selectedDay && 
+            app.employee_id === employeeId
+        );
+    }, [appointments, selectedDay]);
+
+    const matchesSearchTerm = useCallback((text: string): boolean => {
+        if (!searchTerm.trim()) return true;
+        return text.toLowerCase().includes(searchTerm.toLowerCase());
+    }, [searchTerm]);
+
+    const searchInEmployee = useCallback((employee: Employee): boolean => {
+        const employeeName = `${employee.first_name} ${employee.last_name}`;
+        const functionName = employee.function;
+        
+        // Check employee name and function
+        if (matchesSearchTerm(employeeName) || matchesSearchTerm(functionName)) {
+            return true;
+        }
+        
+        // Check patients assigned to this employee
+        const employeePatientIds = new Set<number>();
+        appointments.forEach(app => {
+            if (app.employee_id === employee.id && app.weekday === selectedDay) {
+                employeePatientIds.add(app.patient_id);
+            }
+        });
+        
+        const employeePatients = patients.filter(p => employeePatientIds.has(p.id || 0));
+        
+        return employeePatients.some(patient => {
+            const patientName = `${patient.first_name} ${patient.last_name}`;
+            const patientAddress = `${patient.street} ${patient.city}`;
+            return matchesSearchTerm(patientName) || matchesSearchTerm(patientAddress);
+        });
+    }, [matchesSearchTerm, appointments, patients, selectedDay]);
+
+    // Memoized data processing
+    const filteredEmployees = useMemo(() => {
+        const isAllAreas = currentArea === 'Nord- und Südkreis';
+        return isAllAreas ? employees : employees.filter(e => e.area === currentArea);
+    }, [employees, currentArea]);
+
+    const sortedEmployees = useMemo(() => 
+        [...filteredEmployees].sort((a, b) => {
             const areaOrderA = getAreaOrder(a.area);
             const areaOrderB = getAreaOrder(b.area);
             
@@ -54,127 +107,67 @@ export const SearchField: React.FC<SearchFieldProps> = ({
                 return areaOrderA - areaOrderB;
             }
             
-            // Then sort alphabetically by last name
             return a.last_name.localeCompare(b.last_name);
-        });
-    
-    // Separate employees with patients from those without
-    const hasPatientInEmployee = (employeeId: number) => {
-        return appointments.some(app => {
-            if (app.weekday === selectedDay && app.employee_id) {
-                return app.employee_id === employeeId;
-            }
-            return false;
-        });
-    };
-    
-    // Separate doctors from other employees
-    const doctors = allEmployees.filter(e => e.function === 'Arzt' || e.function === 'Honorararzt');
-    const otherEmployees = allEmployees.filter(e => e.function !== 'Arzt' && e.function !== 'Honorararzt');
-    
-    // Other employees with patients
-    const activeOtherEmployeesWithPatients = otherEmployees.filter(e => 
-        hasPatientInEmployee(e.id || 0)
-    );
-    
-    // Other employees without patients
-    const activeOtherEmployeesWithoutPatients = otherEmployees.filter(e => 
-        !hasPatientInEmployee(e.id || 0)
+        }),
+        [filteredEmployees, getAreaOrder]
     );
 
-    // Search functionality
-    const filteredActiveOtherEmployeesWithPatients = useMemo(() => {
-        if (!searchTerm.trim()) return activeOtherEmployeesWithPatients;
-        
-        const searchLower = searchTerm.toLowerCase();
-        
-        return activeOtherEmployeesWithPatients.filter(employee => {
-            // Search in employee name
-            const employeeName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
-            if (employeeName.includes(searchLower)) return true;
-            
-            // Search in employee function
-            if (employee.function.toLowerCase().includes(searchLower)) return true;
-            
-            // Search in patients assigned to this employee
-            const employeePatientIds = new Set<number>();
-            appointments.forEach(app => {
-                if (app.employee_id === employee.id && app.weekday === selectedDay) {
-                    employeePatientIds.add(app.patient_id);
-                }
-            });
-            
-            const employeePatients = patients.filter(p => employeePatientIds.has(p.id || 0));
-            
-            return employeePatients.some(patient => {
-                const patientName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
-                const patientAddress = `${patient.street} ${patient.city}`.toLowerCase();
-                return patientName.includes(searchLower) || patientAddress.includes(searchLower);
-            });
-        });
-    }, [activeOtherEmployeesWithPatients, searchTerm, appointments, patients, selectedDay]);
+    const { doctors, otherEmployees } = useMemo(() => {
+        const doctors = sortedEmployees.filter(isDoctor);
+        const otherEmployees = sortedEmployees.filter(e => !isDoctor(e));
+        return { doctors, otherEmployees };
+    }, [sortedEmployees, isDoctor]);
 
-    const filteredActiveOtherEmployeesWithoutPatients = useMemo(() => {
-        if (!searchTerm.trim()) return activeOtherEmployeesWithoutPatients;
-        
-        const searchLower = searchTerm.toLowerCase();
-        
-        return activeOtherEmployeesWithoutPatients.filter(employee => {
-            const employeeName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
-            return employeeName.includes(searchLower) || employee.function.toLowerCase().includes(searchLower);
-        });
-    }, [activeOtherEmployeesWithoutPatients, searchTerm]);
+    const { activeOtherEmployeesWithPatients, activeOtherEmployeesWithoutPatients } = useMemo(() => {
+        const withPatients = otherEmployees.filter(e => hasPatientInEmployee(e.id || 0));
+        const withoutPatients = otherEmployees.filter(e => !hasPatientInEmployee(e.id || 0));
+        return { activeOtherEmployeesWithPatients: withPatients, activeOtherEmployeesWithoutPatients: withoutPatients };
+    }, [otherEmployees, hasPatientInEmployee]);
 
+    // Memoized filtered results
+    const filteredResults = useMemo((): FilteredResults => {
+        if (!searchTerm.trim()) {
+            return {
+                filteredActiveOtherEmployeesWithPatients: activeOtherEmployeesWithPatients,
+                filteredActiveOtherEmployeesWithoutPatients: activeOtherEmployeesWithoutPatients,
+                filteredDoctors: doctors
+            };
+        }
 
-
-    const filteredDoctors = useMemo(() => {
-        if (!searchTerm.trim()) return doctors;
-        
-        const searchLower = searchTerm.toLowerCase();
-        
-        return doctors.filter(employee => {
-            // Search in employee name
-            const employeeName = `${employee.first_name} ${employee.last_name}`.toLowerCase();
-            if (employeeName.includes(searchLower)) return true;
-            
-            // Search in employee function
-            if (employee.function.toLowerCase().includes(searchLower)) return true;
-            
-            // Search in patients assigned to this doctor
-            const doctorPatientIds = new Set<number>();
-            appointments.forEach(app => {
-                if (app.employee_id === employee.id && app.weekday === selectedDay) {
-                    doctorPatientIds.add(app.patient_id);
-                }
-            });
-            
-            const doctorPatients = patients.filter(p => doctorPatientIds.has(p.id || 0));
-            
-            return doctorPatients.some(patient => {
-                const patientName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
-                const patientAddress = `${patient.street} ${patient.city}`.toLowerCase();
-                return patientName.includes(searchLower) || patientAddress.includes(searchLower);
-            });
-        });
-    }, [doctors, searchTerm, appointments, patients, selectedDay]);
-
-    const totalResults = filteredActiveOtherEmployeesWithPatients.length + 
-                        filteredActiveOtherEmployeesWithoutPatients.length + 
-                        filteredDoctors.length;
-
-    // Pass filtered results to parent component
-    React.useEffect(() => {
-        onFilteredResultsChange({
-            filteredActiveOtherEmployeesWithPatients,
-            filteredActiveOtherEmployeesWithoutPatients,
-            filteredDoctors
-        });
+        return {
+            filteredActiveOtherEmployeesWithPatients: activeOtherEmployeesWithPatients.filter(searchInEmployee),
+            filteredActiveOtherEmployeesWithoutPatients: activeOtherEmployeesWithoutPatients.filter(searchInEmployee),
+            filteredDoctors: doctors.filter(searchInEmployee)
+        };
     }, [
-        filteredActiveOtherEmployeesWithPatients,
-        filteredActiveOtherEmployeesWithoutPatients,
-        filteredDoctors,
-        onFilteredResultsChange
+        searchTerm,
+        activeOtherEmployeesWithPatients,
+        activeOtherEmployeesWithoutPatients,
+        doctors,
+        searchInEmployee
     ]);
+
+    // Memoized total results count
+    const totalResults = useMemo(() => 
+        filteredResults.filteredActiveOtherEmployeesWithPatients.length + 
+        filteredResults.filteredActiveOtherEmployeesWithoutPatients.length + 
+        filteredResults.filteredDoctors.length,
+        [filteredResults]
+    );
+
+    // Notify parent component of filtered results changes
+    useEffect(() => {
+        onFilteredResultsChange(filteredResults);
+    }, [filteredResults, onFilteredResultsChange]);
+
+    // Memoized event handlers
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onSearchChange(e.target.value);
+    }, [onSearchChange]);
+
+    const handleClearClick = useCallback(() => {
+        onClearSearch();
+    }, [onClearSearch]);
 
     return (
         <Box sx={{ px: 2, py: 2 }}>
@@ -190,7 +183,7 @@ export const SearchField: React.FC<SearchFieldProps> = ({
                     variant="outlined"
                     placeholder="Mitarbeiter oder Patienten suchen..."
                     value={searchTerm}
-                    onChange={(e) => onSearchChange(e.target.value)}
+                    onChange={handleSearchChange}
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
@@ -201,8 +194,9 @@ export const SearchField: React.FC<SearchFieldProps> = ({
                             <InputAdornment position="end">
                                 <IconButton
                                     size="small"
-                                    onClick={onClearSearch}
+                                    onClick={handleClearClick}
                                     edge="end"
+                                    aria-label="Suche löschen"
                                 >
                                     <ClearIcon />
                                 </IconButton>

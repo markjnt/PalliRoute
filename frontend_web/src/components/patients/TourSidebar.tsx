@@ -122,6 +122,15 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         setSearchTerm('');
     };
 
+    // Memoize the filtered results change handler
+    const handleFilteredResultsChange = useCallback((results: {
+        filteredActiveOtherEmployeesWithPatients: Employee[];
+        filteredActiveOtherEmployeesWithoutPatients: Employee[];
+        filteredDoctors: Employee[];
+    }) => {
+        setFilteredResults(results);
+    }, []);
+
     // Memoize weekday name mapping
     const getWeekdayName = useCallback((day: Weekday): string => {
         const weekdayNames: Record<Weekday, string> = {
@@ -304,7 +313,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 onClearSearch={handleClearSearch}
-                onFilteredResultsChange={setFilteredResults}
+                onFilteredResultsChange={handleFilteredResultsChange}
             />
 
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>

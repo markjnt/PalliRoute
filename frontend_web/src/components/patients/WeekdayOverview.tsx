@@ -137,7 +137,7 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                     >
                                         {visit || '–'}
                                     </Typography>
-                                    {employee && (visit === 'NA' || employee.id !== selectedDayEmployee?.id) ? (
+                                    {employee && employee.id !== selectedDayEmployee?.id ? (
                                         <Typography 
                                             variant="caption" 
                                             color="text.secondary"
