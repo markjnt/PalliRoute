@@ -59,7 +59,8 @@ def update_route(route_id):
     Update an existing route by reordering appointments
     Expected JSON body: {
         "appointment_id": 1,  # ID of the appointment to move
-        "direction": "up" or "down"  # Direction to move the appointment
+        "direction": "up" or "down",  # Direction to move the appointment (optional if index is provided)
+        "index": 2  # Target index to move appointment to (optional if direction is provided)
     }
     """
     try:
@@ -69,14 +70,25 @@ def update_route(route_id):
         if not data:
             return jsonify({'error': 'No data provided'}), 400
 
-        if 'appointment_id' not in data or 'direction' not in data:
-            return jsonify({'error': 'appointment_id and direction are required'}), 400
+        if 'appointment_id' not in data:
+            return jsonify({'error': 'appointment_id is required'}), 400
 
         appointment_id = data['appointment_id']
-        direction = data['direction'].lower()
+        direction = data.get('direction', '').lower()
+        target_index = data.get('index')
 
-        if direction not in ['up', 'down']:
+        # Validate input parameters
+        if not direction and target_index is None:
+            return jsonify({'error': 'Either direction or index must be provided'}), 400
+        
+        if direction and target_index is not None:
+            return jsonify({'error': 'Cannot provide both direction and index'}), 400
+
+        if direction and direction not in ['up', 'down']:
             return jsonify({'error': 'direction must be "up" or "down"'}), 400
+
+        if target_index is not None and (not isinstance(target_index, int) or target_index < 0):
+            return jsonify({'error': 'index must be a non-negative integer'}), 400
 
         # Get current route order
         route_order = route.get_route_order()
@@ -91,15 +103,27 @@ def update_route(route_id):
             return jsonify({'error': 'Appointment not found in route'}), 404
 
         # Calculate new index
-        if direction == 'up' and current_index > 0:
-            new_index = current_index - 1
-        elif direction == 'down' and current_index < len(route_order) - 1:
-            new_index = current_index + 1
+        if direction:
+            # Use direction-based movement
+            if direction == 'up' and current_index > 0:
+                new_index = current_index - 1
+            elif direction == 'down' and current_index < len(route_order) - 1:
+                new_index = current_index + 1
+            else:
+                return jsonify({'error': f'Cannot move appointment {direction}'}), 400
         else:
-            return jsonify({'error': f'Cannot move appointment {direction}'}), 400
+            # Use target index
+            if target_index >= len(route_order):
+                return jsonify({'error': f'Index {target_index} is out of range. Route has {len(route_order)} appointments'}), 400
+            
+            new_index = target_index
 
-        # Swap appointments
-        route_order[current_index], route_order[new_index] = route_order[new_index], route_order[current_index]
+        # Move appointment to new position
+        if current_index != new_index:
+            # Remove appointment from current position
+            appointment = route_order.pop(current_index)
+            # Insert appointment at new position
+            route_order.insert(new_index, appointment)
 
         # Update route order
         route.set_route_order(route_order)

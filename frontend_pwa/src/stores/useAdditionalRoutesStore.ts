@@ -3,6 +3,8 @@ import { create } from 'zustand';
 interface AdditionalRoutesStore {
   selectedEmployeeIds: number[];
   toggleEmployee: (employeeId: number) => void;
+  selectAll: (employeeIds: number[]) => void;
+  deselectAll: () => void;
   clearAll: () => void;
   resetForNewUser: () => void;
 }
@@ -23,6 +25,14 @@ export const useAdditionalRoutesStore = create<AdditionalRoutesStore>((set) => (
         };
       }
     });
+  },
+
+  selectAll: (employeeIds: number[]) => {
+    set({ selectedEmployeeIds: [...employeeIds] });
+  },
+
+  deselectAll: () => {
+    set({ selectedEmployeeIds: [] });
   },
   
   clearAll: () => {

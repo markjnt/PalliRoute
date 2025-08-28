@@ -21,11 +21,12 @@ import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
-import { useRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useReorderAppointment } from '../../services/queries/useRoutes';
 import { parseRouteOrder } from '../../utils/mapUtils';
 import { getColorForVisitType, getColorForEmployeeType } from '../../utils/mapUtils';
 import { getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
+import RouteStopItem from './RouteStopItem';
 
 interface RouteStop {
   id: number;
@@ -40,6 +41,8 @@ interface RouteStop {
   isCompleted: boolean;
 }
 
+
+
 export const RouteList: React.FC = () => {
   const { selectedUserId } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
@@ -50,6 +53,7 @@ export const RouteList: React.FC = () => {
   const { data: patients = [] } = usePatients();
   const { data: appointments = [] } = useAppointmentsByWeekday(selectedWeekday as Weekday);
   const { data: routes = [] } = useRoutes({ weekday: selectedWeekday as Weekday });
+  const reorderMutation = useReorderAppointment();
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -168,6 +172,31 @@ export const RouteList: React.FC = () => {
     toggleStop(appointmentId);
   };
 
+  // Move stop function for react-dnd
+  const moveStop = (dragIndex: number, hoverIndex: number) => {
+    const draggedStop = routeStops[dragIndex];
+    if (!draggedStop) return;
+
+    // Find the route that contains this appointment
+    const route = visibleRoutes.find(r => {
+      const routeOrder = parseRouteOrder(r.route_order);
+      return routeOrder.includes(draggedStop.id);
+    });
+
+    if (!route) return;
+
+    // Use mutation without await to keep it synchronous for react-dnd
+    reorderMutation.mutate({
+      routeId: route.id,
+      appointmentId: draggedStop.id,
+      index: hoverIndex
+    }, {
+      onError: (error) => {
+        console.error('Failed to reorder appointment:', error);
+      }
+    });
+  };
+
   if (routeStops.length === 0) {
     return (
       <Box sx={{ px: 2, pb: 2 }}>
@@ -190,40 +219,7 @@ export const RouteList: React.FC = () => {
 
   return (
     <Box sx={{ px: 2, pb: 2 }}>
-      {/* Route Progress Header */}
-      <Box
-        sx={{
-          p: 1.5,
-          bgcolor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 2,
-          border: '1px solid rgba(0, 0, 0, 0.08)',
-          mb: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500, color: '#1d1d1f' }}>
-            Route Fortschritt
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 600, color: '#007AFF' }}>
-            {Math.round(completionPercentage)}%
-          </Typography>
-        </Box>
-        <LinearProgress
-          variant="determinate"
-          value={completionPercentage}
-          sx={{
-            height: 6,
-            borderRadius: 3,
-            backgroundColor: 'rgba(0, 122, 255, 0.1)',
-            '& .MuiLinearProgress-bar': {
-              backgroundColor: '#007AFF',
-              borderRadius: 3,
-            },
-          }}
-        />
-      </Box>
-
-      {/* Route Stops */}
+      {/* Route Stops with Progress Header */}
       <Box
         sx={{
           bgcolor: 'rgba(0, 0, 0, 0.02)',
@@ -232,178 +228,48 @@ export const RouteList: React.FC = () => {
           overflow: 'hidden',
         }}
       >
+        {/* Route Progress Header */}
+        <Box
+          sx={{
+            p: 1.5,
+            borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500, color: '#1d1d1f' }}>
+              Fortschritt
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#007AFF' }}>
+              {Math.round(completionPercentage)}%
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={completionPercentage}
+            sx={{
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: 'rgba(0, 122, 255, 0.1)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: '#007AFF',
+                borderRadius: 3,
+              },
+            }}
+          />
+        </Box>
         {routeStops.map((stop, index) => (
-          <Box key={stop.id}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                p: 1.5,
-                transition: 'background-color 0.2s ease',
-              }}
-            >
-              {/* Position Number */}
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  bgcolor: isStopCompleted(stop.id) ? '#34C759' : '#007AFF',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  mr: 2,
-                  flexShrink: 0,
-                }}
-              >
-                {stop.position}
-              </Box>
-
-              {/* Stop Info */}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 600,
-                      color: isStopCompleted(stop.id) ? '#8E8E93' : '#1d1d1f',
-                      textDecoration: isStopCompleted(stop.id) ? 'line-through' : 'none',
-                      flex: 1,
-                    }}
-                  >
-                    {stop.patientName}
-                  </Typography>
-                  <Chip
-                    label={stop.visitType === 'HB' ? 'HB' : stop.visitType}
-                    size="small"
-                    sx={{
-                      bgcolor: `${getColorForVisitType(stop.visitType)}20`,
-                      color: getColorForVisitType(stop.visitType),
-                      fontSize: '0.75rem',
-                      height: 20,
-                      ml: 1,
-                    }}
-                  />
-                </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <LocationIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: '#8E8E93',
-                      fontSize: '0.75rem'
-                    }}
-                    onClick={() => {
-                      const encodedAddress = encodeURIComponent(stop.address);
-                      window.location.href = `https://maps.google.com/?q=${encodedAddress}`;
-                    }}
-                  >
-                    {stop.address}
-                  </Typography>
-                </Box>
-                
-                {stop.time && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                    <TimeIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: '#8E8E93',
-                        fontSize: '0.75rem',
-                      }}
-                    >
-                      {stop.time}
-                    </Typography>
-                  </Box>
-                )}
-                
-                {stop.info && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                    <InfoIcon sx={{ fontSize: 14, color: '#007AFF', mr: 0.5 }} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: '#007AFF',
-                        fontSize: '0.75rem',
-                        bgcolor: 'rgba(0, 122, 255, 0.1)',
-                        px: 1,
-                        py: 0.25,
-                        borderRadius: 1,
-                      }}
-                    >
-                      {stop.info}
-                    </Typography>
-                  </Box>
-                )}
-                
-                {(stop.phone1 || stop.phone2) && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
-                    {stop.phone1 && (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: '#8E8E93',
-                            fontSize: '0.75rem',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => {
-                            const cleanPhone = stop.phone1!.replace(/\s+/g, '');
-                            window.location.href = `tel:${cleanPhone}`;
-                          }}
-                        >
-                          {stop.phone1}
-                        </Typography>
-                      </Box>
-                    )}
-                    {stop.phone2 && (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            color: '#8E8E93',
-                            fontSize: '0.75rem',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => {
-                            const cleanPhone = stop.phone2!.replace(/\s+/g, '');
-                            window.location.href = `tel:${cleanPhone}`;
-                          }}
-                        >
-                          {stop.phone2}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-              </Box>
-
-              {/* Checkbox */}
-              <Checkbox
-                checked={isStopCompleted(stop.id)}
-                icon={<UncheckedIcon sx={{ color: '#C7C7CC' }} />}
-                checkedIcon={<CheckCircleIcon sx={{ color: '#34C759' }} />}
-                sx={{
-                  ml: 1,
-                  '&:hover': {
-                    bgcolor: 'transparent',
-                  },
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onChange={() => handleStopToggle(stop.id)}
-              />
-            </Box>
-            
+          <React.Fragment key={stop.id}>
+            <RouteStopItem
+              stop={stop}
+              index={index}
+              moveStop={moveStop}
+              onToggle={handleStopToggle}
+              isCompleted={isStopCompleted}
+            />
             {index < routeStops.length - 1 && (
               <Divider sx={{ mx: 1.5 }} />
             )}
-          </Box>
+          </React.Fragment>
         ))}
       </Box>
 
@@ -424,32 +290,37 @@ export const RouteList: React.FC = () => {
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    p: 1.5,
-                    transition: 'background-color 0.2s ease',
+                    p: { xs: 1.25, sm: 1.5 },
+                    transition: 'all 0.2s ease',
+                    mx: 0.5,
+                    my: 0.25,
+                    borderRadius: 1,
                   }}
                 >
                   {/* Phone Icon */}
                   <Box
                     sx={{
-                      width: 28,
-                      height: 28,
+                      width: { xs: 32, sm: 36 },
+                      height: { xs: 32, sm: 36 },
                       borderRadius: '50%',
                       bgcolor: isStopCompleted(tkApp.id) ? '#34C759' : '#4CAF50',
                       color: 'white',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '0.875rem',
-                      mr: 2,
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                      mr: { xs: 1.5, sm: 2 },
                       flexShrink: 0,
+                      boxShadow: '0 2px 8px rgba(76, 175, 80, 0.25)',
+                      transition: 'all 0.2s ease',
                     }}
                   >
-                    <PhoneIcon sx={{ fontSize: 16 }} />
+                    <PhoneIcon sx={{ fontSize: { xs: 14, sm: 16 } }} />
                   </Box>
 
                   {/* TK Info */}
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.75 }}>
                       <Typography
                         variant="body2"
                         sx={{
@@ -457,6 +328,8 @@ export const RouteList: React.FC = () => {
                           color: isStopCompleted(tkApp.id) ? '#8E8E93' : '#1d1d1f',
                           textDecoration: isStopCompleted(tkApp.id) ? 'line-through' : 'none',
                           flex: 1,
+                          fontSize: { xs: '0.875rem', sm: '1rem' },
+                          lineHeight: 1.3,
                         }}
                       >
                         {tkApp.patientName}
@@ -465,11 +338,13 @@ export const RouteList: React.FC = () => {
                         label="TK"
                         size="small"
                         sx={{
-                          bgcolor: 'rgba(76, 175, 80, 0.2)',
+                          bgcolor: 'rgba(76, 175, 80, 0.15)',
                           color: '#4CAF50',
-                          fontSize: '0.75rem',
-                          height: 20,
-                          ml: 1,
+                          fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                          height: { xs: 18, sm: 20 },
+                          ml: { xs: 0.75, sm: 1 },
+                          fontWeight: 600,
+                          border: '1px solid rgba(76, 175, 80, 0.3)',
                         }}
                       />
                     </Box>
@@ -478,13 +353,18 @@ export const RouteList: React.FC = () => {
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         {tkApp.phone1 && (
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                            <PhoneIcon sx={{ 
+                              fontSize: { xs: 13, sm: 14 }, 
+                              color: '#8E8E93', 
+                              mr: 0.5 
+                            }} />
                             <Typography
                               variant="caption"
                               sx={{
                                 color: '#8E8E93',
-                                fontSize: '0.75rem',
-                                cursor: 'pointer'
+                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                cursor: 'pointer',
+                                transition: 'color 0.2s ease',
                               }}
                               onClick={() => {
                                 const cleanPhone = tkApp.phone1!.replace(/\s+/g, '');
@@ -497,13 +377,18 @@ export const RouteList: React.FC = () => {
                         )}
                         {tkApp.phone2 && (
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <PhoneIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                            <PhoneIcon sx={{ 
+                              fontSize: { xs: 13, sm: 14 }, 
+                              color: '#8E8E93', 
+                              mr: 0.5 
+                            }} />
                             <Typography
                               variant="caption"
                               sx={{
                                 color: '#8E8E93',
-                                fontSize: '0.75rem',
-                                cursor: 'pointer'
+                                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                cursor: 'pointer',
+                                transition: 'color 0.2s ease',
                               }}
                               onClick={() => {
                                 const cleanPhone = tkApp.phone2!.replace(/\s+/g, '');
@@ -519,12 +404,16 @@ export const RouteList: React.FC = () => {
                     
                     {tkApp.time && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                        <TimeIcon sx={{ fontSize: 14, color: '#8E8E93', mr: 0.5 }} />
+                        <TimeIcon sx={{ 
+                          fontSize: { xs: 13, sm: 14 }, 
+                          color: '#8E8E93', 
+                          mr: 0.5 
+                        }} />
                         <Typography
                           variant="caption"
                           sx={{
                             color: '#8E8E93',
-                            fontSize: '0.75rem',
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
                           }}
                         >
                           {tkApp.time}
@@ -534,12 +423,16 @@ export const RouteList: React.FC = () => {
                     
                     {tkApp.info && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                        <InfoIcon sx={{ fontSize: 14, color: '#4CAF50', mr: 0.5 }} />
+                        <InfoIcon sx={{ 
+                          fontSize: { xs: 13, sm: 14 }, 
+                          color: '#4CAF50', 
+                          mr: 0.5 
+                        }} />
                         <Typography
                           variant="caption"
                           sx={{
                             color: '#4CAF50',
-                            fontSize: '0.75rem',
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
                             bgcolor: 'rgba(76, 175, 80, 0.1)',
                             px: 1,
                             py: 0.25,
@@ -569,7 +462,7 @@ export const RouteList: React.FC = () => {
                 </Box>
                 
                 {index < tkAppointments.length - 1 && (
-                  <Divider sx={{ mx: 1.5 }} />
+                  <Divider sx={{ mx: 2 }} />
                 )}
               </Box>
             ))}

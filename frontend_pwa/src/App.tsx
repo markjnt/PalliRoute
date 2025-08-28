@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import InstallPrompt from './components/install/InstallPrompt';
 import MainLayout from './components/layout/MainLayout';
 
@@ -65,10 +66,14 @@ const App: React.FC = () => {
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone === true;
 
+  // Choose backend based on device capabilities
+  const isTouchDevice = 'ontouchstart' in window;
+  const backend = isTouchDevice ? TouchBackend : HTML5Backend;
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <DndProvider backend={HTML5Backend}>
+      <DndProvider backend={backend}>
         <Router>
           <Routes>
             <Route path="/install" element={<InstallPrompt />} />

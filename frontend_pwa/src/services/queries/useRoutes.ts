@@ -62,7 +62,7 @@ export const useOptimizeRoutes = () => {
   });
 };
 
-// Hook to reorder an appointment up or down in a route
+// Hook to reorder an appointment in a route using direction or index
 export const useReorderAppointment = () => {
   const queryClient = useQueryClient();
   
@@ -70,12 +70,14 @@ export const useReorderAppointment = () => {
     mutationFn: ({ 
       routeId, 
       appointmentId, 
-      direction 
+      direction,
+      index
     }: { 
       routeId: number; 
       appointmentId: number; 
-      direction: 'up' | 'down' 
-    }) => routesApi.reorderAppointment(routeId, appointmentId, direction),
+      direction?: 'up' | 'down';
+      index?: number;
+    }) => routesApi.reorderAppointment(routeId, appointmentId, { direction, index }),
     onSuccess: (updatedRoute) => {
       // Invalidate the specific route
       queryClient.invalidateQueries({ 

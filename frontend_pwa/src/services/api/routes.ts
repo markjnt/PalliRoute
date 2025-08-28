@@ -57,13 +57,26 @@ export const routesApi = {
         }
     },
 
-    // Reorder an appointment up or down in a route
-    async reorderAppointment(routeId: number, appointmentId: number, direction: 'up' | 'down'): Promise<Route> {
+    // Reorder an appointment in a route using direction or index
+    async reorderAppointment(
+        routeId: number, 
+        appointmentId: number, 
+        options: { direction?: 'up' | 'down'; index?: number }
+    ): Promise<Route> {
         try {
-            const response = await api.put(`/routes/${routeId}`, {
-                appointment_id: appointmentId,
-                direction: direction
-            });
+            const payload: { appointment_id: number; direction?: string; index?: number } = {
+                appointment_id: appointmentId
+            };
+
+            if (options.direction) {
+                payload.direction = options.direction;
+            } else if (options.index !== undefined) {
+                payload.index = options.index;
+            } else {
+                throw new Error('Either direction or index must be provided');
+            }
+
+            const response = await api.put(`/routes/${routeId}`, payload);
             return response.data.route;
         } catch (error) {
             console.error(`Failed to reorder appointment in route ${routeId}:`, error);

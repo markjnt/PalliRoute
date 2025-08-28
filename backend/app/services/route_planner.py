@@ -21,6 +21,7 @@ class RoutePlanner:
     def plan_route(self, weekday: str, employee_id: int) -> None:
         """
         Plan route for a single employee and weekday using existing route order
+        This method preserves the current route order and only updates timing/distance calculations.
         Args:
             weekday: Day of the week
             employee_id: ID of the employee
@@ -73,11 +74,11 @@ class RoutePlanner:
             # Calculate departure time
             departure_time = get_departure_time(weekday, patient.calendar_week)
 
-            # Calculate route
+            # Calculate route - use waypoints as list of tuples
             result = self.gmaps.directions(
                 origin=employee_location,
                 destination=employee_location,
-                waypoints=waypoints,
+                waypoints=waypoints,  # Use list of tuples
                 optimize_waypoints=False,  # Don't optimize, use existing order
                 departure_time=departure_time,
                 mode="driving"

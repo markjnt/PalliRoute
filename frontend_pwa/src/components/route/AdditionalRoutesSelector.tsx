@@ -5,6 +5,10 @@ import {
   Chip,
   Divider,
 } from '@mui/material';
+import {
+  Close as CloseIcon,
+  Add as AddIcon,
+} from '@mui/icons-material';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useRoutes } from '../../services/queries/useRoutes';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
@@ -15,11 +19,15 @@ import { getColorForTour } from '../../utils/colors';
 interface AdditionalRoutesSelectorProps {
   selectedEmployeeIds: number[];
   onEmployeeToggle: (employeeId: number) => void;
+  onSelectAll: (employeeIds: number[]) => void;
+  onDeselectAll: () => void;
 }
 
 export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> = ({
   selectedEmployeeIds,
   onEmployeeToggle,
+  onSelectAll,
+  onDeselectAll,
 }) => {
   const { selectedWeekday } = useWeekdayStore();
   const { selectedUserId } = useUserStore();
@@ -28,10 +36,42 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
 
   // Get employees that have routes for the selected weekday, excluding the logged-in user
   const employeesWithRoutes = useMemo(() => {
-    return employees.filter(emp => 
+    const filteredEmployees = employees.filter(emp => 
       emp.id !== selectedUserId && // Exclude logged-in user
       routes.some(route => route.employee_id === emp.id)
     );
+
+    // Sort by employee function first, then alphabetically by first name, then last name
+    const employeeFunctionOrder = {
+      'Pflegekraft': 1,
+      'PDL': 2,
+      'Arzt': 3,
+      'Honorararzt': 4
+    };
+
+    return filteredEmployees.sort((a, b) => {
+      // First sort by employee function
+      const functionA = employeeFunctionOrder[a.function as keyof typeof employeeFunctionOrder] || 999;
+      const functionB = employeeFunctionOrder[b.function as keyof typeof employeeFunctionOrder] || 999;
+      
+      if (functionA !== functionB) {
+        return functionA - functionB;
+      }
+      
+      // Then sort alphabetically by first name
+      const firstNameA = a.first_name.toLowerCase();
+      const firstNameB = b.first_name.toLowerCase();
+      
+      if (firstNameA !== firstNameB) {
+        return firstNameA.localeCompare(firstNameB);
+      }
+      
+      // Finally sort by last name
+      const lastNameA = a.last_name.toLowerCase();
+      const lastNameB = b.last_name.toLowerCase();
+      
+      return lastNameA.localeCompare(lastNameB);
+    });
   }, [employees, routes, selectedUserId]);
 
   // Get German weekday name
@@ -46,6 +86,18 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
     return weekdayMap[weekday] || weekday;
   };
 
+  // Check if any employees are selected
+  const anySelected = selectedEmployeeIds.length > 0;
+
+  const handleToggleAll = () => {
+    if (anySelected) {
+      onDeselectAll();
+    } else {
+      const employeeIds = employeesWithRoutes.map(emp => emp.id!);
+      onSelectAll(employeeIds);
+    }
+  };
+
   return (
     <Box sx={{ px: 2, pb: 2 }}>
       <Box
@@ -57,28 +109,57 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
         }}
       >
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {/* Anzahl der ausgewählten Routen */}
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                bgcolor: '#007AFF',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {selectedEmployeeIds.length}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              {/* Anzahl der ausgewählten Routen */}
+              <Box
+                sx={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  bgcolor: '#007AFF',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {selectedEmployeeIds.length}
+              </Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
+                Weitere Routen anzeigen
+              </Typography>
             </Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
-              Weitere Routen anzeigen
-            </Typography>
+            
+            {/* Toggle All Button */}
+            {employeesWithRoutes.length > 0 && (
+              <Box
+                onClick={handleToggleAll}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  bgcolor: 'rgba(0, 0, 0, 0.04)',
+                  '&:hover': {
+                    bgcolor: 'rgba(0, 0, 0, 0.08)',
+                  },
+                }}
+              >
+                {anySelected ? (
+                  <CloseIcon sx={{ color: '#FF3B30', fontSize: 20 }} />
+                ) : (
+                  <AddIcon sx={{ color: '#007AFF', fontSize: 20 }} />
+                )}
+              </Box>
+            )}
           </Box>
         </Box>
 

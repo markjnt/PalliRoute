@@ -3,7 +3,7 @@ from datetime import datetime
 import enum
 
 class VisitType(enum.Enum):
-    HB = "HB"  # Hausbesuch (30 min)
+    HB = "HB"  # Hausbesuch (25 min)
     NA = "NA"  # Nachtbesuch (120 min)
     TK = "TK"  # Telefonkontakt (no visit)
 
@@ -48,7 +48,7 @@ class Appointment(db.Model):
 
 # Zentrale Mapping-Konstante für Besuchsdauern (in Minuten)
 VISIT_TYPE_DURATIONS = {
-    VisitType.HB.value: 30,
+    VisitType.HB.value: 25,
     VisitType.NA.value: 120,
     VisitType.TK.value: 0,
 }
