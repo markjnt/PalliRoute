@@ -517,55 +517,70 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                         gap: 1,
                         mt: 0.5
                     }}>
-                        <Tooltip title={`Funktion: ${employee.function}`}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                
-                                {/* Employee function chip */}
-                                <Chip 
-                                    label={employee.function}
-                                    size="small"
-                                    sx={{ 
-                                        height: '20px',
-                                        fontSize: '0.7rem',
-                                        backgroundColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
-                                        color: 'white',
-                                    }}
-                                />
-                            </Box>
-                        </Tooltip>
+                        {/* Employee function chip */}
+                        <Chip 
+                            label={employee.function}
+                            size="small"
+                            sx={{ 
+                                height: '20px',
+                                fontSize: '0.7rem',
+                                backgroundColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
+                                color: 'white',
+                            }}
+                        />
                     </Box>
 
-                    {/* Dauer und Strecke nebeneinander anzeigen */}
+                    {/* Auslastung und Strecke nebeneinander anzeigen */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
-                        {/* Dauer (mit Farblogik) */}
+                        {/* Auslastung (mit Farblogik) */}
                         {(() => {
                             const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
                             const duration = route && typeof route.total_duration === 'number' ? route.total_duration : null;
+                            
+                            // Soll-Arbeitszeit berechnen: 7h = 420min * (work_hours / 100)
+                            const targetMinutes = Math.round(420 * ((employee.work_hours || 0) / 100));
+                            
+                            // Auslastung in Prozent berechnen
+                            let utilization: number | undefined = undefined;
+                            if (duration !== null && targetMinutes > 0) {
+                                utilization = (duration / targetMinutes) * 100;
+                            }
+                            
+                            // Farbe bestimmen
+                            let utilizationColor = 'success.main';
+                            if (utilization !== undefined) {
+                                if (utilization > 100) {
+                                    utilizationColor = 'error.main';
+                                } else if (utilization > 90) {
+                                    utilizationColor = 'warning.main';
+                                } else if (utilization > 70) {
+                                    utilizationColor = 'success.light';
+                                }
+                            }
+                            
+                            // Zeit-Strings für Tooltip berechnen
                             let durationStr = '-';
-                            let durationMinutes = null;
+                            let targetStr = '-';
                             if (duration !== null) {
                                 const hours = Math.floor(duration / 60);
                                 const minutes = duration % 60;
                                 durationStr = `${hours}:${minutes.toString().padStart(2, '0')}`;
-                                durationMinutes = duration;
                             }
-                            // Soll-Arbeitszeit berechnen: 7h = 420min * (work_hours / 100)
-                            const targetMinutes = Math.round(420 * ((employee.work_hours || 0) / 100));
-                            const targetHours = Math.floor(targetMinutes / 60);
-                            const targetMins = targetMinutes % 60;
-                            const targetStr = `${targetHours}:${targetMins.toString().padStart(2, '0')}`;
-                            // Farbe bestimmen
-                            let durationColor = 'success.main';
-                            if (durationMinutes !== null && durationMinutes > targetMinutes) {
-                                durationColor = 'error.main';
+                            if (targetMinutes > 0) {
+                                const targetHours = Math.floor(targetMinutes / 60);
+                                const targetMins = targetMinutes % 60;
+                                targetStr = `${targetHours}:${targetMins.toString().padStart(2, '0')}`;
                             }
+                            
                             return (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <AccessTimeIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                                    <Typography variant="body2" sx={{ color: durationMinutes !== null ? durationColor : 'text.secondary', fontWeight: durationMinutes !== null ? 'bold' : 'normal' }}>
-                                        {durationStr} / {targetStr}
-                                    </Typography>
-                                </Box>
+                                <Tooltip title={`${durationStr} / ${targetStr}`} arrow>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <AccessTimeIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                                        <Typography variant="body2" sx={{ color: utilization !== undefined ? utilizationColor : 'text.secondary', fontWeight: utilization !== undefined ? 'bold' : 'normal' }}>
+                                            {utilization !== undefined ? `${Math.round(utilization)}%` : '-'}
+                                        </Typography>
+                                    </Box>
+                                </Tooltip>
                             );
                         })()}
                         {/* Strecke */}

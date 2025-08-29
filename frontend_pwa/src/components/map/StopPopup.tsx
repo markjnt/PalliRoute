@@ -126,9 +126,6 @@ export const StopPopup: React.FC<StopPopupProps> = ({
                 fontWeight: 500,
               }}
             />
-            <Typography variant="caption" sx={{ color: '#8E8E93' }}>
-              {appointment.duration} Min
-            </Typography>
           </Box>
         </Box>
 
