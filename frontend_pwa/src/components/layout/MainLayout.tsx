@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box, SwipeableDrawer, Button, Menu, MenuItem, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { MapView } from './MainViewMap';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
-import { MainBottomSheet, MainBottomSheetRef } from './MainBottomSheet';
+import { MainBottomSheet } from './MainBottomSheet';
 import UserSearchDrawer from '../user/UserSelectSheet';
 import { TopOverviewBar } from './TopOverviewBar';
 
@@ -14,7 +14,6 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
   const [isTestSheetOpen, setIsTestSheetOpen] = useState(false);
-  const sheetRef = useRef<MainBottomSheetRef>(null);
 
   // Automatisch den aktuellen Tag auswählen beim Laden der App
   useEffect(() => {
@@ -37,13 +36,7 @@ const MainLayout: React.FC = () => {
   };
 
   const handleTestSheetToggle = () => {
-    if (!isTestSheetOpen) {
-      // First click: open sheet
-      setIsTestSheetOpen(true);
-    } else if (sheetRef.current) {
-      // Second or third click: cycle through states
-      sheetRef.current.cycleSheetState();
-    }
+    setIsTestSheetOpen(!isTestSheetOpen);
   };
 
   const handleTestSheetClose = () => {
@@ -69,13 +62,11 @@ const MainLayout: React.FC = () => {
         <TopOverviewBar 
           onUserSwitch={handleUserSwitch}
           onSheetToggle={handleTestSheetToggle}
-          onSheetClose={handleTestSheetClose}
         />
 
         <MainBottomSheet 
           isOpen={isTestSheetOpen}
           onClose={handleTestSheetClose}
-          ref={sheetRef}
         />
 
         <UserSearchDrawer

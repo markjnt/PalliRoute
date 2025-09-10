@@ -18,10 +18,9 @@ import { WeekdaySelector } from './WeekdaySelector';
 interface TopOverviewBarProps {
   onUserSwitch: () => void;
   onSheetToggle: () => void;
-  onSheetClose: () => void;
 }
 
-export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle, onSheetClose }) => {
+export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle }) => {
   const { selectedUserId } = useUserStore();
   const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
   const [isWeekdayMenuOpen, setIsWeekdayMenuOpen] = useState(false);
@@ -69,7 +68,6 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
 
   const handleWeekdayButtonClick = () => {
     setIsWeekdayMenuOpen(true);
-    onSheetClose(); // Close the MainBottomSheet when opening weekday selector
   };
 
   const handleWeekdayMenuClose = () => {

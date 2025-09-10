@@ -13,8 +13,7 @@ interface MainBottomSheetProps {
 }
 
 export interface MainBottomSheetRef {
-  expandToFull: () => void;
-  cycleSheetState: () => void;
+  // No methods needed for simple open/close behavior
 }
 
 export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetProps>(
@@ -25,7 +24,7 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
     const { selectedUserId } = useUserStore();
     const { isDragging } = useDragStore();
 
-    const snapPoints = [0.95, 0.35, 0];
+    const snapPoints = [0.88, 0];
 
     // Reset additional routes when logged-in user changes
     useEffect(() => {
@@ -36,29 +35,8 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
       setCurrentSnap(snapIndex);
     };
 
-    const expandToFull = () => {
-      if (sheetRef.current && currentSnap === 1) {
-        sheetRef.current.snapTo(0); // Snap to full height (0.95)
-      }
-    };
-
-    const cycleSheetState = () => {
-      if (!sheetRef.current) return;
-      
-      if (currentSnap === 1) {
-        // Currently at middle snap (32%), expand to full (95%)
-        sheetRef.current.snapTo(0);
-      } else if (currentSnap === 0) {
-        // Currently at full snap (95%), close the sheet
-        onClose();
-      }
-    };
-
-    // Expose functions to parent
-    useImperativeHandle(ref, () => ({
-      expandToFull,
-      cycleSheetState
-    }), [currentSnap, onClose]);
+    // No imperative methods needed for simple open/close behavior
+    useImperativeHandle(ref, () => ({}), []);
 
     return (
       <>
@@ -66,7 +44,7 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
           ref={sheetRef}
           isOpen={isOpen}
           onClose={onClose}
-          initialSnap={1}
+          initialSnap={0}
           snapPoints={snapPoints}
           onSnap={handleSnapChange}
           disableDrag={isDragging}
