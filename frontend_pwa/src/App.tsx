@@ -64,7 +64,8 @@ const theme = createTheme({
 const App: React.FC = () => {
   const isInstalled =
     window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true;
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://');
 
   // Choose backend based on device capabilities
   const isTouchDevice = 'ontouchstart' in window;
