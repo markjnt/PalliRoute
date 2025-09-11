@@ -101,8 +101,9 @@ def import_patients():
         # Get the number of created routes (from the result dictionary)
         routes = result.get('routes', [])
         
-        # Update last import time (use local timezone)
-        current_time = datetime.now().isoformat()
+        # Update last import time (use local timezone with timezone info)
+        from datetime import timezone
+        current_time = datetime.now(timezone.utc).astimezone().isoformat()
         SystemInfo.set_value('last_patient_import_time', current_time)
         
         # Prepare the response

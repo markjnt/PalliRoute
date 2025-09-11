@@ -1,13 +1,11 @@
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 from flask_cors import CORS
 from config import Config
 from .services.scheduler_service import scheduler_service
 
 # Initialize SQLAlchemy
 db = SQLAlchemy()
-migrate = Migrate()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -24,7 +22,6 @@ def create_app(config_class=Config):
 
     # Initialize extensions
     db.init_app(app)
-    migrate.init_app(app, db)
     scheduler_service.init_app(app)
 
     # Register error handlers
@@ -54,16 +51,9 @@ def create_app(config_class=Config):
     app.register_blueprint(routes_bp, url_prefix='/api/routes')
     app.register_blueprint(config_bp, url_prefix='/api/config')
 
-    # Auto-migrate database on startup
+    # Create database tables automatically
     with app.app_context():
-        try:
-            # Try to run migrations first
-            from flask_migrate import upgrade
-            upgrade()
-        except Exception as e:
-            # If migrations fail (first run), use create_all
-            print(f"Migration not available, using create_all: {e}")
-            db.create_all()
+        db.create_all()
 
     @app.route('/health')
     def health_check():

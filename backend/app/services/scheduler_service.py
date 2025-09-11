@@ -151,8 +151,9 @@ class SchedulerService:
                 
                 logger.info(f"Successfully imported {len(patients)} patients, {len(appointments)} appointments and {len(routes)} routes")
                 
-                # Update last import time (use local timezone)
-                current_time = datetime.now().isoformat()
+                # Update last import time (use local timezone with timezone info)
+                from datetime import timezone
+                current_time = datetime.now(timezone.utc).astimezone().isoformat()
                 SystemInfo.set_value('last_patient_import_time', current_time)
                 logger.info(f"Updated last import time to: {current_time}")
                 
