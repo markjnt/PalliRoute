@@ -4,7 +4,9 @@ from app import db
 from app.models.patient import Patient
 from app.models.appointment import Appointment
 from app.models.route import Route
+from app.models.system_info import SystemInfo
 from app.services.excel_import_service import ExcelImportService
+from datetime import datetime
 
 patients_bp = Blueprint('patients', __name__)
 
@@ -28,6 +30,14 @@ def get_patients():
 def get_patient(id):
     patient = Patient.query.get_or_404(id)
     return jsonify(patient.to_dict()), 200
+
+@patients_bp.route('/last-import-time', methods=['GET'])
+def get_last_import_time():
+    """Get the last patient import time"""
+    last_import_time = SystemInfo.get_value('last_patient_import_time')
+    return jsonify({
+        "last_import_time": last_import_time
+    }), 200
 
 @patients_bp.route('/import', methods=['POST'])
 def import_patients():
@@ -91,6 +101,10 @@ def import_patients():
         # Get the number of created routes (from the result dictionary)
         routes = result.get('routes', [])
         
+        # Update last import time (use local timezone)
+        current_time = datetime.now().isoformat()
+        SystemInfo.set_value('last_patient_import_time', current_time)
+        
         # Prepare the response
         return jsonify({
             "message": f"Erfolgreich {len(patients)} Patienten, {len(appointments)} Termine und {len(routes)} Touren importiert",
@@ -102,7 +116,8 @@ def import_patients():
                 "appointments": appointment_count,
                 "routes": route_count
             },
-            "calendar_week": calendar_week
+            "calendar_week": calendar_week,
+            "last_import_time": current_time
         }), 201
     
     except Exception as e:

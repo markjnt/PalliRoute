@@ -2,6 +2,7 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from config import Config
+from .services.scheduler_service import scheduler_service
 
 # Initialize SQLAlchemy
 db = SQLAlchemy()
@@ -21,6 +22,7 @@ def create_app(config_class=Config):
 
     # Initialize extensions
     db.init_app(app)
+    scheduler_service.init_app(app)
 
     # Register error handlers
     @app.errorhandler(400)
@@ -56,5 +58,22 @@ def create_app(config_class=Config):
     @app.route('/health')
     def health_check():
         return {'status': 'healthy'}
+    
+    @app.route('/scheduler/status')
+    def scheduler_status():
+        """Get scheduler status"""
+        return jsonify(scheduler_service.get_status())
+    
+    @app.route('/scheduler/start', methods=['POST'])
+    def start_scheduler():
+        """Start the scheduler"""
+        scheduler_service.start()
+        return jsonify({'message': 'Scheduler started'})
+    
+    @app.route('/scheduler/stop', methods=['POST'])
+    def stop_scheduler():
+        """Stop the scheduler"""
+        scheduler_service.stop()
+        return jsonify({'message': 'Scheduler stopped'})
 
     return app

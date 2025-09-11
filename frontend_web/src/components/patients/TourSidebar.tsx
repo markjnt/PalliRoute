@@ -29,7 +29,7 @@ import { ToursView } from './ToursView';
 import { SearchField } from './SearchField';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
-import { usePatients, usePatientImport } from '../../services/queries/usePatients';
+import { usePatients, usePatientImport, useLastPatientImportTime } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
@@ -87,6 +87,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
+    const { data: lastImportTimeData } = useLastPatientImportTime();
 
     // Handle weekday change
     const handleDayChange = useCallback((event: SelectChangeEvent) => {
@@ -276,7 +277,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         onClick={handleImport}
                         disabled={!employees.length || patientImportMutation.isPending}
                     >
-                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${lastPatientImportTime ? ` (zuletzt ${new Date(lastPatientImportTime).toLocaleString('de-DE', { 
+                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${(lastImportTimeData?.last_import_time || lastPatientImportTime) ? ` (zuletzt ${new Date(lastImportTimeData?.last_import_time || lastPatientImportTime || '').toLocaleString('de-DE', { 
                             hour: '2-digit', 
                             minute: '2-digit',
                             day: '2-digit',

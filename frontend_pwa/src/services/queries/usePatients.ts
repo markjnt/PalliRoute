@@ -11,6 +11,7 @@ export const patientKeys = {
   list: (filters: string) => [...patientKeys.lists(), { filters }] as const,
   details: () => [...patientKeys.all, 'detail'] as const,
   detail: (id: number) => [...patientKeys.details(), id] as const,
+  lastImportTime: () => [...patientKeys.all, 'lastImportTime'] as const,
 };
 
 // Hook zum Laden aller Patienten
@@ -43,5 +44,14 @@ export const usePatientImport = () => {
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
       queryClient.invalidateQueries({ queryKey: employeeKeys.all });
     },
+  });
+};
+
+// Hook zum Laden der letzten Import-Zeit
+export const useLastPatientImportTime = () => {
+  return useQuery({
+    queryKey: patientKeys.lastImportTime(),
+    queryFn: () => patientsApi.getLastImportTime(),
+    refetchInterval: 30000, // Alle 30 Sekunden aktualisieren
   });
 };

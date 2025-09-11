@@ -30,4 +30,8 @@ class Config:
     xlsx_base_path = os.environ.get('XLSX_IMPORT_PATH_DEV') or os.path.join(basedir, 'data', 'excel_import')
     EMPLOYEES_IMPORT_PATH = os.path.join(xlsx_base_path, 'Mitarbeiterliste') if xlsx_base_path else None
     PATIENTS_IMPORT_PATH = os.path.join(xlsx_base_path, 'Export_PalliDoc') if xlsx_base_path else None
+    
+    # Scheduler configuration
+    AUTO_IMPORT_ENABLED = os.environ.get('AUTO_IMPORT_ENABLED', 'true').lower() == 'true'
+    AUTO_IMPORT_INTERVAL_MINUTES = int(os.environ.get('AUTO_IMPORT_INTERVAL_MINUTES', '10'))
 
