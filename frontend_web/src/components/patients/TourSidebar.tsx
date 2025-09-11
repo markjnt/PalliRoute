@@ -89,6 +89,13 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const optimizeRoutesMutation = useOptimizeRoutes();
     const { data: lastImportTimeData } = useLastPatientImportTime();
 
+    // Update local store when API data changes
+    useEffect(() => {
+        if (lastImportTimeData?.last_import_time) {
+            setLastPatientImportTime(new Date(lastImportTimeData.last_import_time));
+        }
+    }, [lastImportTimeData, setLastPatientImportTime]);
+
     // Handle weekday change
     const handleDayChange = useCallback((event: SelectChangeEvent) => {
         setSelectedWeekday(event.target.value as Weekday);
