@@ -8,7 +8,10 @@ RUN mkdir -p /backend/data && \
 
 # Copy requirements first for better layer caching
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install dependencies with cache support
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
 COPY backend/ .
