@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-backend:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -18,6 +18,8 @@ jobs:
         with:
           driver-opts: |
             image=moby/buildkit:v0.12.0
+          # Für self-hosted Runner: prüfe ob Docker bereits läuft
+          install: true
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -35,7 +37,7 @@ jobs:
           tags: markjnt/palliroute-backend
 
   build-frontend-web:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -61,7 +63,7 @@ jobs:
           tags: markjnt/palliroute-frontend-web
 
   build-frontend-pwa:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
