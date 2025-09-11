@@ -1,10 +1,14 @@
+# syntax=docker/dockerfile:1.6
 FROM node:22.13.1-alpine AS build
 
 WORKDIR /frontend_web
 
 # Copy package.json and package-lock.json first for better layer caching
 COPY frontend_web/package.json frontend_web/package-lock.json ./
-RUN npm ci
+
+# Install dependencies with BuildKit cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
 # Copy the frontend code
 COPY frontend_web/ ./
