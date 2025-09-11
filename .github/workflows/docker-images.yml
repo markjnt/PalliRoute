@@ -101,19 +101,10 @@ jobs:
   deploy:
     runs-on: self-hosted
     needs: [build-backend, build-frontend-web, build-frontend-pwa]
-    defaults:
-      run:
-        working-directory: ~/PalliRoute
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Stop existing containers
-        run: docker compose down
-      - name: Remove old images
-        run: docker rmi $(docker images -q) -f
-      - name: Pull latest images
-        run: docker compose pull
-      - name: Start services
-        run: docker compose up -d
-      - name: Clean up old images
-        run: docker image prune -f
+      - name: Pull & restart
+        run: |
+          cd "$HOME/PalliRoute"
+          docker compose pull
+          docker compose up -d
+          docker image prune -f
