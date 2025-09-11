@@ -22,6 +22,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy the backend code
 COPY backend/ .
 
+# Create migrations directory
+RUN mkdir -p migrations
+
 # Set environment variables
 ENV FLASK_APP=run.py \
     FLASK_ENV=production
@@ -29,5 +32,5 @@ ENV FLASK_APP=run.py \
 # Expose the port
 EXPOSE 9000
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=8", "--timeout=300"] 
+# Setup database and run application
+CMD ["sh", "-c", "python setup_db.py && gunicorn --bind=0.0.0.0:9000 run:app --workers=8 --timeout=300"] 
