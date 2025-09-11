@@ -105,7 +105,6 @@ jobs:
       - name: Pull & restart
         run: |
           cd "$HOME/PalliRoute"
-          docker compose down
           docker compose pull
           docker compose up -d
           docker image prune -f
