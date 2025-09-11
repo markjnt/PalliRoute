@@ -15,20 +15,32 @@ def setup_database():
     
     with app.app_context():
         migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')
+        env_file = os.path.join(migrations_dir, 'env.py')
         
-        # Prüfe ob Migrationen bereits existieren
-        if not os.path.exists(migrations_dir):
-            print("🔄 Initialisiere Migrationen...")
-            init()
-            print("✅ Migrationen initialisiert")
+        try:
+            # Prüfe ob Migrationen bereits existieren
+            if not os.path.exists(migrations_dir):
+                print("🔄 Initialisiere Migrationen...")
+                init()
+                print("✅ Migrationen initialisiert")
+                
+                print("🔄 Erstelle erste Migration...")
+                migrate(message='Initial migration')
+                print("✅ Erste Migration erstellt")
             
-            print("🔄 Erstelle erste Migration...")
-            migrate(message='Initial migration')
-            print("✅ Erste Migration erstellt")
-        
-        print("🔄 Wende Migrationen an...")
-        upgrade()
-        print("✅ Datenbank ist bereit!")
+            # Prüfe ob env.py existiert und Migrationen funktionieren
+            if os.path.exists(env_file):
+                print("🔄 Wende Migrationen an...")
+                upgrade()
+                print("✅ Datenbank ist bereit!")
+            else:
+                raise Exception("env.py nicht gefunden")
+                
+        except Exception as e:
+            print(f"⚠️ Migrationen fehlgeschlagen: {e}")
+            print("🔄 Verwende create_all als Fallback...")
+            db.create_all()
+            print("✅ Datenbank ist bereit!")
 
 if __name__ == '__main__':
     setup_database()
