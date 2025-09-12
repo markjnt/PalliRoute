@@ -156,7 +156,7 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
         <Sheet.Content>
           <Sheet.Scroller draggableAt="top">
             {/* Weekend Tour Selector */}
-            <Box sx={{ px: 3, pt: 2 }}>
+            <Box sx={{ px: 3, pt: 2, pb: 0 }}>
               <WeekendTourSelector
                 selectedArea={selectedWeekendArea}
                 onAreaSelect={handleWeekendAreaSelect}
@@ -168,7 +168,8 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
             {/* Scrollable employee list */}
             <Box sx={{ 
               px: 3,
-              py: 2,
+              pt: 0,
+              pb: 2,
             }}>
               {isLoading ? (
                 <Box display="flex" justifyContent="center" alignItems="center" py={4}>
