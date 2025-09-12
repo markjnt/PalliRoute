@@ -21,7 +21,7 @@ interface TopOverviewBarProps {
 }
 
 export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle }) => {
-  const { selectedUserId } = useUserStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
   const [isWeekdayMenuOpen, setIsWeekdayMenuOpen] = useState(false);
 
@@ -46,22 +46,18 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
       'tuesday': 'Di',
       'wednesday': 'Mi',
       'thursday': 'Do',
-      'friday': 'Fr'
+      'friday': 'Fr',
+      'saturday': 'Sa',
+      'sunday': 'So'
     };
     return weekdayMap[weekday] || weekday;
   };
 
-  // Get current weekday and check if it's a weekday
+  // Get current weekday
   const getCurrentWeekday = () => {
     const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
     const weekdayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = weekdayMap[today] as any;
-    
-    // Only return if it's a weekday (Monday-Friday)
-    if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(currentDay)) {
-      return currentDay;
-    }
-    return null;
+    return weekdayMap[today] as any;
   };
 
   const currentWeekday = getCurrentWeekday();
@@ -80,7 +76,9 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
   };
 
   // Get appointments for the selected employee and day
-  const employeeAppointments = appointments.filter(a => a.employee_id === selectedUserId && a.weekday === selectedWeekday);
+  const employeeAppointments = selectedWeekendArea 
+    ? appointments.filter(a => a.weekday === selectedWeekday && a.area === selectedWeekendArea) // For weekend tours, show only appointments for the selected area
+    : appointments.filter(a => a.employee_id === selectedUserId && a.weekday === selectedWeekday);
 
   // Group patients by visit type
   const getPatientsByVisitType = (visitType: 'HB' | 'NA' | 'TK') => {
@@ -255,13 +253,15 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
           </Box>
         </Box>
 
-        {/* User Avatar - RIGHT */}
+        {/* User Avatar or Weekend Area - RIGHT */}
         <Avatar
           onClick={onUserSwitch}
           sx={{
             width: 48,
             height: 48,
-            bgcolor: selectedEmployee ? getEmployeeColor(selectedEmployee.function) : '#007AFF',
+            bgcolor: selectedWeekendArea 
+              ? '#ff9800'
+              : selectedEmployee ? getEmployeeColor(selectedEmployee.function) : '#007AFF',
             color: 'white',
             fontSize: '1rem',
             fontWeight: 600,
@@ -276,7 +276,12 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          {selectedEmployee ? (
+          {selectedWeekendArea ? (
+            selectedWeekendArea === 'Nord' ? 'N' : 
+            selectedWeekendArea === 'Mitte' ? 'M' : 
+            selectedWeekendArea === 'Süd' ? 'S' : 
+            selectedWeekendArea.charAt(0)
+          ) : selectedEmployee ? (
             getInitials(selectedEmployee.first_name, selectedEmployee.last_name)
           ) : (
             '?'

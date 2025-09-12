@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 
 interface AdditionalRoutesStore {
-  selectedEmployeeIds: number[];
-  toggleEmployee: (employeeId: number) => void;
-  selectAll: (employeeIds: number[]) => void;
+  selectedEmployeeIds: (number | string)[];
+  toggleEmployee: (employeeId: number | string) => void;
+  selectAll: (employeeIds: (number | string)[]) => void;
   deselectAll: () => void;
   clearAll: () => void;
   resetForNewUser: () => void;
@@ -12,7 +12,7 @@ interface AdditionalRoutesStore {
 export const useAdditionalRoutesStore = create<AdditionalRoutesStore>((set) => ({
   selectedEmployeeIds: [],
   
-  toggleEmployee: (employeeId: number) => {
+  toggleEmployee: (employeeId: number | string) => {
     set((state) => {
       const isSelected = state.selectedEmployeeIds.includes(employeeId);
       if (isSelected) {
@@ -27,7 +27,7 @@ export const useAdditionalRoutesStore = create<AdditionalRoutesStore>((set) => (
     });
   },
 
-  selectAll: (employeeIds: number[]) => {
+  selectAll: (employeeIds: (number | string)[]) => {
     set({ selectedEmployeeIds: [...employeeIds] });
   },
 

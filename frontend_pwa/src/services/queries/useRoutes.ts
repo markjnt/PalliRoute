@@ -62,6 +62,24 @@ export const useOptimizeRoutes = () => {
   });
 };
 
+// Hook to optimize weekend routes for a specific day and area
+export const useOptimizeWeekendRoutes = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ weekday, area }: { weekday: string; area: string }) => 
+      routesApi.optimizeWeekendRoutes(weekday, area),
+    onSuccess: () => {
+      // Invalidate all route queries as they might be affected
+      queryClient.invalidateQueries({ 
+        queryKey: routeKeys.byDay(),
+        exact: false 
+      });
+      queryClient.invalidateQueries({ queryKey: routeKeys.lists() });
+    },
+  });
+};
+
 // Hook to reorder an appointment in a route using direction or index
 export const useReorderAppointment = () => {
   const queryClient = useQueryClient();

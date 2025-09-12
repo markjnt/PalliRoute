@@ -21,7 +21,7 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
     if (!map || !window.google || !window.google.maps.geometry) return;
 
     // Display all routes passed from parent (already filtered)
-    for (const { routeId, polyline, employeeId } of routes) {
+    for (const { routeId, polyline, employeeId, color } of routes) {
       const isEmpty = polyline == null || polyline === '';
       const oldEncoded = previousDataRef.current[routeId] || '';
 
@@ -37,7 +37,10 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
 
       // Get color: main user route is always blue, additional routes get different colors
       let routeColor: string;
-      if (employeeId === selectedUserId) {
+      if (employeeId === null) {
+        // Weekend routes: color is already set in routePaths data
+        routeColor = color;
+      } else if (employeeId === selectedUserId) {
         routeColor = '#2196F3'; // Standard blue for main user route
       } else {
         routeColor = getColorForTour(employeeId); // Different color for additional routes
@@ -64,6 +67,9 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
         polylineRefs.current[routeId].setPath(newPath);
         previousDataRef.current[routeId] = polyline;
       }
+
+      // Aktualisieren der Farbe (immer, da sich die Farbe auch bei gleichem Pfad ändern kann)
+      polylineRefs.current[routeId].setOptions({ strokeColor: routeColor });
     }
 
     // Clean up: entferne Polylines, die nicht mehr in routes sind

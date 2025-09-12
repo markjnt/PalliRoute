@@ -135,8 +135,27 @@ export const createEmployeeMarkerData = (employee: Employee, routeId?: number): 
   }
 };
 
+// Create weekend area marker data
+export const createWeekendAreaMarkerData = (area: string): MarkerData | null => {
+  // Weekend start location coordinates (Auf der Brück 9, 51645 Gummersbach)
+  // These coordinates match the backend route_utils.py get_weekend_start_location function
+  const weekendStartLat = 50.9833022;
+  const weekendStartLng = 7.5412243;
+  
+  const position = new google.maps.LatLng(weekendStartLat, weekendStartLng);
+  
+  return {
+    position,
+    title: `RB/AW Tour: ${area}-Bereich`,
+    type: 'weekend_area',
+    area: area,
+    employeeId: null,
+    routeId: null
+  };
+};
+
 // Create patient marker data
-export const createPatientMarkerData = (patient: Patient, appointment: Appointment, position?: number, routeId?: number): MarkerData | null => {
+export const createPatientMarkerData = (patient: Patient, appointment: Appointment, position?: number, routeId?: number, route?: any): MarkerData | null => {
   // Check if we have latitude and longitude from the backend
   if (patient.latitude && patient.longitude) {
     // Create position using coordinates from backend
@@ -154,7 +173,8 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
       patientId: patient.id,
       appointmentId: appointment.id,
       routePosition: position,
-      routeId
+      routeId,
+      area: route?.area // Set the area from the route for weekend routes
     };
   } else {
     // If no coordinates, log warning and skip
@@ -168,31 +188,41 @@ export const calculateRouteBounds = (
   routes: any[], 
   employees: Employee[], 
   patients: Patient[], 
-  appointments: any[]
+  appointments: any[],
+  selectedWeekendArea?: string | null
 ): google.maps.LatLngBounds | null => {
-  if (!routes || routes.length === 0) return null;
-  
   const bounds = new google.maps.LatLngBounds();
   let hasValidPoints = false;
   
-  // Add employee position to bounds
-  for (const route of routes) {
-    const employee = employees.find(e => e.id === route.employee_id);
-    if (employee && employee.latitude && employee.longitude) {
-      bounds.extend(new google.maps.LatLng(employee.latitude, employee.longitude));
-      hasValidPoints = true;
-    }
-    
-    // Add patient positions from route order
-    if (route.route_order) {
-      const routeOrder = parseRouteOrder(route.route_order);
-      for (const appointmentId of routeOrder) {
-        const appointment = appointments.find(a => a.id === appointmentId);
-        if (appointment) {
-          const patient = patients.find(p => p.id === appointment.patient_id);
-          if (patient && patient.latitude && patient.longitude) {
-            bounds.extend(new google.maps.LatLng(patient.latitude, patient.longitude));
-            hasValidPoints = true;
+  // If it's a weekend area, add the weekend start location
+  if (selectedWeekendArea) {
+    // Weekend start location coordinates (matching backend route_utils.py)
+    const weekendStartLat = 50.9833022;
+    const weekendStartLng = 7.5412243;
+    bounds.extend(new google.maps.LatLng(weekendStartLat, weekendStartLng));
+    hasValidPoints = true;
+  }
+  
+  // Add employee positions and patient positions for regular routes
+  if (routes && routes.length > 0) {
+    for (const route of routes) {
+      const employee = employees.find(e => e.id === route.employee_id);
+      if (employee && employee.latitude && employee.longitude) {
+        bounds.extend(new google.maps.LatLng(employee.latitude, employee.longitude));
+        hasValidPoints = true;
+      }
+      
+      // Add patient positions from route order
+      if (route.route_order) {
+        const routeOrder = parseRouteOrder(route.route_order);
+        for (const appointmentId of routeOrder) {
+          const appointment = appointments.find(a => a.id === appointmentId);
+          if (appointment) {
+            const patient = patients.find(p => p.id === appointment.patient_id);
+            if (patient && patient.latitude && patient.longitude) {
+              bounds.extend(new google.maps.LatLng(patient.latitude, patient.longitude));
+              hasValidPoints = true;
+            }
           }
         }
       }

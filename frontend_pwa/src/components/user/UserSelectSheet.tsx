@@ -11,6 +11,7 @@ import {
   Grid,
   Button,
   IconButton,
+  Collapse,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -18,12 +19,17 @@ import {
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
   Close as CloseIcon,
+  Weekend as WeekendIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { Sheet } from 'react-modal-sheet';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
+import { useWeekdayStore, Weekday } from '../../stores/useWeekdayStore';
 import { Employee } from '../../types/models';
 import { employeeTypeColors } from '../../utils/colors';
+import WeekendTourSelector from './WeekendTourSelector';
 
 interface UserSearchDrawerProps {
   open: boolean;
@@ -32,8 +38,15 @@ interface UserSearchDrawerProps {
 
 const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isWeekendExpanded, setIsWeekendExpanded] = useState(false);
   const { data: employees = [], isLoading, error } = useEmployees();
-  const { selectedUserId, setSelectedUser } = useUserStore();
+  const { 
+    selectedUserId, 
+    selectedWeekendArea, 
+    setSelectedUser, 
+    setSelectedWeekendArea 
+  } = useUserStore();
+  const { setSelectedWeekday } = useWeekdayStore();
 
   const filteredEmployees = useMemo(() => {
     if (!searchTerm.trim()) return employees;
@@ -45,9 +58,34 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     );
   }, [employees, searchTerm]);
 
+  // Helper function to get current weekday or fallback
+  const getCurrentWeekdayOrFallback = (fallback: Weekday): Weekday => {
+    const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const today = new Date().getDay(); // 0 = Sonntag, 1 = Montag, etc.
+    return days[today] || fallback;
+  };
+
   const handleUserSelect = (userId: number) => {
     setSelectedUser(userId);
+    setSelectedWeekendArea(null); // Clear weekend area selection
+    setIsWeekendExpanded(false); // Collapse weekend menu
+    // Set current day or Monday as fallback for employees
+    const weekday = getCurrentWeekdayOrFallback('monday');
+    setSelectedWeekday(weekday);
     onClose(); // Close the sheet after selecting a user
+  };
+
+  const handleWeekendAreaSelect = (area: string) => {
+    setSelectedWeekendArea(area);
+    setSelectedUser(null); // Clear user selection
+    // Set current day if it's weekend (Saturday/Sunday), otherwise Saturday as fallback
+    const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const today = new Date().getDay(); // 0 = Sonntag, 1 = Montag, etc.
+    const currentDay = days[today];
+    const isWeekend = currentDay === 'saturday' || currentDay === 'sunday';
+    const weekday = isWeekend ? currentDay : 'saturday';
+    setSelectedWeekday(weekday);
+    onClose(); // Close the sheet after selecting a weekend area
   };
 
   const getInitials = (firstName: string, lastName: string) => {
@@ -117,6 +155,16 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
         <Sheet.Content>
           <Sheet.Scroller draggableAt="top">
+            {/* Weekend Tour Selector */}
+            <Box sx={{ px: 3, pt: 2 }}>
+              <WeekendTourSelector
+                selectedArea={selectedWeekendArea}
+                onAreaSelect={handleWeekendAreaSelect}
+                isExpanded={isWeekendExpanded}
+                onToggleExpanded={() => setIsWeekendExpanded(!isWeekendExpanded)}
+              />
+            </Box>
+
             {/* Scrollable employee list */}
             <Box sx={{ 
               px: 3,

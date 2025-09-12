@@ -40,7 +40,7 @@ export interface EmployeeImportResponse {
 }
 
 export type VisitType = 'HB' | 'NA' | 'TK';
-export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday';
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 export interface Appointment {
     id?: number;
@@ -85,13 +85,13 @@ export interface PatientImportResponse {
 
 export interface Route {
     id: number;
-    employee_id: number;
+    employee_id: number | null;
     weekday: string;
     route_order: number[];
     total_duration: number;
     total_distance: number;
     polyline: string;
-    area: Area;
+    area: string; // Changed from Area to string to support weekend areas like 'Nord', 'Mitte', 'Süd'
     created_at: string;
     updated_at: string;
 } 

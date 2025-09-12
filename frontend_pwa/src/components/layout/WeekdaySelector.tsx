@@ -10,7 +10,7 @@ import {
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointments } from '../../services/queries/useAppointments';
-import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
 import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
@@ -28,7 +28,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   onWeekdaySelect,
 }) => {
   const { selectedWeekday } = useWeekdayStore();
-  const { selectedUserId } = useUserStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { clearCompletedStops } = useRouteCompletionStore();
   
   const { data: patients = [] } = usePatients();
@@ -36,6 +36,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   const { data: allRoutes = [] } = useRoutes();
   const { data: employees = [] } = useEmployees();
   const optimizeRoutesMutation = useOptimizeRoutes();
+  const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
 
   const selectedEmployee = employees.find(emp => emp.id === selectedUserId);
   const selectedRoute = allRoutes.find(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
@@ -47,37 +48,53 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
       'tuesday': 'Di',
       'wednesday': 'Mi',
       'thursday': 'Do',
-      'friday': 'Fr'
+      'friday': 'Fr',
+      'saturday': 'Sa',
+      'sunday': 'So'
     };
     return weekdayMap[weekday] || weekday;
   };
 
-  // Get current weekday and check if it's a weekday
+  // Get current weekday
   const getCurrentWeekday = () => {
     const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
     const weekdayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = weekdayMap[today] as any;
-    
-    // Only return if it's a weekday (Monday-Friday)
-    if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].includes(currentDay)) {
-      return currentDay;
-    }
-    return null;
+    return weekdayMap[today] as any;
   };
 
   const currentWeekday = getCurrentWeekday();
 
-  const weekdays = [
-    { value: 'monday', label: 'Montag' },
-    { value: 'tuesday', label: 'Dienstag' },
-    { value: 'wednesday', label: 'Mittwoch' },
-    { value: 'thursday', label: 'Donnerstag' },
-    { value: 'friday', label: 'Freitag' }
-  ];
+  // Determine which weekdays to show based on selection
+  const getWeekdaysToShow = () => {
+    if (selectedWeekendArea) {
+      // Show only weekend days when weekend area is selected
+      return [
+        { value: 'saturday', label: 'Samstag' },
+        { value: 'sunday', label: 'Sonntag' }
+      ];
+    } else {
+      // Show only weekdays when employee is selected
+      return [
+        { value: 'monday', label: 'Montag' },
+        { value: 'tuesday', label: 'Dienstag' },
+        { value: 'wednesday', label: 'Mittwoch' },
+        { value: 'thursday', label: 'Donnerstag' },
+        { value: 'friday', label: 'Freitag' }
+      ];
+    }
+  };
+
+  const weekdays = getWeekdaysToShow();
 
   // Get appointments for a specific employee and day
   const getEmployeeAppointments = (weekday: string) => {
-    return allAppointments.filter(a => a.employee_id === selectedUserId && a.weekday === weekday);
+    if (selectedWeekendArea) {
+      // For weekend areas, get appointments for the selected weekend area
+      return allAppointments.filter(a => a.weekday === weekday && a.area === selectedWeekendArea);
+    } else {
+      // For employees, get appointments with the selected employee
+      return allAppointments.filter(a => a.employee_id === selectedUserId && a.weekday === weekday);
+    }
   };
 
   // Group patients by visit type
@@ -91,12 +108,25 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
 
   // Calculate utilization percentage
   const calculateUtilization = (duration: number) => {
-    const targetMinutes = Math.round(420 * ((selectedEmployee?.work_hours || 0) / 100));
+    let targetMinutes: number;
+    
+    if (selectedWeekendArea) {
+      // For weekend tours: 75% of 420 minutes = 315 minutes target
+      targetMinutes = 315;
+    } else {
+      // For employees: based on work_hours percentage
+      targetMinutes = Math.round(420 * ((selectedEmployee?.work_hours || 0) / 100));
+    }
+    
     const utilizationPercent = targetMinutes > 0 ? Math.round((duration / targetMinutes) * 100) : 0;
     
     let utilizationColor = 'success.main';
     if (utilizationPercent > 100) {
       utilizationColor = 'error.main';
+    } else if (utilizationPercent > 90) {
+      utilizationColor = 'warning.main';
+    } else if (utilizationPercent > 70) {
+      utilizationColor = 'success.light';
     }
     
     return {
@@ -106,19 +136,24 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   };
 
   const handleOptimizeAll = async () => {
-    if (!selectedUserId) return;
-    
     try {
-      // Optimize routes for all weekdays
-      const weekdays: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-      
+      // Optimize only the days that are shown in the weekday selector
       await Promise.all(
-        weekdays.map(weekday => 
-          optimizeRoutesMutation.mutateAsync({
-            weekday,
-            employeeId: selectedUserId
-          })
-        )
+        weekdays.map(weekday => {
+          if (selectedWeekendArea) {
+            // For weekend tours: optimize each visible weekend day
+            return optimizeWeekendRoutesMutation.mutateAsync({
+              weekday: weekday.value,
+              area: selectedWeekendArea
+            });
+          } else if (selectedUserId) {
+            // For employees: optimize each visible weekday
+            return optimizeRoutesMutation.mutateAsync({
+              weekday: weekday.value,
+              employeeId: selectedUserId
+            });
+          }
+        })
       );
       
       // Reset route completion status after optimization
@@ -166,7 +201,9 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
           const naPatients = getPatientsByVisitType(dayAppointments, 'NA');
           const totalAppointments = hbPatients.length + tkPatients.length + naPatients.length;
           
-          const dayRoute = allRoutes.find(route => route.employee_id === selectedUserId && route.weekday === weekday.value);
+          const dayRoute = selectedWeekendArea 
+            ? allRoutes.find(route => !route.employee_id && route.area === selectedWeekendArea && route.weekday === weekday.value)
+            : allRoutes.find(route => route.employee_id === selectedUserId && route.weekday === weekday.value);
           const utilization = dayRoute ? calculateUtilization(dayRoute.total_duration) : { utilizationPercent: 0, utilizationColor: 'success.main' };
 
           return (
@@ -310,7 +347,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
         <Button
           variant="contained"
           onClick={handleOptimizeAll}
-          disabled={optimizeRoutesMutation.isPending}
+          disabled={optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending || (!selectedUserId && !selectedWeekendArea)}
           sx={{
             bgcolor: '#4CAF50',
             borderRadius: 1.5,
@@ -334,7 +371,9 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
         >
           <RouteIcon sx={{ fontSize: 18 }} />
           <Typography variant="caption" sx={{ fontWeight: 500 }}>
-            {optimizeRoutesMutation.isPending ? 'Optimiere alle...' : 'Alle Routen optimieren'}
+            {(optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending) 
+              ? 'Optimiere alle...' 
+              : 'Alle Routen optimieren'}
           </Typography>
         </Button>
       </Box>

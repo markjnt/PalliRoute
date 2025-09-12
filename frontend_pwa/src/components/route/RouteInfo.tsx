@@ -11,19 +11,20 @@ import {
 } from '@mui/icons-material';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
-import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
 import { Weekday } from '../../types/models';
 
 export const RouteInfo: React.FC = () => {
-  const { selectedUserId } = useUserStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
   const { clearCompletedStops } = useRouteCompletionStore();
   
   const { data: routes = [] } = useRoutes({ weekday: selectedWeekday as Weekday });
   const { data: employees = [] } = useEmployees();
   const optimizeRoutesMutation = useOptimizeRoutes();
+  const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -32,17 +33,23 @@ export const RouteInfo: React.FC = () => {
       'tuesday': 'Dienstag',
       'wednesday': 'Mittwoch',
       'thursday': 'Donnerstag',
-      'friday': 'Freitag'
+      'friday': 'Freitag',
+      'saturday': 'Samstag',
+      'sunday': 'Sonntag'
     };
     return weekdayMap[weekday] || weekday;
   };
 
-  // Immer nur die Route des ausgewählten Mitarbeiters anzeigen
+  // Immer nur die Route des ausgewählten Mitarbeiters oder Wochenend-Bereichs anzeigen
   const selectedRoute = useMemo(() => {
-    return routes.find(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
-  }, [routes, selectedUserId, selectedWeekday]);
+    if (selectedWeekendArea) {
+      return routes.find(route => !route.employee_id && route.area === selectedWeekendArea && route.weekday === selectedWeekday);
+    } else {
+      return routes.find(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
+    }
+  }, [routes, selectedUserId, selectedWeekendArea, selectedWeekday]);
 
-  // Get selected employee for work_hours
+  // Get selected employee for work_hours (only for employee routes)
   const selectedEmployee = useMemo(() => {
     return employees.find(emp => emp.id === selectedUserId);
   }, [employees, selectedUserId]);
@@ -77,8 +84,15 @@ export const RouteInfo: React.FC = () => {
 
   // Calculate utilization percentage with color logic
   const calculateUtilization = (duration: number) => {
-    // Calculate target work time: 7h = 420min * (work_hours / 100)
-    const targetMinutes = Math.round(420 * ((selectedEmployee?.work_hours || 0) / 100));
+    let targetMinutes: number;
+    
+    if (selectedWeekendArea) {
+      // For weekend tours: 75% of 420 minutes = 315 minutes target
+      targetMinutes = 315;
+    } else {
+      // For employees: based on work_hours percentage
+      targetMinutes = Math.round(420 * ((selectedEmployee?.work_hours || 0) / 100));
+    }
     
     // Calculate utilization percentage
     const utilizationPercent = targetMinutes > 0 ? Math.round((duration / targetMinutes) * 100) : 0;
@@ -87,6 +101,10 @@ export const RouteInfo: React.FC = () => {
     let utilizationColor = 'success.main'; // Green by default
     if (utilizationPercent > 100) {
       utilizationColor = 'error.main'; // Red if over 100%
+    } else if (utilizationPercent > 90) {
+      utilizationColor = 'warning.main'; // Orange if over 90%
+    } else if (utilizationPercent > 70) {
+      utilizationColor = 'success.light'; // Light green if over 70%
     }
     
     return {
@@ -98,13 +116,22 @@ export const RouteInfo: React.FC = () => {
   const utilizationInfo = calculateUtilization(selectedRoute.total_duration);
 
   const handleOptimize = async () => {
-    if (!selectedUserId || !selectedWeekday) return;
+    if (!selectedWeekday) return;
     
     try {
-      await optimizeRoutesMutation.mutateAsync({
-        weekday: selectedWeekday,
-        employeeId: selectedUserId
-      });
+      if (selectedWeekendArea) {
+        // Optimize weekend route
+        await optimizeWeekendRoutesMutation.mutateAsync({
+          weekday: selectedWeekday,
+          area: selectedWeekendArea
+        });
+      } else if (selectedUserId) {
+        // Optimize employee route
+        await optimizeRoutesMutation.mutateAsync({
+          weekday: selectedWeekday,
+          employeeId: selectedUserId
+        });
+      }
       
       // Reset route completion status after optimization
       clearCompletedStops();
@@ -183,7 +210,7 @@ export const RouteInfo: React.FC = () => {
         <Button
           variant="contained"
           onClick={handleOptimize}
-          disabled={optimizeRoutesMutation.isPending}
+          disabled={optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending}
           sx={{
             bgcolor: '#4CAF50',
             borderRadius: 1.5,
@@ -207,7 +234,9 @@ export const RouteInfo: React.FC = () => {
         >
           <RouteIcon sx={{ fontSize: 18 }} />
           <Typography variant="caption" sx={{ fontWeight: 500 }}>
-            {optimizeRoutesMutation.isPending ? 'Optimiere...' : 'Optimieren'}
+            {(optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending) 
+              ? 'Optimiere...' 
+              : 'Optimieren'}
           </Typography>
         </Button>
       </Box>

@@ -56,7 +56,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
   const { setCurrentWeekday } = useRouteCompletionStore();
   const { selectedWeekday } = useWeekdayStore();
   const { selectedEmployeeIds } = useAdditionalRoutesStore();
-  const { selectedUserId } = useUserStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
 
   // Gruppiere alle Marker
   const markerGroups = useMemo(() => groupMarkersByLatLng(markers), [markers]);
@@ -78,17 +78,59 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
 
   // Check if marker belongs to additional route (not main user route)
   const isAdditionalRouteMarker = (marker: MarkerData): boolean => {
+    if (marker.type === 'weekend_area') {
+      // Weekend area start marker is never additional
+      return false;
+    }
     if (!marker.routeId) return false;
     const route = routes.find(r => r.id === marker.routeId);
-    return route ? selectedEmployeeIds.includes(route.employee_id) : false;
+    if (!route) return false;
+    
+    // For weekend routes (no employee_id), check if it's an additional area
+    if (!route.employee_id) {
+      return route.area !== selectedWeekendArea && selectedEmployeeIds.includes(route.area);
+    }
+    
+    // For employee routes, check if it's an additional employee
+    return route.employee_id !== selectedUserId && selectedEmployeeIds.includes(route.employee_id);
   };
 
   // Get route color for a marker
   const getMarkerRouteColor = (marker: MarkerData): string | null => {
+    if (marker.type === 'weekend_area') {
+      // Weekend area start marker uses orange color
+      return '#ff9800';
+    }
+    
     if (!marker.routeId) return null;
     const route = routes.find(r => r.id === marker.routeId);
     if (!route) return null;
     
+    // For weekend routes (no employee_id), use area-based colors
+    if (!route.employee_id) {
+      const getWeekendAreaColor = (area: string) => {
+        switch (area) {
+          case 'Nord': return '#1976d2'; // Blue
+          case 'Mitte': return '#7b1fa2'; // Purple
+          case 'Süd': return '#388e3c'; // Green
+          default: return '#ff9800'; // Orange fallback
+        }
+      };
+      
+      // Main weekend route (selected area) is always blue
+      if (route.area === selectedWeekendArea) {
+        return '#2196F3';
+      }
+      
+      // Additional weekend routes get their area color
+      if (selectedEmployeeIds.includes(route.area)) {
+        return getWeekendAreaColor(route.area);
+      }
+      
+      return null;
+    }
+    
+    // For employee routes
     // Main user route is always blue
     if (route.employee_id === selectedUserId) {
       return '#2196F3';

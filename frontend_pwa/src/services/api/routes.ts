@@ -57,6 +57,20 @@ export const routesApi = {
         }
     },
 
+    // Optimize weekend routes for a specific day and area
+    async optimizeWeekendRoutes(weekday: string, area: string): Promise<void> {
+        try {
+            const response = await api.post(`/routes/optimize`, {
+                weekday: weekday.toLowerCase(),
+                area: area
+            });
+            return response.data;
+        } catch (error) {
+            console.error(`Failed to optimize weekend routes for weekday ${weekday} and area ${area}:`, error);
+            throw error;
+        }
+    },
+
     // Reorder an appointment in a route using direction or index
     async reorderAppointment(
         routeId: number, 

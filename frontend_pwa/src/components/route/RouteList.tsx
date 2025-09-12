@@ -44,7 +44,7 @@ interface RouteStop {
 
 
 export const RouteList: React.FC = () => {
-  const { selectedUserId } = useUserStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
   const { isStopCompleted, toggleStop, setCurrentWeekday, completedStops } = useRouteCompletionStore();
   
@@ -72,8 +72,8 @@ export const RouteList: React.FC = () => {
     setCurrentWeekday(selectedWeekday);
   }, [selectedWeekday, setCurrentWeekday]);
 
-  // Early return if no user is selected
-  if (!selectedUserId) {
+  // Early return if no user or weekend area is selected
+  if (!selectedUserId && !selectedWeekendArea) {
     return (
       <Box sx={{ px: 2, pb: 2 }}>
         <Box
@@ -86,26 +86,35 @@ export const RouteList: React.FC = () => {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            Bitte wählen Sie einen Mitarbeiter aus
+            Bitte wählen Sie einen Mitarbeiter oder eine Wochenend-Tour aus
           </Typography>
         </Box>
       </Box>
     );
   }
 
-  // Immer nur die Route des ausgewählten Mitarbeiters anzeigen
+  // Route für ausgewählten Mitarbeiter oder Wochenend-Bereich anzeigen
   const visibleRoutes = useMemo(() => {
-    return routes.filter(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
-  }, [routes, selectedUserId, selectedWeekday]);
+    if (selectedWeekendArea) {
+      // Für Wochenend-Touren: Route des ausgewählten Bereichs
+      return routes.filter(route => 
+        !route.employee_id && 
+        route.area === selectedWeekendArea && 
+        route.weekday === selectedWeekday
+      );
+    } else {
+      // Für Mitarbeiter: Route des ausgewählten Mitarbeiters
+      return routes.filter(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
+    }
+  }, [routes, selectedUserId, selectedWeekendArea, selectedWeekday]);
 
   // Create route stops for all visible routes
   const routeStops = useMemo(() => {
     const stops: RouteStop[] = [];
     
-    if (!selectedUserId) return stops;
+    if (!selectedUserId && !selectedWeekendArea) return stops;
     
     visibleRoutes.forEach(route => {
-      const employee = employees.find(e => e.id === route.employee_id);
       const routeOrder = parseRouteOrder(route.route_order);
       
       routeOrder.forEach((appointmentId, index) => {
@@ -131,17 +140,25 @@ export const RouteList: React.FC = () => {
     });
     
     return stops;
-  }, [visibleRoutes, employees, patients, appointments, selectedUserId, isStopCompleted]);
+  }, [visibleRoutes, employees, patients, appointments, selectedUserId, selectedWeekendArea, isStopCompleted]);
 
-  // Get TK appointments (phone calls) for the selected employee and day
+  // Get TK appointments (phone calls) for the selected employee/area and day
   const tkAppointments = useMemo(() => {
-    if (!selectedUserId) return [];
+    if (!selectedUserId && !selectedWeekendArea) return [];
     
-    const tkApps = appointments.filter(a => 
-      a.employee_id === selectedUserId && 
-      a.weekday === selectedWeekday && 
-      a.visit_type === 'TK'
-    );
+    const tkApps = appointments.filter(a => {
+      if (selectedWeekendArea) {
+        // Für Wochenend-Touren: TK-Termine für den ausgewählten Bereich und Wochentag
+        return a.weekday === selectedWeekday && 
+               a.area === selectedWeekendArea && 
+               a.visit_type === 'TK';
+      } else {
+        // Für Mitarbeiter: TK-Termine des ausgewählten Mitarbeiters
+        return a.employee_id === selectedUserId && 
+               a.weekday === selectedWeekday && 
+               a.visit_type === 'TK';
+      }
+    });
     
     return tkApps.map(appointment => {
       const patient = patients.find(p => p.id === appointment.patient_id);
@@ -155,7 +172,7 @@ export const RouteList: React.FC = () => {
       isCompleted: isStopCompleted(appointment.id || 0),
     };
     });
-  }, [appointments, selectedUserId, selectedWeekday, patients, isStopCompleted]);
+  }, [appointments, selectedUserId, selectedWeekendArea, selectedWeekday, patients, isStopCompleted]);
 
   // Calculate completion percentage - now using store state directly
   const completionPercentage = useMemo(() => {

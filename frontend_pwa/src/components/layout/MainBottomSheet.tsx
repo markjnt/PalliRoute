@@ -20,16 +20,16 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
   ({ isOpen, onClose }, ref) => {
     const sheetRef = useRef<SheetRef>(null);
     const [currentSnap, setCurrentSnap] = useState(1);
-    const { selectedEmployeeIds, toggleEmployee, selectAll, deselectAll, resetForNewUser } = useAdditionalRoutesStore();
-    const { selectedUserId } = useUserStore();
+  const { selectedEmployeeIds, toggleEmployee, selectAll, deselectAll, resetForNewUser } = useAdditionalRoutesStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
     const { isDragging } = useDragStore();
 
     const snapPoints = [0.88, 0];
 
-    // Reset additional routes when logged-in user changes
+    // Reset additional routes when logged-in user or weekend area changes
     useEffect(() => {
       resetForNewUser();
-    }, [selectedUserId, resetForNewUser]);
+    }, [selectedUserId, selectedWeekendArea, resetForNewUser]);
 
     const handleSnapChange = (snapIndex: number) => {
       setCurrentSnap(snapIndex);

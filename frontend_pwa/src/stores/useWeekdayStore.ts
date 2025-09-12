@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 // Typ für gültige Wochentage
-export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday';
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 interface WeekdayState {
   // State
@@ -22,9 +22,9 @@ export const useWeekdayStore = create<WeekdayState>()(
       // Actions
       setSelectedWeekday: (day) => set({ selectedWeekday: day }),
       resetToCurrentDay: () => {
-        const days: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-        const today = new Date().getDay() - 1; // 0 = Montag in unserem System (getDay() gibt 1 für Montag)
-        const currentDay = today >= 0 && today < 5 ? days[today] : 'monday'; // Fallback auf Montag für Wochenenden
+        const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const today = new Date().getDay(); // 0 = Sonntag, 1 = Montag, etc.
+        const currentDay = days[today] || 'monday'; // Fallback auf Montag
         set({ selectedWeekday: currentDay });
       }
     }),
