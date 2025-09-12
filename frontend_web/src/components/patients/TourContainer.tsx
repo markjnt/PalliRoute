@@ -14,17 +14,20 @@ import {
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
-import { useNotificationStore } from '../../stores/useNotificationStore';
-import { useBatchMoveAppointments, useMoveAppointment } from '../../services/queries/useAppointments';
-import { useReorderAppointment, useOptimizeRoutes } from '../../services/queries/useRoutes';
 import { getColorForTour } from '../../utils/colors';
 import TourSections from './TourSections';
-import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
 import { TourHeader } from './tour/TourHeader';
 import { TourStats } from './tour/TourStats';
 import { TourControls } from './tour/TourControls';
 import { TourSummary } from './tour/TourSummary';
 import { ReassignMenu } from './tour/ReassignMenu';
+import { 
+    usePatientManagement, 
+    useRouteManagement, 
+    useAppointmentManagement, 
+    useEmployeeManagement,
+    useRouteVisibility 
+} from '../../hooks';
 
 
 interface TourContainerProps {
@@ -46,9 +49,6 @@ interface MenuState {
     anchorEl: HTMLElement | null;
 }
 
-interface OptimizeState {
-    isOptimizing: boolean;
-}
 
 export const TourContainer: React.FC<TourContainerProps> = ({
     employee,
@@ -63,70 +63,75 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         open: false,
         anchorEl: null
     });
-    const [optimizeState, setOptimizeState] = useState<OptimizeState>({
-        isOptimizing: false
-    });
-    const { setNotification, setLoading, resetLoading } = useNotificationStore();
-    const optimizeRoutes = useOptimizeRoutes();
-    const batchMoveAppointments = useBatchMoveAppointments();
-    const moveAppointment = useMoveAppointment();
-    const reorderAppointment = useReorderAppointment();
     const dropRef = useRef<HTMLDivElement>(null);
-    const { hiddenPolylines, hiddenMarkers, togglePolyline, toggleMarker, hidePolyline, showPolyline, hideMarker, showMarker } = useRouteVisibility();
+
+    // Custom hooks for business logic
+    const patientManagement = usePatientManagement({
+        patients,
+        appointments,
+        selectedDay,
+        employeeId: employee.id
+    });
+
+    const routeManagement = useRouteManagement({
+        selectedDay,
+        employeeId: employee.id
+    });
+
+    const appointmentManagement = useAppointmentManagement({
+        selectedDay
+    });
+
+    const employeeManagement = useEmployeeManagement({
+        employees,
+        appointments,
+        selectedDay
+    });
+
+    const routeVisibility = useRouteVisibility({
+        routeId: routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase())?.id
+    });
 
     // Find the route for this employee and day
     const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
     const routeId = route?.id;
-    const isVisible = routeId !== undefined ? !hiddenPolylines.has(routeId) : false;
+    const isVisible = routeVisibility.isVisible;
 
-    // Get patients for this tour based on appointments for this employee and day
-    const tourPatients = React.useMemo(() => {
-        const patientIds = new Set<number>();
-        appointments.forEach(app => {
-            if (app.employee_id === employee.id && app.weekday === selectedDay) {
-                patientIds.add(app.patient_id);
-            }
-        });
-        return patients.filter(p => patientIds.has(p.id || 0));
-    }, [appointments, employee.id, selectedDay, patients]);
+    // Get patients using custom hook
+    const {
+        hbPatients,
+        tkPatients,
+        naPatients,
+        emptyTypePatients,
+        getSortedRoutePatients,
+        getPatientAppointments,
+        hasAppointmentsForDay
+    } = patientManagement;
+
+    const sortedRoutePatients = getSortedRoutePatients(route);
 
     const handleDropPatient = async (item: PatientDragItem) => {
-        try {
-            setLoading('Patient wird zugewiesen...');
-            const patientId = item.patientId;
-            const patient = patients.find(p => p.id === patientId);
-            
-            if (!patient) {
-                resetLoading();
-                console.error(`Patient mit ID ${patientId} nicht gefunden`);
-                setNotification('Patient nicht gefunden', 'error');
-                return;
-            }
-
-            if (item.appointmentIds.length === 0) {
-                resetLoading();
-                setNotification('Kein Termin für den ausgewählten Tag gefunden', 'error');
-                return;
-            }
-
-            if (!item.sourceEmployeeId) {
-                resetLoading();
-                setNotification('Kein aktueller Mitarbeiter für den ausgewählten Tag gefunden', 'error');
-                return;
-            }
-
-            await moveAppointment.mutateAsync({
-                appointmentId: item.appointmentIds[0],
-                sourceEmployeeId: item.sourceEmployeeId,
-                targetEmployeeId: employee.id || 0
-            });
-            resetLoading();
-            setNotification('Patient erfolgreich zugewiesen', 'success');
-        } catch (error) {
-            resetLoading();
-            console.error('Fehler beim Zuweisen des Patienten', error);
-            setNotification('Fehler beim Zuweisen des Patienten', 'error');
+        const patientId = item.patientId;
+        const patient = patients.find(p => p.id === patientId);
+        
+        if (!patient) {
+            console.error(`Patient mit ID ${patientId} nicht gefunden`);
+            return;
         }
+
+        if (item.appointmentIds.length === 0) {
+            return;
+        }
+
+        if (!item.sourceEmployeeId) {
+            return;
+        }
+
+        await appointmentManagement.moveAppointment({
+            appointmentId: item.appointmentIds[0],
+            sourceEmployeeId: item.sourceEmployeeId,
+            targetEmployeeId: employee.id || 0
+        });
     };
 
     const [{ isOver, canDrop }, drop] = useDrop<PatientDragItem, void, DropState>({
@@ -159,228 +164,39 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     };
 
     const handleOptimizeRoute = async () => {
-        try {
-            setOptimizeState({ isOptimizing: true });
-            await optimizeRoutes.mutateAsync({
-                weekday: selectedDay.toLowerCase(),
-                employeeId: employee.id || 0
-            });
-            setNotification('Route erfolgreich optimiert', 'success');
-        } catch (error) {
-            console.error('Fehler beim Optimieren der Route:', error);
-            setNotification('Fehler beim Optimieren der Route', 'error');
-        } finally {
-            setOptimizeState({ isOptimizing: false });
-            handleMenuClose();
-        }
+        await routeManagement.optimizeRoute();
+        handleMenuClose();
     };
 
     const handleMoveAllPatients = async (targetEmployeeId: number) => {
-        setLoading('Alle Patienten werden zugewiesen...');
-        try {
-            await batchMoveAppointments.mutateAsync({
-                sourceEmployeeId: employee.id || 0,
-                targetEmployeeId,
-                weekday: selectedDay
-            });
-            handleMenuClose();
-            resetLoading();
-            setNotification('Alle Patienten erfolgreich zugewiesen', 'success');
-        } catch (error) {
-            console.error('Fehler beim Verschieben aller Patienten:', error);
-            setNotification('Fehler beim Verschieben aller Patienten', 'error');
-        }
+        await appointmentManagement.moveAllAppointments({
+            sourceEmployeeId: employee.id || 0,
+            targetEmployeeId
+        });
+        handleMenuClose();
     };
 
     const handleMoveUp = async (patientId: number) => {
-        // Find the route for this employee and day
-        const route = routes.find(r => 
-            r.employee_id === employee.id && 
-            r.weekday === selectedDay.toLowerCase()
-        );
+        if (!routeId) return;
         
-        if (!route || !route.id) return;
-        
-        // Find the appointment for this patient
         const appointment = appointments.find(a => a.patient_id === patientId && a.employee_id === employee.id);
         if (!appointment || !appointment.id) return;
         
-        // Call the reorder mutation
-        setLoading('Patient wird verschoben...');
-        try {
-            await reorderAppointment.mutateAsync({
-                routeId: route.id,
-                appointmentId: appointment.id,
-                direction: 'up'
-            });
-        } finally {
-            resetLoading();
-            setNotification('Patient verschoben', 'success');
-        }
+        await routeManagement.movePatientUp(routeId, appointment.id);
     };
 
     const handleMoveDown = async (patientId: number) => {
-        // Find the route for this employee and day
-        const route = routes.find(r => 
-            r.employee_id === employee.id && 
-            r.weekday === selectedDay.toLowerCase()
-        );
+        if (!routeId) return;
         
-        if (!route || !route.id) return;
-        
-        // Find the appointment for this patient
         const appointment = appointments.find(a => a.patient_id === patientId && a.employee_id === employee.id);
         if (!appointment || !appointment.id) return;
         
-        // Call the reorder mutation
-        setLoading('Patient wird verschoben...');
-        try {
-            await reorderAppointment.mutateAsync({
-                routeId: route.id,
-                appointmentId: appointment.id,
-                direction: 'down'
-            });
-        } finally {
-            resetLoading();
-            setNotification('Patient verschoben', 'success');
-        }
+        await routeManagement.movePatientDown(routeId, appointment.id);
     };
 
-    // Filter available employees (excluding current employee)
-    const availableEmployees = employees
-        .filter(emp => emp.id !== employee.id)
-        .sort((a, b) => a.last_name.localeCompare(b.last_name));
-
-    // Count patients for each employee
-    const patientCountByEmployee = React.useMemo(() => {
-        const counts = new Map<number, number>();
-        employees.forEach(emp => {
-            counts.set(emp.id || 0, 0);
-        });
-        
-        // Count patients based on their appointments for the selected day
-        const patientIdsByEmployee = new Map<number, Set<number>>();
-        appointments.forEach(app => {
-            if (app.weekday === selectedDay && app.employee_id) {
-                if (!patientIdsByEmployee.has(app.employee_id)) {
-                    patientIdsByEmployee.set(app.employee_id, new Set());
-                }
-                patientIdsByEmployee.get(app.employee_id)!.add(app.patient_id);
-            }
-        });
-        
-        patientIdsByEmployee.forEach((patientIds, employeeId) => {
-            counts.set(employeeId, patientIds.size);
-        });
-        
-        return counts;
-    }, [employees, patients, appointments, selectedDay]);
-
-    // Filtere Termine für den ausgewählten Tag und diesen Mitarbeiter
-    const employeeAppointments = appointments.filter(a => 
-        a.employee_id === employee.id && a.weekday === selectedDay
-    );
-    
-    // Function to get appointments for a specific patient and the selected day
-    const getPatientAppointments = useCallback((patientId: number) => {
-        return employeeAppointments.filter(a => a.patient_id === patientId);
-    }, [employeeAppointments]);
-    
-    // Group patients by their appointment types (HB, TK, NA, or empty string)
-    const getFilteredPatients = (visitType: 'HB' | 'NA' | 'TK' | '') => {
-        // Find all appointments with this specific visit type
-        const typeAppointments = employeeAppointments.filter(a => a.visit_type === visitType);
-        
-        // Get unique patient IDs
-        const patientIds = Array.from(new Set(typeAppointments.map(a => a.patient_id)));
-        
-        // Return the corresponding patients
-        return patientIds
-            .map(id => patients.find(p => p.id === id))
-            .filter((p): p is Patient => p !== undefined);
-    };
-    
-    // Get patients by visit type
-    const hbPatients = getFilteredPatients('HB');
-    const tkPatients = getFilteredPatients('TK');
-    const naPatients = getFilteredPatients('NA');
-    const emptyTypePatients = getFilteredPatients('');
-    
-    // Sort route patients (HB + NA) by route order
-    const sortedRoutePatients = React.useMemo(() => {
-        // Find route for this employee on the selected day
-        const route = routes.find(r => 
-            r.employee_id === employee.id && 
-            r.weekday === selectedDay.toLowerCase()
-        );
-
-        // Create appointment ID to patient mapping
-        const appointmentToPatient = new Map<number, Patient>();
-        const allRoutePatients = [...hbPatients, ...naPatients]; // Include both HB and NA patients
-        
-        allRoutePatients.forEach(patient => {
-            // Find all HB and NA appointments for this patient
-            const patientAppts = getPatientAppointments(patient.id || 0)
-                .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
-            
-            // Map appointment IDs to the patient
-            patientAppts.forEach(app => {
-                if (app.id !== undefined) {
-                    appointmentToPatient.set(app.id, patient);
-                }
-            });
-        });
-        
-        // Create ordered patient list based on route order
-        const orderedPatients: Patient[] = [];
-        
-        if (route) {
-            // Handle route_order (could be array or string)
-            let routeOrder: number[] = [];
-            
-            if (route.route_order) {
-                // If route_order is already an array, use it
-                if (Array.isArray(route.route_order)) {
-                    routeOrder = route.route_order;
-                } else {
-                    // Otherwise, try to parse it as JSON string
-                    try {
-                        const parsedOrder = JSON.parse(route.route_order as unknown as string);
-                        if (Array.isArray(parsedOrder)) {
-                            routeOrder = parsedOrder;
-                        } else {
-                            console.warn('Parsed route_order is not an array:', parsedOrder);
-                        }
-                    } catch (error) {
-                        console.error('Failed to parse route_order:', error);
-                    }
-                }
-            }
-                        
-            // Add patients in the order specified by route_order
-            for (const appointmentId of routeOrder) {
-                const patient = appointmentToPatient.get(appointmentId);
-                if (patient && !orderedPatients.includes(patient)) {
-                    orderedPatients.push(patient);
-                }
-            }
-            
-            // Add any remaining HB/NA patients not in the route_order
-            allRoutePatients.forEach(patient => {
-                if (!orderedPatients.includes(patient)) {
-                    orderedPatients.push(patient);
-                }
-            });
-        } else {
-            // No route exists, just use all HB and NA patients
-            orderedPatients.push(...allRoutePatients);
-        }
-        
-        return orderedPatients;
-    }, [employee.id, selectedDay, hbPatients, naPatients, routes, getPatientAppointments]);
-    
-    // Check if there are any patients with appointments for the selected day
-    const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0 || emptyTypePatients.length > 0;
+    // Get available employees and patient counts using custom hook
+    const availableEmployees = employeeManagement.getAvailableEmployees(employee.id);
+    const patientCountByEmployee = patientManagement.getPatientCountByEmployee(employees);
     
     // Define the border style based on drag and drop state
     const getBorderStyle = () => {
@@ -441,23 +257,13 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     
                     <TourControls
                         expanded={expanded}
-                        optimizeState={optimizeState}
-                        tourPatientsCount={tourPatients.length}
+                        optimizeState={{ isOptimizing: routeManagement.isOptimizing }}
+                        tourPatientsCount={sortedRoutePatients.length}
                         routeId={routeId}
                         isVisible={isVisible}
                         onOptimizeRoute={handleOptimizeRoute}
                         onMenuOpen={handleMenuOpen}
-                        onToggleVisibility={() => {
-                            if (routeId !== undefined) {
-                                if (isVisible) {
-                                    hidePolyline(routeId);
-                                    hideMarker(routeId);
-                                } else {
-                                    showPolyline(routeId);
-                                    showMarker(routeId);
-                                }
-                            }
-                        }}
+                        onToggleVisibility={routeVisibility.toggleVisibility}
                     />
                 </Box>
                 

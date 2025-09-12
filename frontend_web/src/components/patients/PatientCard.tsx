@@ -29,9 +29,9 @@ import { Patient, Appointment, Weekday} from '../../types/models';
 import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { getColorForTour, employeeTypeColors } from '../../utils/colors';
-import { useNotificationStore } from '../../stores/useNotificationStore';
-import { useMoveAppointment, useAppointmentsByPatient } from '../../services/queries/useAppointments';
+import { useAppointmentsByPatient } from '../../services/queries/useAppointments';
 import WeekdayOverview from './WeekdayOverview';
+import { useAppointmentManagement } from '../../hooks';
 
 interface PatientCardProps {
     patient: Patient;
@@ -61,9 +61,12 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     const cardRef = useRef<HTMLDivElement>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const { data: employees = [] } = useEmployees();
-    const { setNotification, setLoading, resetLoading } = useNotificationStore();
-    const moveAppointment = useMoveAppointment();
     const { data: patientAppointments = [], isLoading, error } = useAppointmentsByPatient(patient.id ?? 0);
+    
+    // Custom hook for appointment management
+    const appointmentManagement = useAppointmentManagement({
+        selectedDay
+    });
     
     // Get current employee ID from the selected day appointment
     const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
@@ -112,45 +115,32 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     };
 
     const handleAssignEmployee = async (employeeId: number) => {
-        try {
-            setLoading('Patient wird zugewiesen...');
-            const targetEmployee = employees.find(e => e.id === employeeId);
-            if (!targetEmployee) {
-                setNotification('Ungültiger Mitarbeiter', 'error');
-                return;
-            }
-
-
-
-            // Find the appointment for the selected day
-            const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
-            if (!selectedDayAppointment) {
-                setNotification('Kein Termin für den ausgewählten Tag gefunden', 'error');
-                return;
-            }
-
-            // Get current employee ID from the selected day appointment
-            const currentEmployeeId = selectedDayAppointment.employee_id;
-            if (!currentEmployeeId) {
-                setNotification('Kein aktueller Mitarbeiter für den ausgewählten Tag gefunden', 'error');
-                return;
-            }
-
-            // Use the appointment for the selected day
-            if (typeof selectedDayAppointment.id === 'number') {
-                await moveAppointment.mutateAsync({
-                    appointmentId: selectedDayAppointment.id,
-                    sourceEmployeeId: currentEmployeeId,
-                    targetEmployeeId: employeeId
-                });
-            }
-            handleMenuClose();
-            resetLoading();
-            setNotification('Patient erfolgreich zugewiesen', 'success');
-        } catch (error) {
-            console.error('Fehler beim Zuweisen des Patienten:', error);
-            setNotification('Fehler beim Zuweisen des Patienten', 'error');
+        const targetEmployee = employees.find(e => e.id === employeeId);
+        if (!targetEmployee) {
+            return;
         }
+
+        // Find the appointment for the selected day
+        const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
+        if (!selectedDayAppointment) {
+            return;
+        }
+
+        // Get current employee ID from the selected day appointment
+        const currentEmployeeId = selectedDayAppointment.employee_id;
+        if (!currentEmployeeId) {
+            return;
+        }
+
+        // Use the appointment for the selected day
+        if (typeof selectedDayAppointment.id === 'number') {
+            await appointmentManagement.moveAppointment({
+                appointmentId: selectedDayAppointment.id,
+                sourceEmployeeId: currentEmployeeId,
+                targetEmployeeId: employeeId
+            });
+        }
+        handleMenuClose();
     };
 
     // Handle move up/down actions

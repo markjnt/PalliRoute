@@ -17,18 +17,23 @@ import {
     Phone as PhoneIcon
 } from '@mui/icons-material';
 import { Weekday, Route, Patient, Appointment } from '../../../types/models';
-import { useRoutes, useOptimizeWeekendRoutes, useReorderAppointment } from '../../../services/queries/useRoutes';
-import { useAppointmentsByWeekday, useBatchMoveAppointments } from '../../../services/queries/useAppointments';
+import { useRoutes } from '../../../services/queries/useRoutes';
+import { useAppointmentsByWeekday } from '../../../services/queries/useAppointments';
 import { usePatients } from '../../../services/queries/usePatients';
 import { useAreaStore } from '../../../stores/useAreaStore';
-import { useRouteVisibility } from '../../../stores/useRouteVisibilityStore';
-import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { WeekendPatientCard } from './WeekendPatientCard';
 import { WeekendTourHeader } from './tour/WeekendTourHeader';
 import { WeekendTourStats } from './tour/WeekendTourStats';
 import { WeekendTourControls } from './tour/WeekendTourControls';
 import { WeekendTourSummary } from './tour/WeekendTourSummary';
 import { WeekendReassignMenu } from './tour/WeekendReassignMenu';
+import { 
+    usePatientManagement, 
+    useRouteManagement, 
+    useAppointmentManagement, 
+    useAreaManagement,
+    useRouteVisibility 
+} from '../../../hooks';
 
 interface WeekendToursViewProps {
     selectedDay: Weekday;
@@ -54,7 +59,6 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
     selectedDay
 }) => {
     const [expanded, setExpanded] = useState(false);
-    const [isOptimizing, setIsOptimizing] = useState(false);
     const [menuState, setMenuState] = useState<{
         open: boolean;
         anchorEl: HTMLElement | null;
@@ -62,16 +66,52 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
         open: false,
         anchorEl: null
     });
-    const { hiddenPolylines, hiddenMarkers, togglePolyline, toggleMarker, hidePolyline, showPolyline, hideMarker, showMarker } = useRouteVisibility();
-    const { setNotification, setLoading, resetLoading } = useNotificationStore();
-    const optimizeWeekendRoutes = useOptimizeWeekendRoutes();
-    const reorderAppointment = useReorderAppointment();
-    const batchMoveAppointments = useBatchMoveAppointments();
+
+    // Custom hooks for business logic
+    const patientManagement = usePatientManagement({
+        patients,
+        appointments,
+        selectedDay,
+        area
+    });
+
+    const routeManagement = useRouteManagement({
+        selectedDay,
+        area
+    });
+
+    const appointmentManagement = useAppointmentManagement({
+        selectedDay
+    });
+
+    const areaManagement = useAreaManagement({
+        routes,
+        appointments,
+        selectedDay
+    });
 
     // Find the route for this area and day
     const route = routes.find(r => (r.area as string) === area && r.weekday === selectedDay && !r.employee_id);
     const routeId = route?.id;
-    const isVisible = routeId !== undefined ? !hiddenPolylines.has(routeId) : false;
+
+    // Get route visibility using custom hook
+    const routeVisibility = useRouteVisibility({ routeId });
+    const isVisible = routeVisibility.isVisible;
+
+    // Get patients using custom hook
+    const {
+        hbPatients,
+        tkPatients,
+        naPatients,
+        getSortedRoutePatients,
+        hasAppointmentsForDay
+    } = patientManagement;
+
+    const sortedRoutePatients = getSortedRoutePatients(route);
+
+    // Get area colors using custom hook
+    const backgroundColor = areaManagement.getAreaBackgroundColor(area);
+    const areaColor = areaManagement.getAreaColor(area);
 
     // Get appointments for this area
     const areaAppointments = appointments.filter(app => (app.area as string) === area && !app.employee_id);
@@ -81,117 +121,10 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
     const tkAppointments = areaAppointments.filter(app => app.visit_type === 'TK');
     const naAppointments = areaAppointments.filter(app => app.visit_type === 'NA');
 
-    const getAreaBackgroundColor = (area: WeekendArea) => {
-        switch (area) {
-            case 'Nord': return 'rgba(25, 118, 210, 0.08)';
-            case 'Mitte': return 'rgba(123, 31, 162, 0.08)';
-            case 'Süd': return 'rgba(56, 142, 60, 0.08)';
-            default: return 'rgba(255, 152, 0, 0.08)';
-        }
-    };
-
-    const areaColor = (() => {
-        switch (area) {
-            case 'Nord': return '#1976d2';
-            case 'Mitte': return '#7b1fa2';
-            case 'Süd': return '#388e3c';
-            default: return '#ff9800';
-        }
-    })();
-    const backgroundColor = getAreaBackgroundColor(area);
-
-    // Get patients for this area based on appointments
-    const getPatientsForArea = useCallback((visitType: 'HB' | 'TK' | 'NA') => {
-        const typeAppointments = areaAppointments.filter(app => app.visit_type === visitType);
-        const patientIds = Array.from(new Set(typeAppointments.map(a => a.patient_id)));
-        return patientIds
-            .map(id => patients.find(p => p.id === id))
-            .filter((p): p is Patient => p !== undefined);
-    }, [areaAppointments, patients]);
-
-    const hbPatients = getPatientsForArea('HB');
-    const tkPatients = getPatientsForArea('TK');
-    const naPatients = getPatientsForArea('NA');
-
-    // Sort route patients (HB + NA) by route order
-    const sortedRoutePatients = useMemo(() => {
-        if (!route) return [...hbPatients, ...naPatients];
-
-        // Create appointment ID to patient mapping
-        const appointmentToPatient = new Map<number, Patient>();
-        const allRoutePatients = [...hbPatients, ...naPatients];
-        
-        allRoutePatients.forEach(patient => {
-            const patientAppts = areaAppointments.filter(app => 
-                app.patient_id === patient.id && 
-                (app.visit_type === 'HB' || app.visit_type === 'NA')
-            );
-            
-            patientAppts.forEach(app => {
-                if (app.id !== undefined) {
-                    appointmentToPatient.set(app.id, patient);
-                }
-            });
-        });
-        
-        // Create ordered patient list based on route order
-        const orderedPatients: Patient[] = [];
-        
-        if (route.route_order) {
-            let routeOrder: number[] = [];
-            
-            if (Array.isArray(route.route_order)) {
-                routeOrder = route.route_order;
-            } else {
-                try {
-                    const parsedOrder = JSON.parse(route.route_order as unknown as string);
-                    if (Array.isArray(parsedOrder)) {
-                        routeOrder = parsedOrder;
-                    }
-                } catch (error) {
-                    console.error('Failed to parse route_order:', error);
-                }
-            }
-                        
-            // Add patients in the order specified by route_order
-            for (const appointmentId of routeOrder) {
-                const patient = appointmentToPatient.get(appointmentId);
-                if (patient && !orderedPatients.includes(patient)) {
-                    orderedPatients.push(patient);
-                }
-            }
-            
-            // Add any remaining HB/NA patients not in the route_order
-            allRoutePatients.forEach(patient => {
-                if (!orderedPatients.includes(patient)) {
-                    orderedPatients.push(patient);
-                }
-            });
-        } else {
-            orderedPatients.push(...allRoutePatients);
-        }
-        
-        return orderedPatients;
-    }, [route, hbPatients, naPatients, areaAppointments]);
-
-    // Check if there are any patients with appointments for the selected day
-    const hasAppointmentsForDay = hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0;
 
     // Handler functions
     const handleOptimizeRoute = async () => {
-        try {
-            setIsOptimizing(true);
-            await optimizeWeekendRoutes.mutateAsync({
-                weekday: selectedDay.toLowerCase(),
-                area: area
-            });
-            setNotification('Route erfolgreich optimiert', 'success');
-        } catch (error) {
-            console.error('Fehler beim Optimieren der Route:', error);
-            setNotification('Fehler beim Optimieren der Route', 'error');
-        } finally {
-            setIsOptimizing(false);
-        }
+        await routeManagement.optimizeWeekendRoute();
     };
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -209,64 +142,29 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
     };
 
     const handleMoveAllPatients = async (targetArea: string) => {
-        setLoading('Alle Patienten werden zugewiesen...');
-        try {
-            await batchMoveAppointments.mutateAsync({
-                sourceArea: area,
-                targetArea,
-                weekday: selectedDay
-            });
-            handleMenuClose();
-            resetLoading();
-            setNotification('Alle Patienten erfolgreich zugewiesen', 'success');
-        } catch (error) {
-            console.error('Fehler beim Verschieben aller Patienten:', error);
-            setNotification('Fehler beim Verschieben aller Patienten', 'error');
-        }
+        await appointmentManagement.moveAllAppointments({
+            sourceArea: area,
+            targetArea
+        });
+        handleMenuClose();
     };
 
     const handleMoveUp = async (patientId: number) => {
         if (!routeId) return;
         
-        // Find the appointment for this patient
         const appointment = areaAppointments.find(a => a.patient_id === patientId);
         if (!appointment || !appointment.id) return;
         
-        setLoading('Patient wird verschoben...');
-        try {
-            await reorderAppointment.mutateAsync({
-                routeId: routeId,
-                appointmentId: appointment.id,
-                direction: 'up'
-            });
-            setNotification('Patient verschoben', 'success');
-        } catch (error) {
-            setNotification('Fehler beim Verschieben des Patienten', 'error');
-        } finally {
-            resetLoading();
-        }
+        await routeManagement.movePatientUp(routeId, appointment.id);
     };
 
     const handleMoveDown = async (patientId: number) => {
         if (!routeId) return;
         
-        // Find the appointment for this patient
         const appointment = areaAppointments.find(a => a.patient_id === patientId);
         if (!appointment || !appointment.id) return;
         
-        setLoading('Patient wird verschoben...');
-        try {
-            await reorderAppointment.mutateAsync({
-                routeId: routeId,
-                appointmentId: appointment.id,
-                direction: 'down'
-            });
-            setNotification('Patient verschoben', 'success');
-        } catch (error) {
-            setNotification('Fehler beim Verschieben des Patienten', 'error');
-        } finally {
-            resetLoading();
-        }
+        await routeManagement.movePatientDown(routeId, appointment.id);
     };
 
     return (
@@ -300,23 +198,13 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
                     
                     <WeekendTourControls
                         expanded={expanded}
-                        isOptimizing={isOptimizing}
+                        isOptimizing={routeManagement.isOptimizing}
                         tourPatientsCount={sortedRoutePatients.length}
                         routeId={routeId}
                         isVisible={isVisible}
                         onOptimizeRoute={handleOptimizeRoute}
                         onMenuOpen={handleMenuOpen}
-                        onToggleVisibility={() => {
-                            if (routeId !== undefined) {
-                                if (isVisible) {
-                                    hidePolyline(routeId);
-                                    hideMarker(routeId);
-                                } else {
-                                    showPolyline(routeId);
-                                    showMarker(routeId);
-                                }
-                            }
-                        }}
+                        onToggleVisibility={routeVisibility.toggleVisibility}
                     />
                 </Box>
                 
@@ -449,18 +337,18 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { currentArea } = useAreaStore();
 
-    // Filter routes by area - for weekends, always show Mitte and filter others based on currentArea
-    const isAllAreas = currentArea === 'Nord- und Südkreis';
-    const filteredRoutes = isAllAreas 
-        ? routes 
-        : routes.filter(r => {
-            // Always show Mitte
-            if ((r.area as string) === 'Mitte') return true;
-            // Filter others based on currentArea
-            if (currentArea === 'Nordkreis') return (r.area as string) === 'Nord';
-            if (currentArea === 'Südkreis') return (r.area as string) === 'Süd';
-            return false;
-        });
+    // Custom hooks for business logic
+    const areaManagement = useAreaManagement({
+        routes,
+        appointments,
+        selectedDay,
+        currentArea: currentArea || undefined
+    });
+
+    // Get filtered routes and weekend areas using custom hook
+    const filteredRoutes = areaManagement.getFilteredRoutes();
+    const weekendRoutesByArea = areaManagement.getWeekendRoutesByArea();
+    const weekendAreas = areaManagement.getWeekendAreas();
 
     if (loadingRoutes || loadingAppointments || loadingPatients) {
         return (
@@ -478,13 +366,14 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
         );
     }
 
-    if (filteredRoutes.length === 0) {
-        return (
-            <Alert severity="info" sx={{ my: 2 }}>
-                Keine Wochenend-Touren gefunden für {selectedDay === 'saturday' ? 'Samstag' : 'Sonntag'}.
-            </Alert>
-        );
-    }
+    // Don't show "no routes found" message for weekends since Mitte should always be shown
+    // if (filteredRoutes.length === 0) {
+    //     return (
+    //         <Alert severity="info" sx={{ my: 2 }}>
+    //             Keine Wochenend-Touren gefunden für {selectedDay === 'saturday' ? 'Samstag' : 'Sonntag'}.
+    //         </Alert>
+    //     );
+    // }
 
     return (
         <Box>
@@ -497,14 +386,18 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {weekendAreas.map((area) => {
-                    const areaRoutes = filteredRoutes.filter(r => (r.area as string) === area);
+                    const areaRoutes = weekendRoutesByArea.get(area);
                     
-                    if (areaRoutes.length === 0) return null;
+                    // Always show Mitte, even if no routes exist
+                    // For other areas, only show if they have routes or if all areas are selected
+                    if (area !== 'Mitte' && (!areaRoutes || areaRoutes.length === 0)) {
+                        return null;
+                    }
 
                     return (
                         <WeekendTourContainer
                             key={area}
-                            area={area}
+                            area={area as WeekendArea}
                             routes={filteredRoutes}
                             appointments={appointments}
                             patients={patients}
