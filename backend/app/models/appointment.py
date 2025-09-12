@@ -3,8 +3,8 @@ from datetime import datetime
 import enum
 
 class VisitType(enum.Enum):
-    HB = "HB"  # Hausbesuch (25 min)
-    NA = "NA"  # Nachtbesuch (120 min)
+    HB = "HB"  # Hausbesuch (30 min)
+    NA = "NA"  # Nachtbesuch (90 min)
     TK = "TK"  # Telefonkontakt (no visit)
 
 class Weekday(enum.Enum):
@@ -21,7 +21,7 @@ class Appointment(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'))
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)  # Nullable for weekend appointments
     weekday = db.Column(db.String(20), nullable=False)
     time = db.Column(db.Time, nullable=True)
     visit_type = db.Column(db.String(10), nullable=False)
@@ -48,7 +48,7 @@ class Appointment(db.Model):
 
 # Zentrale Mapping-Konstante für Besuchsdauern (in Minuten)
 VISIT_TYPE_DURATIONS = {
-    VisitType.HB.value: 25,
-    VisitType.NA.value: 120,
+    VisitType.HB.value: 30,
+    VisitType.NA.value: 90,
     VisitType.TK.value: 0,
 }

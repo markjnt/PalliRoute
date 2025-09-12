@@ -163,4 +163,48 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
     console.warn(`No coordinates for patient: ${patient.first_name} ${patient.last_name}`);
     return null;
   }
+};
+
+// Create weekend area marker data (central starting point for weekend routes)
+export const createWeekendAreaMarkerData = (area: string, routeId?: number): MarkerData | null => {
+  // Central starting location for all weekend routes: Auf der Brück 9, 51645 Gummersbach
+  const weekendStartLocation = { lat: 50.9833022, lng: 7.5412243 };
+  const position = new google.maps.LatLng(weekendStartLocation.lat, weekendStartLocation.lng);
+  
+  return {
+    position,
+    title: area === 'Wochenend-Touren' ? 'Wochenend-Startpunkt' : `Wochenend-Startpunkt - ${area}-Bereich`,
+    type: 'weekend_area',
+    area,
+    routeId
+  };
+};
+
+// Create weekend patient marker data (for weekend appointments without employee assignment)
+export const createWeekendPatientMarkerData = (patient: Patient, appointment: Appointment, area: string, position?: number, routeId?: number): MarkerData | null => {
+  // Check if we have latitude and longitude from the backend
+  if (patient.latitude && patient.longitude) {
+    // Create position using coordinates from backend
+    const position_coords = new google.maps.LatLng(patient.latitude, patient.longitude);
+    
+    // If it's a HB (home visit) appointment and has a position, use it as the label
+    const label = appointment.visit_type === 'HB' && position ? position.toString() : undefined;
+    
+    return {
+      position: position_coords,
+      title: `${patient.first_name} ${patient.last_name} - ${appointment.visit_type} (${area})`,
+      type: 'weekend_patient',
+      label,
+      visitType: appointment.visit_type,
+      patientId: patient.id,
+      appointmentId: appointment.id,
+      routePosition: position,
+      routeId,
+      area
+    };
+  } else {
+    // If no coordinates, log warning and skip
+    console.warn(`No coordinates for weekend patient: ${patient.first_name} ${patient.last_name}`);
+    return null;
+  }
 }; 

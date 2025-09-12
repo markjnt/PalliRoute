@@ -16,7 +16,9 @@ def get_departure_time(weekday: str, calendar_week: int) -> datetime:
         'tuesday': 2,
         'wednesday': 3,
         'thursday': 4,
-        'friday': 5
+        'friday': 5,
+        'saturday': 6,
+        'sunday': 7
     }
     
     # Get the date using fromisocalendar
@@ -54,6 +56,16 @@ def calculate_visit_duration(appointments: List) -> int:
         VISIT_TYPE_DURATIONS.get(appointment.visit_type, 0)
         for appointment in appointments
     )
+
+def get_weekend_start_location(area: str) -> Dict[str, float]:
+    """
+    Get a central starting location for weekend routes based on area
+    For weekend routes, we need a central point in the area as starting point
+    """
+    # Central starting location for all weekend routes: Auf der Brück 9, 51645 Gummersbach
+    weekend_start_location = {'lat': 50.9833022, 'lng': 7.5412243}  # Gummersbach coordinates
+
+    return weekend_start_location
 
 def get_gmaps_client() -> googlemaps.Client:
     """Get Google Maps client with API key"""

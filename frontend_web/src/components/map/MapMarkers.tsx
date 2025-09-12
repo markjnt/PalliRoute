@@ -73,7 +73,8 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
             marker.type,
             marker.employeeType,
             marker.visitType,
-            false
+            false,
+            marker.area
           );
           let label = marker.isInactive ? undefined : createMarkerLabel(marker.routePosition, marker.visitType, marker.label);
           if (marker.isInactive) {

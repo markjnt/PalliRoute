@@ -46,26 +46,54 @@ export const appointmentsApi = {
         }
     },
 
-    async moveAppointment(appointmentId: number, sourceEmployeeId: number, targetEmployeeId: number): Promise<void> {
+    async moveAppointment(appointmentId: number, sourceEmployeeId?: number, targetEmployeeId?: number, sourceArea?: string, targetArea?: string): Promise<void> {
         try {
-            await api.post('/appointments/move', {
-                appointment_id: appointmentId,
-                source_employee_id: sourceEmployeeId,
-                target_employee_id: targetEmployeeId
-            });
+            const payload: any = {
+                appointment_id: appointmentId
+            };
+            
+            if (sourceEmployeeId !== undefined && targetEmployeeId !== undefined) {
+                // Employee-based move
+                payload.source_employee_id = sourceEmployeeId;
+                payload.target_employee_id = targetEmployeeId;
+            } else if (sourceArea && targetArea) {
+                // Area-based move (for weekend appointments)
+                payload.source_area = sourceArea;
+                payload.target_area = targetArea;
+            } else {
+                throw new Error('Either employee IDs or areas must be provided');
+            }
+            
+            await api.post('/appointments/move', payload);
         } catch (error) {
             console.error('Fehler beim Verschieben des Termins:', error);
             throw error;
         }
     },
 
-    async batchMoveAppointments(sourceEmployeeId: number, targetEmployeeId: number, weekday: string): Promise<void> {
+    async batchMoveAppointments(
+        sourceEmployeeId?: number, 
+        targetEmployeeId?: number, 
+        weekday?: string,
+        sourceArea?: string,
+        targetArea?: string
+    ): Promise<void> {
         try {
-            await api.post('/appointments/batchmove', {
-                source_employee_id: sourceEmployeeId,
-                target_employee_id: targetEmployeeId,
-                weekday
-            });
+            const payload: any = { weekday };
+            
+            if (sourceEmployeeId && targetEmployeeId) {
+                // Employee-based move (for weekday appointments)
+                payload.source_employee_id = sourceEmployeeId;
+                payload.target_employee_id = targetEmployeeId;
+            } else if (sourceArea && targetArea) {
+                // Area-based move (for weekend appointments)
+                payload.source_area = sourceArea;
+                payload.target_area = targetArea;
+            } else {
+                throw new Error('Either employee IDs or areas must be provided');
+            }
+            
+            await api.post('/appointments/batchmove', payload);
         } catch (error) {
             console.error('Fehler beim Batch-Verschieben der Termine:', error);
             throw error;

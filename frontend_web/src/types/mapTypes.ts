@@ -12,7 +12,7 @@ export interface MarkerData {
   position: google.maps.LatLng;
   title: string;
   label?: string;
-  type: 'employee' | 'patient';
+  type: 'employee' | 'patient' | 'weekend_area' | 'weekend_patient';
   visitType?: string; // HB, TK, or NA
   employeeType?: string; // Job title for employees
   patientId?: number;
@@ -23,6 +23,7 @@ export interface MarkerData {
   routeId?: number; // ID der zugehörigen Route (für Sichtbarkeit)
   isInactive?: boolean; // Marker gehört zu keiner sichtbaren Route
   routeArea?: string; // Area der zugehörigen Route (Nordkreis/Südkreis)
+  area?: string; // Weekend area (Nord, Mitte, Süd)
 }
 
 // Group of markers at the same location
@@ -34,7 +35,7 @@ export interface MarkerGroup {
 
 // Route path data for polylines
 export interface RoutePathData {
-  employeeId: number;
+  employeeId: number | null;
   routeId: number;
   routeOrder: number[];
   color: string;

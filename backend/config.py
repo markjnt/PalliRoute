@@ -33,5 +33,5 @@ class Config:
     
     # Scheduler configuration
     AUTO_IMPORT_ENABLED = os.environ.get('AUTO_IMPORT_ENABLED', 'true').lower() == 'true'
-    AUTO_IMPORT_INTERVAL_MINUTES = int(os.environ.get('AUTO_IMPORT_INTERVAL_MINUTES', '10'))
+    AUTO_IMPORT_INTERVAL_MINUTES = int(os.environ.get('AUTO_IMPORT_INTERVAL_MINUTES', '30'))
 

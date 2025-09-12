@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress, Button, Chip, Tooltip } from '@mui/material';
 import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
 import { TourContainer } from './TourContainer';
+import { WeekendToursView } from './weekend/WeekendToursView';
 import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon, Route as RouteIcon, LocalHospital as DoctorIcon, RemoveCircle as EmptyIcon } from '@mui/icons-material';
 import { employeeTypeColors } from '../../utils/colors';
 import { useRoutes } from '../../services/queries/useRoutes';
@@ -21,7 +22,15 @@ interface ToursViewProps {
 }
 
 export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, filteredResults }) => {
-    // React Query Hooks
+    // Check if this is a weekend day
+    const isWeekend = selectedDay === 'saturday' || selectedDay === 'sunday';
+    
+    // For weekend days, show only the weekend tours view
+    if (isWeekend) {
+        return <WeekendToursView selectedDay={selectedDay} />;
+    }
+
+    // React Query Hooks (only for weekdays)
     const { data: employees = [], isLoading: loadingEmployees, error: employeesError } = useEmployees();
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);

@@ -200,9 +200,11 @@ class ExcelImportService:
         """
         Import patients and their appointments from Excel file
         Expected columns: Gebiet, Touren, Nachname, Vorname, Ort, PLZ, Strasse, KW,
-                          Montag, Uhrzeit/Info Montag, Dienstag, Uhrzeit/Info Dienstag, etc.
+                          Montag, Uhrzeit/Info Montag, Dienstag, Uhrzeit/Info Dienstag, etc.,
+                          Samstag, Uhrzeit/Info Samstag, Sonntag, Uhrzeit/Info Sonntag
         Optional columns: Zuständige Montag, Zuständige Dienstag, Zuständige Mittwoch, 
                          Zuständige Donnerstag, Zuständige Freitag (contain employee aliases)
+        Weekend columns: Touren-Wochenende (contains area: Nord, Mitte, Süd)
         Returns a dictionary with 'patients' and 'appointments' lists
         
         Importablauf:
@@ -223,14 +225,18 @@ class ExcelImportService:
                 'Gebiet', 'Touren', 'Nachname', 'Vorname', 'Ort', 'PLZ', 'Strasse', 'KW',
                 'Montag', 'Uhrzeit/Info Montag', 'Dienstag', 'Uhrzeit/Info Dienstag', 
                 'Mittwoch', 'Uhrzeit/Info Mittwoch', 'Donnerstag', 'Uhrzeit/Info Donnerstag',
-                'Freitag', 'Uhrzeit/Info Freitag', 'Telefon', 'Telefon2'
+                'Freitag', 'Uhrzeit/Info Freitag', 'Samstag', 'Uhrzeit/Info Samstag',
+                'Sonntag', 'Uhrzeit/Info Sonntag', 'Telefon', 'Telefon2'
             ]
             
             # Optional columns for specific employee assignment
             optional_responsible_columns = [
                 'Zuständige Montag', 'Zuständige Dienstag', 'Zuständige Mittwoch', 
-                'Zuständige Donnerstag', 'Zuständige Freitag'
+                'Zuständige Donnerstag', 'Zuständige Freitag', 'Zuständige Samstag', 'Zuständige Sonntag'
             ]
+            
+            # Weekend area column
+            weekend_area_column = 'Touren-Wochenende'
 
             # Validate columns
             if not all(col in df.columns for col in required_columns):
@@ -243,6 +249,13 @@ class ExcelImportService:
                 print(f"Found optional responsible employee columns: {found_responsible_columns}")
             else:
                 print("No optional responsible employee columns found - using default assignment from 'Touren' column")
+            
+            # Check for weekend area column
+            has_weekend_area = weekend_area_column in df.columns
+            if has_weekend_area:
+                print(f"Found weekend area column: {weekend_area_column}")
+            else:
+                print("No weekend area column found - weekend appointments will not be assigned to areas")
 
             # 1. Patientenadressen extrahieren und deduplizieren
             patient_address_tuples = []
@@ -293,6 +306,7 @@ class ExcelImportService:
             print("Step 4: Creating appointments for each patient...")
             appointments = []
             weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag']
+            weekend_days = ['Samstag', 'Sonntag']
             
             # Check for new responsible employee columns
             responsible_columns = [f"Zuständige {weekday}" for weekday in weekdays]
@@ -301,7 +315,14 @@ class ExcelImportService:
             if has_responsible_columns:
                 print(f"  Found responsible employee columns: {[col for col in responsible_columns if col in df.columns]}")
             
-            for _, row in df.iterrows():
+            # Check for weekend responsible employee columns
+            weekend_responsible_columns = [f"Zuständige {weekday}" for weekday in weekend_days]
+            has_weekend_responsible_columns = any(col in df.columns for col in weekend_responsible_columns)
+            
+            if has_weekend_responsible_columns:
+                print(f"  Found weekend responsible employee columns: {[col for col in weekend_responsible_columns if col in df.columns]}")
+            
+            for idx, row in df.iterrows():
                 patient = next((p for p in patients if 
                                p.last_name == str(row['Nachname']).strip() and
                                p.first_name == str(row['Vorname']).strip() and
@@ -390,6 +411,80 @@ class ExcelImportService:
                         area=patient.area
                     )
                     appointments.append(appointment)
+                
+                # Process weekend days (Samstag, Sonntag) - no employee assignment, area-based
+                for weekday in weekend_days:
+                    weekday_value = row[weekday]
+                    visit_type = None
+                    duration = 0
+                    if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
+                        visit_info = str(weekday_value).strip().upper()
+                        if "HB" in visit_info:
+                            visit_type = "HB"
+                        elif "NA" in visit_info:
+                            visit_type = "NA"
+                        elif "TK" in visit_info:
+                            visit_type = "TK"
+                        else:
+                            visit_type = "HB"
+                        duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
+                        
+                        # Validate weekend area assignment
+                        weekend_area = None
+                        if not has_weekend_area:
+                            raise ValueError(f"Wochenend-Termine gefunden, aber keine 'Touren-Wochenende' Spalte vorhanden. Bitte fügen Sie die Spalte 'Touren-Wochenende' hinzu und geben Sie die Area (Nord, Mitte oder Süd) für jeden Patienten an.")
+                        
+                        if weekend_area_column in row and pd.notna(row[weekend_area_column]):
+                            weekend_area_raw = str(row[weekend_area_column]).strip()
+                            if "Nord" in weekend_area_raw:
+                                weekend_area = "Nord"
+                            elif "Mitte" in weekend_area_raw:
+                                weekend_area = "Mitte"
+                            elif "Süd" in weekend_area_raw:
+                                weekend_area = "Süd"
+                            else:
+                                patient_name = f"{str(row['Vorname']).strip()} {str(row['Nachname']).strip()}"
+                                raise ValueError(f"Wochenend-Termine gefunden, aber 'Touren-Wochenende' Spalte ist leer oder enthält keine gültige Area (Nord, Mitte, Süd) für Patient {patient_name} in Zeile {idx + 2}.")
+                        else:
+                            patient_name = f"{str(row['Vorname']).strip()} {str(row['Nachname']).strip()}"
+                            raise ValueError(f"Wochenend-Termine gefunden, aber 'Touren-Wochenende' Spalte ist leer oder enthält keine gültige Area (Nord, Mitte, Süd) für Patient {patient_name} in Zeile {idx + 2}.")
+                    else:
+                        # No weekend appointment, skip area validation
+                        weekend_area = None
+                    
+                    time_info_column = f"Uhrzeit/Info {weekday}"
+                    time_info = None
+                    if time_info_column in row and not pd.isna(row[time_info_column]):
+                        time_info = str(row[time_info_column])
+                    appointment_time = None
+                    if time_info and ':' in time_info:
+                        try:
+                            time_parts = time_info.split(':')
+                            hour, minute = int(time_parts[0]), int(time_parts[1])
+                            appointment_time = time(hour, minute)
+                        except (ValueError, IndexError):
+                            pass
+                    weekday_map = {
+                        'Samstag': 'saturday',
+                        'Sonntag': 'sunday'
+                    }
+                    english_weekday = weekday_map.get(weekday, weekday.lower())
+                    visit_type_value = visit_type if visit_type is not None else ""
+                    
+                    # Only create appointment if there's a visit type (i.e., if there was a weekend appointment)
+                    if visit_type is not None:
+                        appointment = Appointment(
+                            patient_id=patient.id,
+                            employee_id=None,  # No employee assignment for weekend appointments
+                            weekday=english_weekday,
+                            time=appointment_time,
+                            visit_type=visit_type_value,
+                            duration=duration,
+                            info=time_info,
+                            area=weekend_area
+                        )
+                        appointments.append(appointment)
+            
             print(f"  Created {len(appointments)} appointments.")
             db.session.add_all(appointments)
             db.session.commit()
@@ -402,10 +497,10 @@ class ExcelImportService:
             # Mapping von employee_id auf area für schnellen Zugriff
             employee_id_to_area = {emp.id: emp.area for emp in employees}
             
-            # Gruppiere Termine nach Mitarbeiter und Wochentag
+            # Gruppiere Termine nach Mitarbeiter und Wochentag (nur Wochentage)
             employee_weekday_appointments = {}
             for app in appointments:
-                if app.visit_type in ('HB', 'NA'):  # Nur HB- und NA-Termine berücksichtigen (TK nicht routen)
+                if app.visit_type in ('HB', 'NA') and app.employee_id is not None:  # Nur HB- und NA-Termine mit Mitarbeiter berücksichtigen
                     key = (app.employee_id, app.weekday)
                     if key not in employee_weekday_appointments:
                         employee_weekday_appointments[key] = []
@@ -429,6 +524,38 @@ class ExcelImportService:
                 )
                 db.session.add(new_route)
                 routes.append(new_route)
+            
+            # Step 6b: Create weekend routes by area (no employee assignment)
+            print("\nStep 6b: Creating weekend routes by area...")
+            weekend_routes = []
+            
+            # Gruppiere Wochenend-Termine nach Area und Wochentag
+            weekend_area_appointments = {}
+            for app in appointments:
+                if app.visit_type in ('HB', 'NA') and app.employee_id is None and app.weekday in ['saturday', 'sunday']:
+                    key = (app.area, app.weekday)
+                    if key not in weekend_area_appointments:
+                        weekend_area_appointments[key] = []
+                    weekend_area_appointments[key].append(app)
+            
+            # Erstelle für jede Area-Wochentag-Kombination eine Route
+            for (area, weekday), apps in weekend_area_appointments.items():
+                if not apps:
+                    continue
+                
+                # Neue Route erstellen mit allen HB-Terminen für diese Area an diesem Wochentag
+                appointment_ids = [app.id for app in apps]
+                new_route = Route(
+                    employee_id=None,  # No employee assignment for weekend routes
+                    weekday=weekday,
+                    route_order=json.dumps(appointment_ids),
+                    total_duration=0,  # Wird später aktualisiert
+                    total_distance=0,  # Wird später aktualisiert
+                    area=area
+                )
+                db.session.add(new_route)
+                routes.append(new_route)
+                weekend_routes.append(new_route)
             
             # Speichere alle Routen in der Datenbank
             if routes:
@@ -473,6 +600,33 @@ class ExcelImportService:
                         db.session.add(new_route)
                         empty_routes.append(new_route)
             
+            # Step 7b: Erstelle leere Routen für alle Areas für jeden Wochenend-Tag
+            print("\nStep 7b: Creating empty weekend routes for all areas...")
+            weekend_areas = ['Nord', 'Mitte', 'Süd']
+            weekend_days = ['saturday', 'sunday']
+            
+            for area in weekend_areas:
+                for weekday in weekend_days:
+                    # Prüfen, ob bereits eine Route für diese Area und Tag existiert
+                    existing_route = Route.query.filter_by(
+                        employee_id=None,
+                        weekday=weekday,
+                        area=area
+                    ).first()
+                    
+                    if not existing_route:
+                        print(f"  Creating empty weekend route for area {area} on {weekday}")
+                        new_route = Route(
+                            employee_id=None,
+                            weekday=weekday,
+                            route_order=json.dumps([]),  # Leere Route
+                            total_duration=0,
+                            total_distance=0,
+                            area=area
+                        )
+                        db.session.add(new_route)
+                        empty_routes.append(new_route)
+            
             if empty_routes:
                 print(f"  Saving {len(empty_routes)} empty routes to database...")
                 db.session.commit()
@@ -486,7 +640,7 @@ class ExcelImportService:
             planned_routes = 0
             failed_routes = 0
 
-            # Plan routes for all non-empty routes
+            # Plan routes for all non-empty weekday routes
             for route in routes:
                 try:
                     print(f"  Planning route for employee {route.employee_id} on {route.weekday}")
@@ -494,6 +648,18 @@ class ExcelImportService:
                     planned_routes += 1
                 except Exception as e:
                     print(f"  Failed to plan route for employee {route.employee_id} on {route.weekday}: {str(e)}")
+                    failed_routes += 1
+                    continue
+
+            # Plan routes for all non-empty weekend routes
+            print("\nStep 8b: Planning weekend routes...")
+            for route in weekend_routes:
+                try:
+                    print(f"  Planning weekend route for area {route.area} on {route.weekday}")
+                    route_planner.plan_route(route.weekday, area=route.area)
+                    planned_routes += 1
+                except Exception as e:
+                    print(f"  Failed to plan weekend route for area {route.area} on {route.weekday}: {str(e)}")
                     failed_routes += 1
                     continue
 

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
 
@@ -48,12 +49,12 @@ class SchedulerService:
                 return
                 
             # Get interval from config
-            interval_minutes = self.app.config.get('AUTO_IMPORT_INTERVAL_MINUTES', 10)
+            interval_minutes = self.app.config.get('AUTO_IMPORT_INTERVAL_MINUTES', 30)
             
-            # Add the import job
+            # Add the import job with time restriction (7 AM to 5 PM, every 30 minutes)
             self.scheduler.add_job(
                 func=self._scheduled_import,
-                trigger=IntervalTrigger(minutes=interval_minutes),
+                trigger=CronTrigger(minute='*/30', hour='7-17'),
                 id='auto_import_job',
                 name='Automatic Patient Import',
                 replace_existing=True
@@ -61,7 +62,7 @@ class SchedulerService:
             
             self.scheduler.start()
             self.is_running = True
-            logger.info(f"Scheduler started - automatic import will run every {interval_minutes} minutes")
+            logger.info(f"Scheduler started - automatic import will run every 30 minutes between 7 AM and 5 PM")
             
     def stop(self):
         """Stop the scheduler"""

@@ -24,14 +24,15 @@ import {
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
-import { Weekday, Employee } from '../../types/models';
+import { Employee } from '../../types/models';
+import { Weekday } from '../../stores/useWeekdayStore';
 import { ToursView } from './ToursView';
 import { SearchField } from './SearchField';
 import { useWeekdayStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport, useLastPatientImportTime } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
-import { useRoutes, useOptimizeRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -87,6 +88,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
+    const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
     const { data: lastImportTimeData } = useLastPatientImportTime();
 
     // Update local store when API data changes
@@ -146,7 +148,9 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             tuesday: 'Dienstag',
             wednesday: 'Mittwoch',
             thursday: 'Donnerstag',
-            friday: 'Freitag'
+            friday: 'Freitag',
+            saturday: 'Samstag',
+            sunday: 'Sonntag'
         };
         return weekdayNames[day] || 'Unbekannt';
     }, []);
@@ -165,30 +169,46 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     }, [patientsError, appointmentsError, routesError]);
 
     const handleOptimizeAllRoutes = async () => {
-        if (!employees.length || !routes.length) return;
+        if (!routes.length) return;
 
-        // Nur Mitarbeiter, die eine Route für den Tag haben
-        const employeeIdsWithRoute = routes
-            .filter(route => route.employee_id !== undefined && route.employee_id !== null)
-            .map(route => route.employee_id);
-
-        const employeesWithRoute = employees.filter(
-            emp => emp.id !== undefined && employeeIdsWithRoute.includes(emp.id)
-        );
+        // Check if this is a weekend day
+        const isWeekend = selectedWeekday === 'saturday' || selectedWeekday === 'sunday';
 
         setIsOptimizing(true);
         try {
-            const optimizationPromises = employeesWithRoute.map(employee =>
-                optimizeRoutesMutation.mutateAsync({
-                    weekday: selectedWeekday.toLowerCase(),
-                    employeeId: employee.id as number
-                })
-            );
+            if (isWeekend) {
+                // Optimize weekend routes by area
+                const weekendAreas = ['Nord', 'Mitte', 'Süd'];
+                const optimizationPromises = weekendAreas.map(area =>
+                    optimizeWeekendRoutesMutation.mutateAsync({
+                        weekday: selectedWeekday.toLowerCase(),
+                        area: area
+                    })
+                );
+                await Promise.all(optimizationPromises);
+                setNotification('Alle Wochenend-Routen wurden erfolgreich optimiert', 'success');
+            } else {
+                // Optimize weekday routes by employee
+                const employeeIdsWithRoute = routes
+                    .filter(route => route.employee_id !== undefined && route.employee_id !== null)
+                    .map(route => route.employee_id);
 
-            await Promise.all(optimizationPromises);
+                const employeesWithRoute = employees.filter(
+                    emp => emp.id !== undefined && employeeIdsWithRoute.includes(emp.id)
+                );
+
+                const optimizationPromises = employeesWithRoute.map(employee =>
+                    optimizeRoutesMutation.mutateAsync({
+                        weekday: selectedWeekday.toLowerCase(),
+                        employeeId: employee.id as number
+                    })
+                );
+
+                await Promise.all(optimizationPromises);
+                setNotification('Alle Routen für den Tag wurden erfolgreich optimiert', 'success');
+            }
+
             await queryClient.invalidateQueries();
-
-            setNotification('Alle Routen für den Tag wurden erfolgreich optimiert', 'success');
         } catch (error) {
             setNotification('Fehler beim Optimieren der Routen', 'error');
         } finally {
@@ -270,6 +290,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                             <MenuItem value="wednesday">Mittwoch</MenuItem>
                             <MenuItem value="thursday">Donnerstag</MenuItem>
                             <MenuItem value="friday">Freitag</MenuItem>
+                            <MenuItem value="saturday" sx={{ backgroundColor: '#fff3e0' }}>Samstag</MenuItem>
+                            <MenuItem value="sunday" sx={{ backgroundColor: '#fff3e0' }}>Sonntag</MenuItem>
                         </Select>
                     </FormControl>
                 </Box>
@@ -316,13 +338,16 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
             <Divider />
 
-            <SearchField
-                selectedDay={selectedWeekday}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                onClearSearch={handleClearSearch}
-                onFilteredResultsChange={handleFilteredResultsChange}
-            />
+            {/* SearchField nur an Wochentagen anzeigen, nicht am Wochenende */}
+            {selectedWeekday !== 'saturday' && selectedWeekday !== 'sunday' && (
+                <SearchField
+                    selectedDay={selectedWeekday}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    onClearSearch={handleClearSearch}
+                    onFilteredResultsChange={handleFilteredResultsChange}
+                />
+            )}
 
             <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
                 <ToursView 

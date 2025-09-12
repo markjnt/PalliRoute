@@ -21,12 +21,16 @@ def get_routes():
     - employee_id: Filter by employee
     - weekday: Filter by weekday (monday, tuesday, etc.)
     - date: Filter by specific date (YYYY-MM-DD)
+    - area: Filter by area (for weekend routes)
+    - weekend_only: Filter only weekend routes (saturday, sunday)
     """
     try:
         # Get query parameters
         employee_id = request.args.get('employee_id', type=int)
         weekday = request.args.get('weekday', '').lower()
         date_str = request.args.get('date')
+        area = request.args.get('area')
+        weekend_only = request.args.get('weekend_only', '').lower() == 'true'
 
         # Build query
         query = Route.query
@@ -36,6 +40,12 @@ def get_routes():
         
         if weekday:
             query = query.filter_by(weekday=weekday)
+        
+        if area:
+            query = query.filter_by(area=area)
+        
+        if weekend_only:
+            query = query.filter(Route.weekday.in_(['saturday', 'sunday']))
         
         if date_str:
             try:
@@ -129,7 +139,13 @@ def update_route(route_id):
         route.set_route_order(route_order)
 
         # Recalculate route using RoutePlanner
-        route_planner.plan_route(route.weekday, route.employee_id)
+        if route.employee_id:
+            route_planner.plan_route(route.weekday, route.employee_id)
+        else:
+            # For weekend routes, plan by area
+            route_planner.plan_route(route.weekday, area=route.area)
+
+        # Note: plan_route already commits changes to database
 
         return jsonify({
             'message': 'Route updated successfully',
@@ -154,10 +170,11 @@ def get_route(route_id):
 @routes_bp.route('/optimize', methods=['POST'])
 def optimize_routes():
     """
-    Optimize routes for a specific weekday and employee.
+    Optimize routes for a specific weekday and employee or area.
     Expected JSON body: {
         "weekday": "monday",  # Wochentag (kleingeschrieben)
-        "employee_id": 1      # Mitarbeiter-ID
+        "employee_id": 1,     # Mitarbeiter-ID (for weekday routes)
+        "area": "Nordkreis"   # Area (for weekend routes)
     }
     """
     try:
@@ -166,11 +183,22 @@ def optimize_routes():
             return jsonify({'error': 'No data provided'}), 400
         weekday = data.get('weekday', '').lower()
         employee_id = data.get('employee_id')
-        if not weekday or not employee_id:
-            return jsonify({'error': 'weekday and employee_id are required'}), 400
-        # Führe die Optimierung durch
-        route_optimizer.optimize_route(weekday, employee_id)
-        return jsonify({'message': 'Routes optimized successfully'})
+        area = data.get('area')
+        
+        if not weekday:
+            return jsonify({'error': 'weekday is required'}), 400
+        
+        if employee_id:
+            # Optimize weekday route by employee
+            route_optimizer.optimize_route(weekday, employee_id)
+            return jsonify({'message': f'Routes optimized successfully for employee {employee_id} on {weekday}'})
+        elif area:
+            # Optimize weekend route by area
+            route_optimizer.optimize_route(weekday, area=area)
+            return jsonify({'message': f'Weekend routes optimized successfully for area {area} on {weekday}'})
+        else:
+            return jsonify({'error': 'Either employee_id or area is required'}), 400
+            
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500 

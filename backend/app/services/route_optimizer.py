@@ -9,7 +9,8 @@ from .route_utils import (
     get_departure_time,
     calculate_route_duration,
     calculate_visit_duration,
-    get_gmaps_client
+    get_gmaps_client,
+    get_weekend_start_location
 )
 
 class RouteOptimizer:
@@ -22,27 +23,44 @@ class RouteOptimizer:
         ordered_appointments = [appointments[i].id for i in waypoint_order]
         return str(ordered_appointments)
 
-    def optimize_route(self, weekday: str, employee_id: int) -> None:
+    def optimize_route(self, weekday: str, employee_id: int = None, area: str = None) -> None:
         """
-        Optimize route for a single employee and weekday
+        Optimize route for a single employee and weekday or for weekend routes by area
         Args:
             weekday: Day of the week
-            employee_id: ID of the employee
+            employee_id: ID of the employee (for weekday routes)
+            area: Area name (for weekend routes)
         """
         try:
+            # Determine if this is a weekend route
+            is_weekend = weekday.lower() in ['saturday', 'sunday']
+            
+            if is_weekend and not area:
+                raise ValueError("Area is required for weekend routes")
+            elif not is_weekend and not employee_id:
+                raise ValueError("Employee ID is required for weekday routes")
+            
             # Get calendar week from any patient
             patient = Patient.query.filter(Patient.calendar_week.isnot(None)).first()
             if not patient:
                 raise ValueError("No patients found with calendar week information")
                         
             # Get route from database
-            route = Route.query.filter_by(
-                employee_id=employee_id,
-                weekday=weekday.lower()
-            ).first()
-
-            if not route:
-                raise ValueError(f"No route found for employee {employee_id} on {weekday}")
+            if is_weekend:
+                route = Route.query.filter_by(
+                    employee_id=None,
+                    weekday=weekday.lower(),
+                    area=area
+                ).first()
+                if not route:
+                    raise ValueError(f"No weekend route found for area {area} on {weekday}")
+            else:
+                route = Route.query.filter_by(
+                    employee_id=employee_id,
+                    weekday=weekday.lower()
+                ).first()
+                if not route:
+                    raise ValueError(f"No route found for employee {employee_id} on {weekday}")
 
             # If route order is empty, set distance and duration to 0
             if not route.get_route_order():
@@ -53,11 +71,6 @@ class RouteOptimizer:
                 db.session.commit()
                 return
 
-            # Get employee
-            employee = Employee.query.filter_by(id=employee_id).first()
-            if not employee:
-                raise ValueError(f"Employee with ID {employee_id} not found")
-
             # Get appointments from route order
             appointment_ids = eval(route.route_order)
             appointments = Appointment.query.filter(Appointment.id.in_(appointment_ids)).all()
@@ -66,7 +79,15 @@ class RouteOptimizer:
                 raise ValueError(f"No appointments found for the IDs in route order: {appointment_ids}")
 
             # Get coordinates for all locations
-            employee_location = {'lat': employee.latitude, 'lng': employee.longitude}
+            if is_weekend:
+                # For weekend routes, use a central location in the area as start/end point
+                start_location = get_weekend_start_location(area)
+            else:
+                # Get employee location for weekday routes
+                employee = Employee.query.filter_by(id=employee_id).first()
+                if not employee:
+                    raise ValueError(f"Employee with ID {employee_id} not found")
+                start_location = {'lat': employee.latitude, 'lng': employee.longitude}
 
             # Get coordinates for appointments
             waypoints = []
@@ -79,8 +100,8 @@ class RouteOptimizer:
 
             # Calculate optimized route
             result = self.gmaps.directions(
-                origin=employee_location,
-                destination=employee_location,
+                origin=start_location,
+                destination=start_location,
                 waypoints=waypoints,
                 optimize_waypoints=True,  # Enable optimization
                 departure_time=departure_time,
@@ -108,4 +129,7 @@ class RouteOptimizer:
         except Exception as e:
             print(e)
             db.session.rollback()
-            raise Exception(f'Failed to optimize route for employee {employee_id}: {str(e)}') 
+            if is_weekend:
+                raise Exception(f'Failed to optimize weekend route for area {area}: {str(e)}')
+            else:
+                raise Exception(f'Failed to optimize route for employee {employee_id}: {str(e)}') 

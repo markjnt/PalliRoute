@@ -6,7 +6,7 @@ class Route(db.Model):
     __tablename__ = 'routes'
     
     id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)  # Nullable for weekend routes
     weekday = db.Column(db.String(20), nullable=False)
     route_order = db.Column(db.Text, nullable=False)  # JSON Array of appointment ids
     total_duration = db.Column(db.Integer, nullable=False)  # in minutes

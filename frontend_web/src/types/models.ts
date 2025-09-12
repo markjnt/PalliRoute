@@ -40,7 +40,7 @@ export interface EmployeeImportResponse {
 }
 
 export type VisitType = 'HB' | 'NA' | 'TK';
-export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday';
+export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
 export interface Appointment {
     id?: number;

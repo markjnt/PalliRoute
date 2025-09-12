@@ -34,8 +34,8 @@ def get_appointments():
 @appointments_bp.route('/weekday/<weekday>', methods=['GET'])
 def get_appointments_by_weekday(weekday):
     """Get all appointments for a specific weekday"""
-    if weekday not in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']:
-        return jsonify({'error': 'Invalid weekday. Use monday, tuesday, wednesday, thursday, or friday'}), 400
+    if weekday not in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']:
+        return jsonify({'error': 'Invalid weekday. Use monday, tuesday, wednesday, thursday, friday, saturday, or sunday'}), 400
     
     appointments = Appointment.query.filter_by(weekday=weekday).all()
     return jsonify([appointment.to_dict() for appointment in appointments])
@@ -43,63 +43,112 @@ def get_appointments_by_weekday(weekday):
 @appointments_bp.route('/move', methods=['POST'])
 def move_appointment():
     """
-    Move a single appointment from source employee to target employee
+    Move a single appointment from source employee to target employee or between areas
     Expected JSON body: {
         "appointment_id": 1,
-        "source_employee_id": 1,
-        "target_employee_id": 2
+        "source_employee_id": 1,  # For weekday appointments
+        "target_employee_id": 2,  # For weekday appointments
+        "source_area": "Nordkreis",  # For weekend appointments
+        "target_area": "Südkreis"   # For weekend appointments
     }
     """
     try:
         data = request.get_json()
-        if not data or not all(k in data for k in ['appointment_id', 'source_employee_id', 'target_employee_id']):
-            return jsonify({'error': 'Missing required fields'}), 400
+        if not data or 'appointment_id' not in data:
+            return jsonify({'error': 'appointment_id is required'}), 400
 
         appointment_id = data['appointment_id']
-        source_employee_id = data['source_employee_id']
-        target_employee_id = data['target_employee_id']
+        source_employee_id = data.get('source_employee_id')
+        target_employee_id = data.get('target_employee_id')
+        source_area = data.get('source_area')
+        target_area = data.get('target_area')
 
         # Get the appointment and its patient
         appointment = Appointment.query.get_or_404(appointment_id)
         patient_id = appointment.patient_id
         weekday = appointment.weekday  # Get the weekday of the specific appointment
         
-        # Get all appointments for this patient for this specific weekday
-        patient_appointments = Appointment.query.filter_by(patient_id=patient_id, weekday=weekday).all()
+        # Determine if this is a weekday or weekend appointment
+        is_weekend = weekday in ['saturday', 'sunday']
         
-        # Get source route for this weekday
-        source_route = Route.query.filter_by(
-            employee_id=source_employee_id,
-            weekday=weekday
-        ).first()
-        
-        # Get target route for this weekday
-        target_route = Route.query.filter_by(
-            employee_id=target_employee_id,
-            weekday=weekday
-        ).first()
-        
-        # Update appointment's employee
-        appointment.employee_id = target_employee_id
-        
-        if source_route:
-            # Remove appointment from source route
-            route_order = source_route.get_route_order()
-            if appointment.id in route_order:
-                route_order.remove(appointment.id)
-                source_route.set_route_order(route_order)
+        if is_weekend:
+            # Weekend appointment - move between areas
+            if not source_area or not target_area:
+                return jsonify({'error': 'source_area and target_area are required for weekend appointments'}), 400
             
-            # Plan source route
-            route_planner.plan_route(weekday, source_employee_id)
-        
-        if target_route and appointment.visit_type in ('HB', 'NA'):
-            # Only add HB and NA appointments to route order (exclude TK)
-            route_order = target_route.get_route_order()
-            route_order.append(appointment.id)
-            target_route.set_route_order(route_order)
+            # Get source route for this weekday and area
+            source_route = Route.query.filter_by(
+                employee_id=None,
+                weekday=weekday,
+                area=source_area
+            ).first()
             
-            # Optimize target route
-            route_optimizer.optimize_route(weekday, target_employee_id)
+            # Get target route for this weekday and area
+            target_route = Route.query.filter_by(
+                employee_id=None,
+                weekday=weekday,
+                area=target_area
+            ).first()
+            
+            # Update appointment's area
+            appointment.area = target_area
+            
+            if source_route:
+                # Remove appointment from source route
+                route_order = source_route.get_route_order()
+                if appointment.id in route_order:
+                    route_order.remove(appointment.id)
+                    source_route.set_route_order(route_order)
+                
+                # Recalculate source route
+                route_planner.plan_route(weekday, area=source_area)
+            
+            if target_route and appointment.visit_type in ('HB', 'NA'):
+                # Only add HB and NA appointments to route order (exclude TK)
+                route_order = target_route.get_route_order()
+                route_order.append(appointment.id)
+                target_route.set_route_order(route_order)
+                
+                # Optimize weekend route
+                route_optimizer.optimize_route(weekday, area=target_area)
+        else:
+            # Weekday appointment - move between employees
+            if not source_employee_id or not target_employee_id:
+                return jsonify({'error': 'source_employee_id and target_employee_id are required for weekday appointments'}), 400
+            
+            # Get source route for this weekday
+            source_route = Route.query.filter_by(
+                employee_id=source_employee_id,
+                weekday=weekday
+            ).first()
+            
+            # Get target route for this weekday
+            target_route = Route.query.filter_by(
+                employee_id=target_employee_id,
+                weekday=weekday
+            ).first()
+            
+            # Update appointment's employee
+            appointment.employee_id = target_employee_id
+            
+            if source_route:
+                # Remove appointment from source route
+                route_order = source_route.get_route_order()
+                if appointment.id in route_order:
+                    route_order.remove(appointment.id)
+                    source_route.set_route_order(route_order)
+                
+                # Plan source route
+                route_planner.plan_route(weekday, source_employee_id)
+            
+            if target_route and appointment.visit_type in ('HB', 'NA'):
+                # Only add HB and NA appointments to route order (exclude TK)
+                route_order = target_route.get_route_order()
+                route_order.append(appointment.id)
+                target_route.set_route_order(route_order)
+                
+                # Optimize target route
+                route_optimizer.optimize_route(weekday, target_employee_id)
         
         db.session.commit()
         return jsonify({'message': 'Appointment moved successfully'})
@@ -111,59 +160,115 @@ def move_appointment():
 @appointments_bp.route('/batchmove', methods=['POST'])
 def batch_move_appointments():
     """
-    Move all appointments from source employee to target employee for a specific weekday
+    Move all appointments from source employee to target employee or between areas for a specific weekday
     Expected JSON body: {
-        "source_employee_id": 1,
-        "target_employee_id": 2,
+        "source_employee_id": 1,  # For weekday appointments
+        "target_employee_id": 2,  # For weekday appointments
+        "source_area": "Nordkreis",  # For weekend appointments
+        "target_area": "Südkreis",   # For weekend appointments
         "weekday": "monday"
     }
     """
     try:
         data = request.get_json()
-        if not data or not all(k in data for k in ['source_employee_id', 'target_employee_id', 'weekday']):
-            return jsonify({'error': 'Missing required fields'}), 400
+        if not data or 'weekday' not in data:
+            return jsonify({'error': 'weekday is required'}), 400
 
-        source_employee_id = data['source_employee_id']
-        target_employee_id = data['target_employee_id']
+        source_employee_id = data.get('source_employee_id')
+        target_employee_id = data.get('target_employee_id')
+        source_area = data.get('source_area')
+        target_area = data.get('target_area')
         weekday = data['weekday']
-
-        # Get all appointments for source employee for this specific weekday
-        appointments = Appointment.query.filter_by(employee_id=source_employee_id, weekday=weekday).all()
         
-        # Get source route for this weekday
-        source_route = Route.query.filter_by(
-            employee_id=source_employee_id,
-            weekday=weekday
-        ).first()
+        # Determine if this is a weekday or weekend operation
+        is_weekend = weekday in ['saturday', 'sunday']
         
-        # Get target route for this weekday
-        target_route = Route.query.filter_by(
-            employee_id=target_employee_id,
-            weekday=weekday
-        ).first()
-        
-        if source_route:
-            # Clear source route order
-            source_route.set_route_order([])
-            # Plan source route
-            route_planner.plan_route(weekday, source_employee_id)
-        
-        if target_route:
-            # Get all HB and NA appointments for this weekday
-            weekday_appointments = [app for app in appointments if app.visit_type in ('HB', 'NA')]
-            appointment_ids = [app.id for app in weekday_appointments]
+        if is_weekend:
+            # Weekend operation - move between areas
+            if not source_area or not target_area:
+                return jsonify({'error': 'source_area and target_area are required for weekend operations'}), 400
             
-            # Add appointments to target route order
-            route_order = target_route.get_route_order()
-            route_order.extend(appointment_ids)
-            target_route.set_route_order(route_order)
+            # Get all appointments for source area for this specific weekday
+            appointments = Appointment.query.filter_by(area=source_area, weekday=weekday, employee_id=None).all()
             
-            # Optimize target route
-            route_optimizer.optimize_route(weekday, target_employee_id)
-        
-        # Update all appointments to new employee
-        for appointment in appointments:
-            appointment.employee_id = target_employee_id
+            # Get source route for this weekday and area
+            source_route = Route.query.filter_by(
+                employee_id=None,
+                weekday=weekday,
+                area=source_area
+            ).first()
+            
+            # Get target route for this weekday and area
+            target_route = Route.query.filter_by(
+                employee_id=None,
+                weekday=weekday,
+                area=target_area
+            ).first()
+            
+            if source_route:
+                # Clear source route order
+                source_route.set_route_order([])
+                # Recalculate source route (now empty)
+                route_planner.plan_route(weekday, area=source_area)
+            
+            if target_route:
+                # Get all HB and NA appointments for this weekday
+                weekday_appointments = [app for app in appointments if app.visit_type in ('HB', 'NA')]
+                appointment_ids = [app.id for app in weekday_appointments]
+                
+                # Add appointments to target route order
+                route_order = target_route.get_route_order()
+                route_order.extend(appointment_ids)
+                target_route.set_route_order(route_order)
+                
+                # Optimize weekend route
+                route_optimizer.optimize_route(weekday, area=target_area)
+            
+            # Update all appointments to new area
+            for appointment in appointments:
+                appointment.area = target_area
+        else:
+            # Weekday operation - move between employees
+            if not source_employee_id or not target_employee_id:
+                return jsonify({'error': 'source_employee_id and target_employee_id are required for weekday operations'}), 400
+            
+            # Get all appointments for source employee for this specific weekday
+            appointments = Appointment.query.filter_by(employee_id=source_employee_id, weekday=weekday).all()
+            
+            # Get source route for this weekday
+            source_route = Route.query.filter_by(
+                employee_id=source_employee_id,
+                weekday=weekday
+            ).first()
+            
+            # Get target route for this weekday
+            target_route = Route.query.filter_by(
+                employee_id=target_employee_id,
+                weekday=weekday
+            ).first()
+            
+            if source_route:
+                # Clear source route order
+                source_route.set_route_order([])
+                # Plan source route
+                route_planner.plan_route(weekday, source_employee_id)
+            
+            if target_route:
+                # Get all HB and NA appointments for this weekday
+                weekday_appointments = [app for app in appointments if app.visit_type in ('HB', 'NA')]
+                appointment_ids = [app.id for app in weekday_appointments]
+                
+                # Add appointments to target route order
+                route_order = target_route.get_route_order()
+                route_order.extend(appointment_ids)
+                target_route.set_route_order(route_order)
+                
+                # Optimize target route
+                route_optimizer.optimize_route(weekday, target_employee_id)
+            
+            # Update all appointments to new employee
+            for appointment in appointments:
+                appointment.employee_id = target_employee_id
         
         db.session.commit()
         return jsonify({'message': 'Appointments moved successfully'})

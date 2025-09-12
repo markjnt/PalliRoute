@@ -1,35 +1,15 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
     Box, 
-    Typography, 
     Paper,
     Divider,
     IconButton,
     Collapse,
-    Chip,
-    Alert,
-    Tooltip,
-    Button,
-    Menu,
-    MenuItem,
-    ListItemIcon,
-    ListItemText
+    Alert
 } from '@mui/material';
 import { 
-    Home as HomeIcon,
-    Phone as PhoneIcon,
-    Person as PersonIcon,
     ExpandMore as ExpandMoreIcon,
-    ExpandLess as ExpandLessIcon,
-    AddCircle as AddCircleIcon,
-    CheckCircle,
-    Cancel,
-    Route as RouteIcon,
-    SwapHoriz as SwapHorizIcon,
-    Straighten as StraightenIcon,
-    AccessTime as AccessTimeIcon,
-    Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon
+    ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 import { useDrop } from 'react-dnd';
 import { Patient, Appointment, Weekday, Employee, Route } from '../../types/models';
@@ -37,34 +17,15 @@ import { DragItemTypes, PatientDragItem } from '../../types/dragTypes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useBatchMoveAppointments, useMoveAppointment } from '../../services/queries/useAppointments';
 import { useReorderAppointment, useOptimizeRoutes } from '../../services/queries/useRoutes';
-import { getColorForTour, employeeTypeColors } from '../../utils/colors';
+import { getColorForTour } from '../../utils/colors';
 import TourSections from './TourSections';
 import { useRouteVisibility } from '../../stores/useRouteVisibilityStore';
+import { TourHeader } from './tour/TourHeader';
+import { TourStats } from './tour/TourStats';
+import { TourControls } from './tour/TourControls';
+import { TourSummary } from './tour/TourSummary';
+import { ReassignMenu } from './tour/ReassignMenu';
 
-// Helper component for section titles
-const SectionTitle = ({ 
-    icon, 
-    title, 
-    count, 
-    color 
-}: { 
-    icon: React.ReactNode, 
-    title: string, 
-    count: number,
-    color: string
-}) => (
-    <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        mb: 2,
-        color: color
-    }}>
-        {icon}
-        <Typography variant="h6" sx={{ ml: 1 }}>
-            {title} ({count})
-        </Typography>
-    </Box>
-);
 
 interface TourContainerProps {
     employee: Employee;
@@ -474,319 +435,30 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 alignItems: 'flex-start' 
             }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {/* Kreis-Label vor Tournummer anzeigen */}
-                        {(() => {
-                            // Bestimme Nord/Süd über die Route, nicht über den Patienten
-                            if (route && route.area) {
-                                const isNord = route.area.includes('Nordkreis');
-                                return (
-                                    <Chip
-                                        label={isNord ? 'N' : 'S'}
-                                        size="small"
-                                        sx={{
-                                            height: '20px',
-                                            fontSize: '0.7rem',
-                                            bgcolor: isNord ? 'primary.main' : 'secondary.main',
-                                            color: 'white',
-                                            fontWeight: 'bold',
-                                            mr: 0.5
-                                        }}
-                                    />
-                                );
-                            }
-                            return null;
-                        })()}
-                        <Typography 
-                            variant="h6" 
-                            component="h3" 
-                            sx={{ 
-                                fontWeight: 'bold',
-                                color: employee.id ? getColorForTour(employee.id) : 'text.primary'
-                            }}
-                        >
-                            {employee.first_name} {employee.last_name}
-                        </Typography>
-                        
-                    </Box>
-                    
-                    {/* Employee status and function info */}
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        gap: 1,
-                        mt: 0.5
-                    }}>
-                        {/* Employee function chip */}
-                        <Chip 
-                            label={employee.function}
-                            size="small"
-                            sx={{ 
-                                height: '20px',
-                                fontSize: '0.7rem',
-                                backgroundColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
-                                color: 'white',
-                            }}
-                        />
-                    </Box>
+                    <TourHeader employee={employee} route={route} />
 
-                    {/* Auslastung und Strecke nebeneinander anzeigen */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
-                        {/* Auslastung (mit Farblogik) */}
-                        {(() => {
-                            const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
-                            const duration = route && typeof route.total_duration === 'number' ? route.total_duration : null;
-                            
-                            // Soll-Arbeitszeit berechnen: 7h = 420min * (work_hours / 100)
-                            const targetMinutes = Math.round(420 * ((employee.work_hours || 0) / 100));
-                            
-                            // Auslastung in Prozent berechnen
-                            let utilization: number | undefined = undefined;
-                            if (duration !== null && targetMinutes > 0) {
-                                utilization = (duration / targetMinutes) * 100;
-                            }
-                            
-                            // Farbe bestimmen
-                            let utilizationColor = 'success.main';
-                            if (utilization !== undefined) {
-                                if (utilization > 100) {
-                                    utilizationColor = 'error.main';
-                                } else if (utilization > 90) {
-                                    utilizationColor = 'warning.main';
-                                } else if (utilization > 70) {
-                                    utilizationColor = 'success.light';
+                    <TourStats employee={employee} route={route} />
+                    
+                    <TourControls
+                        expanded={expanded}
+                        optimizeState={optimizeState}
+                        tourPatientsCount={tourPatients.length}
+                        routeId={routeId}
+                        isVisible={isVisible}
+                        onOptimizeRoute={handleOptimizeRoute}
+                        onMenuOpen={handleMenuOpen}
+                        onToggleVisibility={() => {
+                            if (routeId !== undefined) {
+                                if (isVisible) {
+                                    hidePolyline(routeId);
+                                    hideMarker(routeId);
+                                } else {
+                                    showPolyline(routeId);
+                                    showMarker(routeId);
                                 }
                             }
-                            
-                            // Zeit-Strings für Tooltip berechnen
-                            let durationStr = '-';
-                            let targetStr = '-';
-                            if (duration !== null) {
-                                const hours = Math.floor(duration / 60);
-                                const minutes = duration % 60;
-                                durationStr = `${hours}:${minutes.toString().padStart(2, '0')}`;
-                            }
-                            if (targetMinutes > 0) {
-                                const targetHours = Math.floor(targetMinutes / 60);
-                                const targetMins = targetMinutes % 60;
-                                targetStr = `${targetHours}:${targetMins.toString().padStart(2, '0')}`;
-                            }
-                            
-                            return (
-                                <Tooltip title={`${durationStr} / ${targetStr}`} arrow>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <AccessTimeIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                                        <Typography variant="body2" sx={{ color: utilization !== undefined ? utilizationColor : 'text.secondary', fontWeight: utilization !== undefined ? 'bold' : 'normal' }}>
-                                            {utilization !== undefined ? `${Math.round(utilization)}%` : '-'}
-                                        </Typography>
-                                    </Box>
-                                </Tooltip>
-                            );
-                        })()}
-                        {/* Strecke */}
-                        {(() => {
-                            const route = routes.find(r => r.employee_id === employee.id && r.weekday === selectedDay.toLowerCase());
-                            const distance = route && typeof route.total_distance === 'number' ? route.total_distance : null;
-                            return (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <StraightenIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                                    <Typography variant="body2" color="text.secondary">
-                                        {distance !== null ? distance.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' km' : '-'}
-                                    </Typography>
-                                </Box>
-                            );
-                        })()}
-                    </Box>
-                    
-                    {/* Anzeige der Strecke und Gesamtzeit */}
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center',
-                        gap: 1,
-                        mt: 0.5
-                    }}>
-                        {expanded && (
-                            <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    startIcon={<RouteIcon />}
-                                    onClick={handleOptimizeRoute}
-                                    disabled={optimizeState.isOptimizing || tourPatients.length === 0}
-                                    sx={{ 
-                                        textTransform: 'none',
-                                        '&:hover': {
-                                            backgroundColor: 'primary.light',
-                                            color: 'primary.contrastText'
-                                        }
-                                    }}
-                                >
-                                    {optimizeState.isOptimizing ? 'Optimiert...' : 'Optimieren'}
-                                </Button>
-                                <Tooltip title="Alle neu zuweisen" arrow>
-                                    <span>
-                                        <Button
-                                            variant="outlined"
-                                            size="small"
-                                            onClick={handleMenuOpen}
-                                            disabled={tourPatients.length === 0}
-                                            sx={{
-                                                left: '2px', 
-                                                minWidth: '40px',
-                                                width: '40px',
-                                                px: 0,
-                                                height: '31px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                '&:hover': {
-                                                    backgroundColor: 'primary.light',
-                                                    color: 'primary.contrastText'
-                                                }
-                                            }}
-                                        >
-                                            <SwapHorizIcon fontSize="small" />
-                                        </Button>
-                                    </span>
-                                </Tooltip>
-                                
-                                {/* Tour assignment menu */}
-                                <Menu
-                                    anchorEl={menuState.anchorEl}
-                                    open={menuState.open}
-                                    onClose={handleMenuClose}
-                                    sx={{
-                                        '& .MuiPaper-root': {
-                                            maxHeight: 300,
-                                            overflow: 'auto',
-                                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                                            borderRadius: 2
-                                        }
-                                    }}
-                                >
-                                    {/* Active employees section */}
-                                    <Typography 
-                                        variant="subtitle2" 
-                                        sx={{ px: 2, py: 1, bgcolor: 'background.default', fontWeight: 'bold' }}
-                                    >
-                                        Aktive Touren
-                                    </Typography>
-                                    
-                                    {availableEmployees.map((emp) => {
-                                        const patientCount = patientCountByEmployee.get(emp.id || 0) || 0;
-                                        const isEmpty = patientCount === 0;
-                                        
-                                        return (
-                                            <MenuItem 
-                                                key={emp.id}
-                                                onClick={() => emp.id && handleMoveAllPatients(emp.id)}
-                                                sx={{
-                                                    py: 1,
-                                                    '&:hover': {
-                                                        backgroundColor: 'rgba(0, 0, 0, 0.04)'
-                                                    }
-                                                }}
-                                            >
-                                                <ListItemText>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Chip
-                                                            label={`${emp.first_name} ${emp.last_name}`}
-                                                            size="small"
-                                                            sx={{
-                                                                height: 20,
-                                                                bgcolor: emp.id ? getColorForTour(emp.id) : 'primary.main',
-                                                                color: 'white',
-                                                                '& .MuiChip-label': {
-                                                                    px: 1,
-                                                                    fontSize: '0.75rem'
-                                                                }
-                                                            }}
-                                                        />
-                                                        <Chip
-                                                            label={emp.function}
-                                                            size="small"
-                                                            variant="outlined"
-                                                            sx={{
-                                                                height: 20,
-                                                                fontSize: '0.7rem',
-                                                                borderColor: employeeTypeColors[emp.function] || employeeTypeColors.default,
-                                                                color: employeeTypeColors[emp.function] || employeeTypeColors.default,
-                                                                '& .MuiChip-label': {
-                                                                    px: 1,
-                                                                    fontSize: '0.7rem'
-                                                                }
-                                                            }}
-                                                        />
-                                                        {isEmpty && (
-                                                            <Chip
-                                                                label="Leer"
-                                                                size="small"
-                                                                variant="outlined"
-                                                                sx={{
-                                                                    height: 20,
-                                                                    fontSize: '0.7rem',
-                                                                    borderColor: 'warning.main',
-                                                                    color: 'warning.main'
-                                                                }}
-                                                            />
-                                                        )}
-                                                        {!isEmpty && (
-                                                            <Typography 
-                                                                variant="caption" 
-                                                                sx={{ 
-                                                                    color: 'text.secondary',
-                                                                    fontSize: '0.7rem'
-                                                                }}
-                                                            >
-                                                                {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'}
-                                                            </Typography>
-                                                        )}
-                                                    </Box>
-                                                </ListItemText>
-                                            </MenuItem>
-                                        );
-                                    })}
-                                    
-
-                                </Menu>
-
-                                {/* Eye icon button rechts daneben, gleiches Design */}
-                                {routeId !== undefined && (
-                                    <Tooltip title={isVisible ? 'Route ausblenden' : 'Route einblenden'} arrow>
-                                        <span>
-                                            <Button
-                                                variant="outlined"
-                                                size="small"
-                                                onClick={() => {
-                                                    if (isVisible) {
-                                                        hidePolyline(routeId);
-                                                        hideMarker(routeId);
-                                                    } else {
-                                                        showPolyline(routeId);
-                                                        showMarker(routeId);
-                                                    }
-                                                }}
-                                                sx={{
-                                                    minWidth: '40px',
-                                                    width: '40px',
-                                                    height: '31px',
-                                                    display: 'flex',
-                                                    justifyContent: 'center',
-                                                    alignItems: 'center',
-                                                    ml: 0.5,
-                                                    '&:hover': {
-                                                        backgroundColor: 'primary.light',
-                                                        color: 'primary.contrastText'
-                                                    }
-                                                }}
-                                            >
-                                                {isVisible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
-                                            </Button>
-                                        </span>
-                                    </Tooltip>
-                                )}
-                            </Box>
-                        )}
-                    </Box>
+                        }}
+                    />
                 </Box>
                 
                 <IconButton 
@@ -801,23 +473,12 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             </Box>
             
             {!expanded && (
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Icons für die verschiedenen Besuchstypen */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
-                        {hbPatients.length > 0 && (
-                            <Chip size="small" icon={<HomeIcon fontSize="small" />} label={hbPatients.length} color="primary" variant="outlined" />
-                        )}
-                        {tkPatients.length > 0 && (
-                            <Chip size="small" icon={<PhoneIcon fontSize="small" />} label={tkPatients.length} color="success" variant="outlined" />
-                        )}
-                        {naPatients.length > 0 && (
-                            <Chip size="small" icon={<AddCircleIcon fontSize="small" />} label={naPatients.length} color="secondary" variant="outlined" />
-                        )}
-                        {emptyTypePatients.length > 0 && (
-                            <Chip size="small" icon={<PersonIcon fontSize="small" />} label={emptyTypePatients.length} color="default" variant="outlined" />
-                        )}
-                    </Box>
-                </Box>
+                <TourSummary
+                    hbPatients={hbPatients}
+                    tkPatients={tkPatients}
+                    naPatients={naPatients}
+                    emptyTypePatients={emptyTypePatients}
+                />
             )}
             
             <Collapse in={expanded} timeout="auto" unmountOnExit>
@@ -841,6 +502,15 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     </Alert>
                 )}
             </Collapse>
+            
+            <ReassignMenu
+                open={menuState.open}
+                anchorEl={menuState.anchorEl}
+                onClose={handleMenuClose}
+                availableEmployees={availableEmployees}
+                patientCountByEmployee={patientCountByEmployee}
+                onMoveAllPatients={handleMoveAllPatients}
+            />
         </Paper>
     );
 }; 

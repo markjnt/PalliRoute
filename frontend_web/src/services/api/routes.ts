@@ -7,6 +7,8 @@ export const routesApi = {
         employee_id?: number;
         weekday?: Weekday;
         date?: string;
+        area?: string;
+        weekend_only?: boolean;
     }): Promise<Route[]> {
         try {
             const response = await api.get('/routes/', { params });
@@ -53,6 +55,20 @@ export const routesApi = {
             return response.data;
         } catch (error) {
             console.error(`Failed to optimize routes for weekday ${weekday} and employee ${employeeId}:`, error);
+            throw error;
+        }
+    },
+
+    // Optimize weekend routes for a specific day and area
+    async optimizeWeekendRoutes(weekday: string, area: string): Promise<void> {
+        try {
+            const response = await api.post(`/routes/optimize`, {
+                weekday: weekday.toLowerCase(),
+                area: area
+            });
+            return response.data;
+        } catch (error) {
+            console.error(`Failed to optimize weekend routes for weekday ${weekday} and area ${area}:`, error);
             throw error;
         }
     },
