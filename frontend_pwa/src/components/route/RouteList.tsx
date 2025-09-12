@@ -62,7 +62,9 @@ export const RouteList: React.FC = () => {
       'tuesday': 'Dienstag',
       'wednesday': 'Mittwoch',
       'thursday': 'Donnerstag',
-      'friday': 'Freitag'
+      'friday': 'Freitag',
+      'saturday': 'Samstag',
+      'sunday': 'Sonntag'
     };
     return weekdayMap[weekday] || weekday;
   };

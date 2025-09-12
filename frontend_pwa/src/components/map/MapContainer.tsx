@@ -70,7 +70,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       
       // Zusätzliche Routen der ausgewählten Mitarbeiter
       const additionalRoutes = routes.filter(route => 
-        selectedEmployeeIds.includes(route.employee_id) && route.weekday === selectedWeekday
+        route.employee_id && selectedEmployeeIds.includes(route.employee_id) && route.weekday === selectedWeekday
       );
       
       return [...mainRoute, ...additionalRoutes];
