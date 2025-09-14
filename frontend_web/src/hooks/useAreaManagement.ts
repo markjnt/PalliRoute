@@ -42,39 +42,75 @@ export const useAreaManagement = ({
     if (isAllAreas) {
       return routes;
     }
-    return routes.filter(r => r.area === currentArea);
-  }, [routes, isAllAreas, currentArea]);
+    
+    // For weekend routes, always include Mitte + selected area
+    if (selectedDay === 'saturday' || selectedDay === 'sunday') {
+      const filteredRoutes = routes.filter(r => (r.area as string) === 'Mitte');
+      
+      if (currentArea === 'Nordkreis') {
+        const nordRoutes = routes.filter(r => (r.area as string) === 'Nord');
+        filteredRoutes.push(...nordRoutes);
+      } else if (currentArea === 'Südkreis') {
+        const südRoutes = routes.filter(r => (r.area as string) === 'Süd');
+        filteredRoutes.push(...südRoutes);
+      }
+      
+      return filteredRoutes;
+    }
+    
+    // For weekday routes, filter by selected area only
+    let targetArea = currentArea;
+    if (currentArea === 'Nordkreis') {
+      targetArea = 'Nord';
+    } else if (currentArea === 'Südkreis') {
+      targetArea = 'Süd';
+    }
+    
+    return routes.filter(r => r.area === targetArea);
+  }, [routes, isAllAreas, currentArea, selectedDay]);
 
   // Get weekend areas
   const getWeekendAreas = useCallback(() => {
-    return [...weekendAreas];
-  }, []);
+    if (isAllAreas) {
+      // Show all areas in order: Nord, Mitte, Süd
+      return ['Nord', 'Mitte', 'Süd'];
+    } else {
+      // Always show Mitte + selected area in correct order
+      if (currentArea === 'Nordkreis') {
+        return ['Nord', 'Mitte'];
+      } else if (currentArea === 'Südkreis') {
+        return ['Mitte', 'Süd'];
+      }
+      return ['Mitte'];
+    }
+  }, [isAllAreas, currentArea]);
 
   // Get weekend routes grouped by area
   const getWeekendRoutesByArea = useCallback(() => {
     const areaMap = new Map<string, Route[]>();
     
-    // Always show Mitte (even if no routes exist)
-    const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
-    areaMap.set('Mitte', mitteRoutes);
-    
-    // Filter others based on currentArea
     if (isAllAreas) {
-      // Show all areas
-      weekendAreas.forEach(area => {
-        if (area !== 'Mitte') {
-          const areaRoutes = routes.filter(r => (r.area as string) === area);
-          areaMap.set(area, areaRoutes);
-        }
+      // Show all areas in order: Nord, Mitte, Süd
+      const orderedAreas = ['Nord', 'Mitte', 'Süd'];
+      orderedAreas.forEach(area => {
+        const areaRoutes = routes.filter(r => (r.area as string) === area);
+        areaMap.set(area, areaRoutes);
       });
     } else {
-      // Show only selected area
+      // Always show Mitte + selected area in correct order
       if (currentArea === 'Nordkreis') {
         const nordRoutes = routes.filter(r => (r.area as string) === 'Nord');
         areaMap.set('Nord', nordRoutes);
+        const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
+        areaMap.set('Mitte', mitteRoutes);
       } else if (currentArea === 'Südkreis') {
+        const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
+        areaMap.set('Mitte', mitteRoutes);
         const südRoutes = routes.filter(r => (r.area as string) === 'Süd');
         areaMap.set('Süd', südRoutes);
+      } else {
+        const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
+        areaMap.set('Mitte', mitteRoutes);
       }
     }
     
