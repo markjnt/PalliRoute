@@ -4,25 +4,28 @@ import {
     Typography,
     Button,
     Divider,
-    FormControl,
-    Select,
-    MenuItem,
-    SelectChangeEvent,
     Chip,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogContentText,
-    DialogActions
+    DialogActions,
+    Popover,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemText
 } from '@mui/material';
 import {
-    Today as TodayIcon,
     Refresh as RefreshIcon,
-    Event as CalendarIcon,
+    CalendarMonth as CalendarIcon,
     Route as RouteIcon,
     DeleteForever as DeleteForeverIcon,
     Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon
+    VisibilityOff as VisibilityOffIcon,
+    Schedule as ScheduleIcon,
+    ExpandMore as ExpandMoreIcon,
+    RadioButtonChecked as RadioButtonCheckedIcon
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { Weekday } from '../../stores/useWeekdayStore';
@@ -47,6 +50,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [kwAnchorEl, setKwAnchorEl] = useState<null | HTMLElement>(null);
     const [filteredResults, setFilteredResults] = useState<{
         filteredActiveOtherEmployeesWithPatients: Employee[];
         filteredActiveOtherEmployeesWithoutPatients: Employee[];
@@ -99,9 +104,28 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     }, [lastImportTimeData, setLastPatientImportTime]);
 
     // Handle weekday change
-    const handleDayChange = useCallback((event: SelectChangeEvent) => {
-        setSelectedWeekday(event.target.value as Weekday);
+    const handleDayChange = useCallback((newWeekday: Weekday) => {
+        setSelectedWeekday(newWeekday);
+        setAnchorEl(null);
     }, [setSelectedWeekday]);
+
+    // Handle popover open/close
+    const handlePopoverOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handlePopoverClose = () => {
+        setAnchorEl(null);
+    };
+
+    // Handle KW popover open/close
+    const handleKwPopoverOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setKwAnchorEl(event.currentTarget);
+    };
+
+    const handleKwPopoverClose = () => {
+        setKwAnchorEl(null);
+    };
 
     const handleImport = async () => {
         try {
@@ -154,6 +178,35 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         };
         return weekdayNames[day] || 'Unbekannt';
     }, []);
+
+    // Get current calendar week (German/ISO 8601 standard)
+    const getCurrentCalendarWeek = useCallback(() => {
+        const now = new Date();
+        
+        // ISO 8601 week calculation - correct implementation
+        const date = new Date(now.getTime());
+        
+        // Set to nearest Thursday: current date + 4 - current day number
+        // Make Sunday's day number 7
+        const dayOfWeek = (date.getDay() + 6) % 7 + 1; // Monday = 1, Sunday = 7
+        date.setDate(date.getDate() + 4 - dayOfWeek);
+        
+        // Get first day of year
+        const yearStart = new Date(date.getFullYear(), 0, 1);
+        
+        // Calculate full weeks to nearest Thursday
+        const weekNumber = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+        
+        return weekNumber;
+    }, []);
+
+    // Check if displayed KW matches current KW
+    const isCurrentWeek = useMemo(() => {
+        const currentWeek = getCurrentCalendarWeek();
+        const displayedWeek = patients[0]?.calendar_week;
+        return displayedWeek && displayedWeek === currentWeek;
+    }, [patients, getCurrentCalendarWeek]);
+
     
     // Memoize loading and error states
     const isLoading = useMemo(() => 
@@ -257,45 +310,181 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 borderBottom: 1,
                 borderColor: 'divider'
             }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Typography variant="h6" component="h2" sx={{ pl: 4.5 }}>
-                        Tourenplanung
-                    </Typography>
-                </Box>
+                <Typography variant="h6" component="h2" sx={{ pl: 4.5 }}>
+                    Tourenplanung
+                </Typography>
+                
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {/* Calendar Week Selector Button */}
                     {patients[0]?.calendar_week && (
-                        <Chip
-                            icon={<CalendarIcon fontSize="small" />}
-                            label={`KW ${patients[0].calendar_week}`}
-                            color="primary"
-                            size="small"
+                        <Button
                             variant="outlined"
-                        />
-                    )}
-                    <FormControl sx={{ width: 145 }}>
-                        <Select
-                            value={selectedWeekday}
-                            onChange={handleDayChange}
-                            size="small"
-                            displayEmpty
-                            renderValue={(value) => (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <TodayIcon fontSize="small" sx={{ fontSize: '0.9rem' }} />
-                                    <span>{getWeekdayName(value as Weekday)}</span>
-                                </Box>
-                            )}
+                            onClick={handleKwPopoverOpen}
+                            startIcon={<CalendarIcon />}
+                            endIcon={<ExpandMoreIcon />}
+                            sx={{
+                                minWidth: 100,
+                                justifyContent: 'space-between',
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                borderColor: isCurrentWeek ? 'success.main' : 'primary.main',
+                                color: isCurrentWeek ? 'success.main' : 'primary.main',
+                                backgroundColor: isCurrentWeek ? 'success.50' : 'transparent',
+                                '&:hover': {
+                                    borderColor: isCurrentWeek ? 'success.dark' : 'primary.dark',
+                                    backgroundColor: isCurrentWeek ? 'success.100' : 'primary.50',
+                                }
+                            }}
                         >
-                            <MenuItem value="monday">Montag</MenuItem>
-                            <MenuItem value="tuesday">Dienstag</MenuItem>
-                            <MenuItem value="wednesday">Mittwoch</MenuItem>
-                            <MenuItem value="thursday">Donnerstag</MenuItem>
-                            <MenuItem value="friday">Freitag</MenuItem>
-                            <MenuItem value="saturday" sx={{ backgroundColor: '#fff3e0' }}>Samstag</MenuItem>
-                            <MenuItem value="sunday" sx={{ backgroundColor: '#fff3e0' }}>Sonntag</MenuItem>
-                        </Select>
-                    </FormControl>
+                            KW {patients[0].calendar_week}
+                        </Button>
+                    )}
+                    
+                    {/* Weekday Selector Button */}
+                    <Button
+                        variant="outlined"
+                        onClick={handlePopoverOpen}
+                        startIcon={<ScheduleIcon />}
+                        endIcon={<ExpandMoreIcon />}
+                        sx={{
+                            minWidth: 140,
+                            justifyContent: 'space-between',
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            borderColor: 'primary.main',
+                            color: 'primary.main',
+                            '&:hover': {
+                                borderColor: 'primary.dark',
+                                backgroundColor: 'primary.50',
+                            }
+                        }}
+                    >
+                        {getWeekdayName(selectedWeekday)}
+                    </Button>
                 </Box>
             </Box>
+
+            {/* Weekday Selection Popover */}
+            <Popover
+                open={Boolean(anchorEl)}
+                anchorEl={anchorEl}
+                onClose={handlePopoverClose}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'left',
+                }}
+                PaperProps={{
+                    sx: {
+                        minWidth: 200,
+                        mt: 1,
+                        borderRadius: 2,
+                        boxShadow: 3,
+                    }
+                }}
+            >
+                <List sx={{ p: 1 }}>
+                    {[
+                        { value: 'monday', label: 'Montag', isWeekend: false },
+                        { value: 'tuesday', label: 'Dienstag', isWeekend: false },
+                        { value: 'wednesday', label: 'Mittwoch', isWeekend: false },
+                        { value: 'thursday', label: 'Donnerstag', isWeekend: false },
+                        { value: 'friday', label: 'Freitag', isWeekend: false },
+                        { value: 'saturday', label: 'Samstag', isWeekend: true },
+                        { value: 'sunday', label: 'Sonntag', isWeekend: true },
+                    ].map((day) => (
+                        <ListItem key={day.value} disablePadding>
+                            <ListItemButton
+                                onClick={() => handleDayChange(day.value as Weekday)}
+                                selected={selectedWeekday === day.value}
+                                sx={{
+                                    borderRadius: 1,
+                                    mb: 0.5,
+                                    backgroundColor: day.isWeekend ? 'warning.50' : 'transparent',
+                                    '&.Mui-selected': {
+                                        backgroundColor: day.isWeekend ? 'warning.main' : 'primary.main',
+                                        color: 'white',
+                                        '&:hover': {
+                                            backgroundColor: day.isWeekend ? 'warning.dark' : 'primary.dark',
+                                        }
+                                    },
+                                    '&:hover': {
+                                        backgroundColor: day.isWeekend ? 'warning.100' : 'primary.50',
+                                    }
+                                }}
+                            >
+                                <ListItemText 
+                                    primary={day.label}
+                                    primaryTypographyProps={{
+                                        fontWeight: selectedWeekday === day.value ? 600 : 400,
+                                        fontSize: '0.875rem',
+                                        color: day.isWeekend && selectedWeekday !== day.value ? 'warning.dark' : 'inherit'
+                                    }}
+                                />
+                            </ListItemButton>
+                        </ListItem>
+                    ))}
+                </List>
+            </Popover>
+
+            {/* Calendar Week Selection Popover */}
+            <Popover
+                open={Boolean(kwAnchorEl)}
+                anchorEl={kwAnchorEl}
+                onClose={handleKwPopoverClose}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'left',
+                }}
+                PaperProps={{
+                    sx: {
+                        minWidth: 150,
+                        mt: 1,
+                        borderRadius: 2,
+                        boxShadow: 3,
+                    }
+                }}
+            >
+                <List sx={{ p: 1 }}>
+                    <ListItem disablePadding>
+                        <ListItemButton
+                            onClick={handleKwPopoverClose}
+                            sx={{
+                                borderRadius: 1,
+                                backgroundColor: isCurrentWeek ? 'success.main' : 'primary.main',
+                                color: 'white',
+                                '&:hover': {
+                                    backgroundColor: isCurrentWeek ? 'success.dark' : 'primary.dark',
+                                }
+                            }}
+                        >
+                            <ListItemText 
+                                primary={`KW ${patients[0]?.calendar_week || 'N/A'}`}
+                                primaryTypographyProps={{
+                                    fontWeight: 600,
+                                    fontSize: '0.875rem'
+                                }}
+                            />
+                            {isCurrentWeek && (
+                                <RadioButtonCheckedIcon 
+                                    sx={{ 
+                                        fontSize: '1rem', 
+                                        ml: 1,
+                                        opacity: 0.9
+                                    }} 
+                                />
+                            )}
+                        </ListItemButton>
+                    </ListItem>
+                </List>
+            </Popover>
 
             <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', gap: 1 }}>

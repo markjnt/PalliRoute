@@ -366,14 +366,14 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
         );
     }
 
-    // Don't show "no routes found" message for weekends since Mitte should always be shown
-    // if (filteredRoutes.length === 0) {
-    //     return (
-    //         <Alert severity="info" sx={{ my: 2 }}>
-    //             Keine Wochenend-Touren gefunden für {selectedDay === 'saturday' ? 'Samstag' : 'Sonntag'}.
-    //         </Alert>
-    //     );
-    // }
+    // Show "no routes found" message if no weekend routes exist
+    if (filteredRoutes.length === 0) {
+        return (
+            <Alert severity="info" sx={{ my: 2 }}>
+                Keine Wochenend-Touren gefunden für {selectedDay === 'saturday' ? 'Samstag' : 'Sonntag'}.
+            </Alert>
+        );
+    }
 
     return (
         <Box>
@@ -388,9 +388,8 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
                 {weekendAreas.map((area) => {
                     const areaRoutes = weekendRoutesByArea.get(area);
                     
-                    // Always show Mitte, even if no routes exist
-                    // For other areas, only show if they have routes or if all areas are selected
-                    if (area !== 'Mitte' && (!areaRoutes || areaRoutes.length === 0)) {
+                    // Only show areas that have routes
+                    if (!areaRoutes || areaRoutes.length === 0) {
                         return null;
                     }
 

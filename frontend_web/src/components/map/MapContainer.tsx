@@ -80,12 +80,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     if (isWeekend) {
       // Weekend logic: Show only one central weekend start marker and weekend patient markers
       
-      // Create single weekend start marker (for all three areas)
-      const hasWeekendRoutes = routes.some(r => r.weekday === selectedWeekday && !r.employee_id);
-      if (hasWeekendRoutes) {
-        const marker = createWeekendAreaMarkerData('Wochenend-Touren');
-        if (marker) newMarkers.push(marker);
-      }
+      // Always create single weekend start marker (for all three areas) - similar to employee markers
+      const marker = createWeekendAreaMarkerData('Wochenend-Touren');
+      if (marker) newMarkers.push(marker);
       
       // Create weekend patient markers
       if (patients.length > 0 && appointments.length > 0) {
