@@ -19,7 +19,7 @@ COPY backend/config.py .
 COPY backend/app/ ./app/
 
 # Main stage for API
-FROM python:3.12-slim
+FROM python:3.12-slim AS main
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_INPUT=1 \
