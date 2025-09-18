@@ -89,14 +89,14 @@ class SimpleScheduler:
             
             newest_file = max(excel_files, key=lambda x: x[1])[0]
             
-            # # Check if file was modified recently (within last 10 minutes)
-            # file_mtime = os.path.getmtime(newest_file)
-            # current_time = datetime.now().timestamp()
-            # time_diff = current_time - file_mtime
+            # Check if file was modified recently (within last 10 minutes)
+            file_mtime = os.path.getmtime(newest_file)
+            current_time = datetime.now().timestamp()
+            time_diff = current_time - file_mtime
             
-            # if time_diff > 600:  # 600 seconds = 10 minutes
-            #     print(f"INFO: File {newest_file} was not modified recently, skipping import")
-            #     return
+            if time_diff > 600:  # 600 seconds = 10 minutes
+                print(f"INFO: File {newest_file} was not modified recently, skipping import")
+                return
             
             # Make API call to backend-api
             api_base_url = config.BACKEND_API_URL
