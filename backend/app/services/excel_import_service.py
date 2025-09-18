@@ -198,7 +198,7 @@ class ExcelImportService:
     @staticmethod
     def import_patients(file_path) -> Dict[str, List[Any]]:
         """
-        Import patients and their appointments from Excel file
+        Import patients and their appointments from Excel file (supports multiple sheets)
         Required columns: Gebiet, Touren, Nachname, Vorname, Ort, PLZ, Strasse, KW,
                           Montag, Uhrzeit/Info Montag, Dienstag, Uhrzeit/Info Dienstag, 
                           Mittwoch, Uhrzeit/Info Mittwoch, Donnerstag, Uhrzeit/Info Donnerstag,
@@ -210,20 +210,41 @@ class ExcelImportService:
         Returns a dictionary with 'patients' and 'appointments' lists
         
         Importablauf:
-        1. Alle Patienten importieren
-        2. Mitarbeiter für Mitarbeiter (Tour für Tour) durchgehen
-        3. Für jeden Mitarbeiter alle zugehörigen Patienten finden
-        4. Für jeden Patienten alle 5 Wochentage durchgehen und Termine erstellen
-        5. Wenn "Zuständige [Wochentag]" Spalten vorhanden sind und einen Alias enthalten,
+        1. Alle Sheets aus der Excel-Datei laden und verarbeiten
+        2. Alle Patienten importieren
+        3. Mitarbeiter für Mitarbeiter (Tour für Tour) durchgehen
+        4. Für jeden Mitarbeiter alle zugehörigen Patienten finden
+        5. Für jeden Patienten alle 5 Wochentage durchgehen und Termine erstellen
+        6. Wenn "Zuständige [Wochentag]" Spalten vorhanden sind und einen Alias enthalten,
            wird der Termin dem entsprechenden Mitarbeiter zugeordnet, sonst dem Standard-Mitarbeiter
-        6. Wochenend-Termine werden nur verarbeitet, wenn die entsprechenden Spalten vorhanden sind
+        7. Wochenend-Termine werden nur verarbeitet, wenn die entsprechenden Spalten vorhanden sind
         """
         try:
-            # Step 1: Load the Excel file and validate columns
-            print("Step 1: Loading Excel file and validating columns...")
+            # Step 1: Load all sheets from the Excel file
+            print("Step 1: Loading all sheets from Excel file...")
             custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
                                '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
-            df = pd.read_excel(file_path, keep_default_na=False, na_values=custom_na_values)
+            
+            # Read all sheets from the Excel file
+            all_sheets = pd.read_excel(file_path, sheet_name=None, keep_default_na=False, na_values=custom_na_values)
+            
+            if not all_sheets:
+                raise ValueError("No sheets found in Excel file")
+            
+            print(f"Found {len(all_sheets)} sheets: {list(all_sheets.keys())}")
+            
+            # Combine all sheets into one DataFrame
+            df_list = []
+            for sheet_name, sheet_df in all_sheets.items():
+                print(f"Processing sheet: {sheet_name} with {len(sheet_df)} rows")
+                # Add sheet name as a column to track which sheet each row came from
+                sheet_df = sheet_df.copy()
+                sheet_df['_sheet_name'] = sheet_name
+                df_list.append(sheet_df)
+            
+            # Combine all DataFrames
+            df = pd.concat(df_list, ignore_index=True)
+            print(f"Combined data: {len(df)} total rows from {len(all_sheets)} sheets")
             required_columns = [
                 'Gebiet', 'Touren', 'Nachname', 'Vorname', 'Ort', 'PLZ', 'Strasse', 'KW',
                 'Montag', 'Uhrzeit/Info Montag', 'Dienstag', 'Uhrzeit/Info Dienstag', 
@@ -695,19 +716,34 @@ class ExcelImportService:
             print(f"\nRoute planning complete: {planned_routes} routes planned successfully, {failed_routes} routes failed")
             
             # Return the results with summary
-            calendar_week = patients[0].calendar_week if patients else None
-            print(f"\nImport complete: {len(patients)} patients, {len(appointments)} appointments, {len(routes) + len(empty_routes)} routes (including {len(empty_routes)} empty routes) for calendar week {calendar_week}")
+            calendar_weeks = list(set([p.calendar_week for p in patients if p.calendar_week is not None]))
+            calendar_weeks.sort()
+            calendar_weeks_str = ', '.join(map(str, calendar_weeks)) if calendar_weeks else 'None'
+            print(f"\nImport complete: {len(patients)} patients, {len(appointments)} appointments, {len(routes) + len(empty_routes)} routes (including {len(empty_routes)} empty routes) for calendar weeks: {calendar_weeks_str}")
             
             # Terminate with some statistics
             appointment_by_day = {}
+            appointment_by_week = {}
             for app in appointments:
                 if app.weekday not in appointment_by_day:
                     appointment_by_day[app.weekday] = 0
                 appointment_by_day[app.weekday] += 1
                 
+                # Get calendar week from patient
+                patient = next((p for p in patients if p.id == app.patient_id), None)
+                if patient and patient.calendar_week:
+                    week_key = f"KW {patient.calendar_week}"
+                    if week_key not in appointment_by_week:
+                        appointment_by_week[week_key] = 0
+                    appointment_by_week[week_key] += 1
+                
             print("Appointment distribution by day:")
             for day, count in appointment_by_day.items():
                 print(f"  {day.capitalize()}: {count} appointments")
+                
+            print("Appointment distribution by calendar week:")
+            for week, count in sorted(appointment_by_week.items()):
+                print(f"  {week}: {count} appointments")
             
             return {
                 'patients': patients,
