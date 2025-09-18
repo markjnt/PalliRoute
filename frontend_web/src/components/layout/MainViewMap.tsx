@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import { useWeekdayStore } from '../../stores';
 import { MapContainer } from '../map/MapContainer';
-import { useGoogleMapsApiKey } from '../../services/queries/useGoogleMapsApiKey';
+import { useGoogleMapsApiKey } from '../../services/queries/useConfig';
 import { useAreaStore } from '../../stores/useAreaStore';
 
 /**

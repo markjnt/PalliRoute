@@ -9,5 +9,16 @@ export const configApi = {
             console.error('Failed to fetch Google Maps API key:', error);
             throw error;
         }
+    },
+
+    // Get last import time
+    async getLastImportTime(): Promise<{ last_import_time: string | null }> {
+        try {
+            const response = await api.get('/config/last-import-time');
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch last import time:', error);
+            throw error;
+        }
     }
 }; 

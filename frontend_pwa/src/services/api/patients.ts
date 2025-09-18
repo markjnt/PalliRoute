@@ -42,14 +42,4 @@ export const patientsApi = {
         }
     },
 
-    // Get last import time
-    async getLastImportTime(): Promise<{ last_import_time: string | null }> {
-        try {
-            const response = await api.get('/patients/last-import-time');
-            return response.data;
-        } catch (error) {
-            console.error('Failed to fetch last import time:', error);
-            throw error;
-        }
-    }
 }; 

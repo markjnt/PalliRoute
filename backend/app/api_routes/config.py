@@ -13,6 +13,15 @@ def get_maps_api_key():
         return jsonify({'error': 'API key not configured'}), 500
     return jsonify({'apiKey': api_key})
 
+@bp.route('/last-import-time', methods=['GET'])
+@cross_origin()
+def get_last_import_time():
+    """Get the last patient import time"""
+    last_import_time = SystemInfo.get_value('last_patient_import_time')
+    return jsonify({
+        "last_import_time": last_import_time
+    }), 200
+
 @bp.route('/last-import-time', methods=['POST'])
 @cross_origin()
 def update_last_import_time():

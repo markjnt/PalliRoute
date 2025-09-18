@@ -31,13 +31,6 @@ def get_patient(id):
     patient = Patient.query.get_or_404(id)
     return jsonify(patient.to_dict()), 200
 
-@patients_bp.route('/last-import-time', methods=['GET'])
-def get_last_import_time():
-    """Get the last patient import time"""
-    last_import_time = SystemInfo.get_value('last_patient_import_time')
-    return jsonify({
-        "last_import_time": last_import_time
-    }), 200
 
 @patients_bp.route('/import', methods=['POST'])
 def import_patients():
