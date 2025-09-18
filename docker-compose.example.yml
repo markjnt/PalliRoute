@@ -1,7 +1,7 @@
 services:
-  backend:
-    image: markjnt/palliroute-backend
-    container_name: palliroute-backend
+  backend-api:
+    image: markjnt/palliroute-backend-api
+    container_name: palliroute-backend-api
     pull_policy: always
     volumes:
       - ./backend/data:/backend/data
@@ -10,12 +10,28 @@ services:
     environment:
       - SECRET_KEY=your_secret_key_here
       - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
-      - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000
+      - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
     ports:
       - "9000:9000"
     restart: unless-stopped
     networks:
       - app-network
+
+  backend-scheduler:
+    image: markjnt/palliroute-backend-scheduler
+    container_name: palliroute-backend-scheduler
+    pull_policy: always
+    volumes:
+      - /path/to/xlsx/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
+    environment:
+      - AUTO_IMPORT_ENABLED=true
+      - AUTO_IMPORT_INTERVAL_MINUTES=30
+      - BACKEND_API_URL=http://backend-api:9000
+    restart: unless-stopped
+    networks:
+      - app-network
+    depends_on:
+      - backend-api
 
   frontend-web:
     image: markjnt/palliroute-frontend-web
@@ -24,7 +40,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      - backend-api
     restart: unless-stopped
     networks:
       - app-network
@@ -36,7 +52,7 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - backend
+      - backend-api
     restart: unless-stopped
     networks:
       - app-network
