@@ -1,8 +1,13 @@
 # Docker Build-Anleitung
 
-## Backend
+## Backend API
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend -f docker/backend.Dockerfile --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend-api --target main -f docker/backend.Dockerfile --push .
+```
+
+## Backend Scheduler
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t markjnt/palliroute-backend-scheduler --target scheduler-image -f docker/backend.Dockerfile --push .
 ```
 
 ## Frontend-Web

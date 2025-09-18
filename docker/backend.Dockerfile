@@ -1,4 +1,24 @@
 # syntax=docker/dockerfile:1.6
+
+# Build stage for scheduler
+FROM python:3.12-slim AS scheduler
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_INPUT=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /scheduler
+
+# Install only scheduler dependencies
+RUN pip install requests apscheduler
+
+# Copy only scheduler-related files
+COPY backend/run_scheduler.py .
+COPY backend/config.py .
+COPY backend/app/ ./app/
+
+# Main stage for API
 FROM python:3.12-slim
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -29,5 +49,9 @@ ENV FLASK_APP=run.py \
 # Expose the port
 EXPOSE 9000
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=8", "--timeout=300"] 
+# Default command (can be overridden in docker-compose)
+CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=8", "--timeout=300"]
+
+# Create scheduler image
+FROM scheduler AS scheduler-image
+CMD ["python", "run_scheduler.py"] 

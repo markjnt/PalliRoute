@@ -20,16 +20,28 @@ cp docker-compose.example.yml docker-compose.yml
 
 #### 2.1 Umgebungsvariablen
 
-**Erforderliche Umgebungsvariablen:**
+**Backend API (erforderlich):**
 - `SECRET_KEY`: Ein sicherer Schlüssel für die Flask-Anwendung
 - `GOOGLE_MAPS_API_KEY`: Ihr Google Maps API-Schlüssel für Geocoding und Routenplanung
 - `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (Comma-separated)
 
+**Backend Scheduler (automatisch konfiguriert):**
+- `AUTO_IMPORT_ENABLED`: Automatischer Import aktiviert (Standard: true)
+- `AUTO_IMPORT_INTERVAL_MINUTES`: Import-Intervall in Minuten (Standard: 30)
+- `BACKEND_API_URL`: URL zum Backend API (Standard: http://backend-api:9000)
+
 ```yaml
+# Backend-API
 environment:
   - SECRET_KEY=your_secret_key_here
   - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
   - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
+
+# Backend Scheduler (automatisch konfiguriert)
+environment:
+  - AUTO_IMPORT_ENABLED=true
+  - AUTO_IMPORT_INTERVAL_MINUTES=30
+  - BACKEND_API_URL=http://backend-api:9000
 ```
 
 #### 2.2 Excel-Import konfigurieren
@@ -37,10 +49,15 @@ environment:
 Die Excel-Dateien werden über Docker Volumes gemountet. In der `docker-compose.yml` sind bereits folgende Volumes konfiguriert:
 
 ```yaml
+# Backend API (alle Volumes)
 volumes:
   - ./backend/data:/backend/data
   - /path/to/xlsx/Mitarbeiterliste:/backend/data/excel_import/Mitarbeiterliste
   - /path/to/xlsx/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
+
+# Backend Scheduler (nur Excel-Import)
+volumes:
+  - /path/to/xlsx/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
 ```
 
 **Wichtig:** Ersetzen Sie die Pfade `/path/to/xlsx/Mitarbeiterliste` und `/path/to/xlsx/Export_PalliDoc` mit den tatsächlichen Pfaden zu Ihren Excel-Dateien auf dem Host-System.
@@ -65,7 +82,7 @@ docker-compose up -d
 Die Anwendung ist anschließend unter folgenden URLs erreichbar:
 - **Frontend-Web**: `http://localhost:3000`
 - **Frontend-PWA**: `http://localhost:3001`
-- **Backend**: `http://localhost:9000`
+- **Backend-API**: `http://localhost:9000`
 
 #### 3.2 Container verwalten
 
