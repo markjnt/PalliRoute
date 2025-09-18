@@ -449,27 +449,21 @@ class ExcelImportService:
                                 visit_type = "HB"
                             duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                             
-                            # Validate weekend area assignment
-                            weekend_area = None
-                            if not has_weekend_area:
-                                raise ValueError(f"Wochenend-Termine gefunden, aber keine 'Touren-Wochenende' Spalte vorhanden. Bitte fügen Sie die Spalte 'Touren-Wochenende' hinzu und geben Sie die Area (Nord, Mitte oder Süd) für jeden Patienten an.")
-                            
-                            if weekend_area_column in row and pd.notna(row[weekend_area_column]):
-                                weekend_area_raw = str(row[weekend_area_column]).strip()
-                                if "Nord" in weekend_area_raw:
-                                    weekend_area = "Nord"
-                                elif "Mitte" in weekend_area_raw:
-                                    weekend_area = "Mitte"
-                                elif "Süd" in weekend_area_raw:
-                                    weekend_area = "Süd"
-                                else:
-                                    patient_name = f"{str(row['Vorname']).strip()} {str(row['Nachname']).strip()}"
-                                    raise ValueError(f"Wochenend-Termine gefunden, aber 'Touren-Wochenende' Spalte ist leer oder enthält keine gültige Area (Nord, Mitte, Süd) für Patient {patient_name} in Zeile {idx + 2}.")
-                            else:
-                                patient_name = f"{str(row['Vorname']).strip()} {str(row['Nachname']).strip()}"
-                                raise ValueError(f"Wochenend-Termine gefunden, aber 'Touren-Wochenende' Spalte ist leer oder enthält keine gültige Area (Nord, Mitte, Süd) für Patient {patient_name} in Zeile {idx + 2}.")
+                        # Validate weekend area assignment - always check if Touren-Wochenende column exists and has valid data
+                        weekend_area = None
+                        if has_weekend_area and weekend_area_column in row and pd.notna(row[weekend_area_column]):
+                            weekend_area_raw = str(row[weekend_area_column]).strip()
+                            # Make comparison case-insensitive and handle potential encoding issues
+                            weekend_area_raw_lower = weekend_area_raw.lower()
+                            if "nord" in weekend_area_raw_lower:
+                                weekend_area = "Nord"
+                            elif "mitte" in weekend_area_raw_lower:
+                                weekend_area = "Mitte"
+                            elif "süd" in weekend_area_raw_lower or "sued" in weekend_area_raw_lower:
+                                weekend_area = "Süd"
+                            # If weekend_area is still None, it means the value doesn't contain valid area info
                         else:
-                            # No weekend appointment, skip area validation
+                            # No weekend area data available
                             weekend_area = None
                         
                         time_info_column = f"Uhrzeit/Info {weekday}"
@@ -668,8 +662,11 @@ class ExcelImportService:
             planned_routes = 0
             failed_routes = 0
 
-            # Plan routes for all non-empty weekday routes
+            # Plan routes for all non-empty weekday routes (only routes with employee_id)
             for route in routes:
+                # Skip weekend routes (employee_id=None) - they are handled in Step 8b
+                if route.employee_id is None:
+                    continue
                 try:
                     print(f"  Planning route for employee {route.employee_id} on {route.weekday}")
                     route_planner.plan_route(route.weekday, route.employee_id)
@@ -683,6 +680,10 @@ class ExcelImportService:
             print("\nStep 8b: Planning weekend routes...")
             for route in weekend_routes:
                 try:
+                    # Skip routes with no area assigned
+                    if not route.area:
+                        print(f"  Skipping weekend route with no area on {route.weekday}")
+                        continue
                     print(f"  Planning weekend route for area {route.area} on {route.weekday}")
                     route_planner.plan_route(route.weekday, area=route.area)
                     planned_routes += 1

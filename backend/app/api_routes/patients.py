@@ -119,7 +119,7 @@ def import_patients():
             },
             "calendar_week": calendar_week,
             "last_import_time": current_time
-        }), 201
+        }), 200
     
     except Exception as e:
         db.session.rollback()
