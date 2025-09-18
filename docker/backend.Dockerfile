@@ -11,12 +11,11 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 WORKDIR /scheduler
 
 # Install only scheduler dependencies
-RUN pip install requests apscheduler
+RUN pip install requests apscheduler python-dotenv
 
-# Copy only scheduler-related files
+# Copy only scheduler script and config
 COPY backend/run_scheduler.py .
 COPY backend/config.py .
-COPY backend/app/ ./app/
 
 # Main stage for API
 FROM python:3.12-slim AS main
