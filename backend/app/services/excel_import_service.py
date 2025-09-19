@@ -196,197 +196,219 @@ class ExcelImportService:
             raise Exception(f"Fehler beim Importieren der Mitarbeiter: {str(e)}")
 
     @staticmethod
-    def import_patients(file_path) -> Dict[str, List[Any]]:
+    def _process_single_sheet(df: pd.DataFrame, sheet_name: str, employees: List[Employee]) -> Dict[str, List[Any]]:
         """
-        Import patients and their appointments from Excel file (supports multiple sheets)
-        Required columns: Gebiet, Touren, Nachname, Vorname, Ort, PLZ, Strasse, KW,
-                          Montag, Uhrzeit/Info Montag, Dienstag, Uhrzeit/Info Dienstag, 
-                          Mittwoch, Uhrzeit/Info Mittwoch, Donnerstag, Uhrzeit/Info Donnerstag,
-                          Freitag, Uhrzeit/Info Freitag, Telefon, Telefon2
-        Optional columns: Samstag, Uhrzeit/Info Samstag, Sonntag, Uhrzeit/Info Sonntag
-                         Zuständige Montag, Zuständige Dienstag, Zuständige Mittwoch, 
-                         Zuständige Donnerstag, Zuständige Freitag (contain employee aliases)
-        Weekend columns: Touren-Wochenende (contains area: Nord, Mitte, Süd) - only required if weekend appointments exist
-        Returns a dictionary with 'patients' and 'appointments' lists
+        Process a single sheet: create patients, appointments, and routes for that sheet
+        """
+        required_columns = [
+            'Gebiet', 'Touren', 'Nachname', 'Vorname', 'Ort', 'PLZ', 'Strasse', 'KW',
+            'Montag', 'Uhrzeit/Info Montag', 'Dienstag', 'Uhrzeit/Info Dienstag', 
+            'Mittwoch', 'Uhrzeit/Info Mittwoch', 'Donnerstag', 'Uhrzeit/Info Donnerstag',
+            'Freitag', 'Uhrzeit/Info Freitag', 'Telefon', 'Telefon2'
+        ]
         
-        Importablauf:
-        1. Alle Sheets aus der Excel-Datei laden und verarbeiten
-        2. Alle Patienten importieren
-        3. Mitarbeiter für Mitarbeiter (Tour für Tour) durchgehen
-        4. Für jeden Mitarbeiter alle zugehörigen Patienten finden
-        5. Für jeden Patienten alle 5 Wochentage durchgehen und Termine erstellen
-        6. Wenn "Zuständige [Wochentag]" Spalten vorhanden sind und einen Alias enthalten,
-           wird der Termin dem entsprechenden Mitarbeiter zugeordnet, sonst dem Standard-Mitarbeiter
-        7. Wochenend-Termine werden nur verarbeitet, wenn die entsprechenden Spalten vorhanden sind
+        # Validate columns for this sheet
+        if not all(col in df.columns for col in required_columns):
+            missing = [col for col in required_columns if col not in df.columns]
+            raise ValueError(f"Missing columns in sheet {sheet_name}: {', '.join(missing)}")
+        
+        # 1. Create patients for this sheet
+        print(f"  Step 1: Creating patients from sheet {sheet_name}...")
+        patients = ExcelImportService._create_patients_from_sheet(df, sheet_name)
+        
+        # 2. Create appointments for this sheet's patients
+        print(f"  Step 2: Creating appointments for sheet {sheet_name}...")
+        appointments = ExcelImportService._create_appointments_from_sheet(df, patients, employees, sheet_name)
+        
+        # 3. Create routes for this sheet's appointments
+        print(f"  Step 3: Creating routes for sheet {sheet_name}...")
+        routes = ExcelImportService._create_routes_from_sheet(appointments, employees)
+        
+        return {
+            'patients': patients,
+            'appointments': appointments,
+            'routes': routes
+        }
+
+    @staticmethod
+    def _create_patients_from_sheet(df: pd.DataFrame, sheet_name: str) -> List[Patient]:
         """
-        try:
-            # Step 1: Load all sheets from the Excel file
-            print("Step 1: Loading all sheets from Excel file...")
-            custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
-                               '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
-            
-            # Read all sheets from the Excel file
-            all_sheets = pd.read_excel(file_path, sheet_name=None, keep_default_na=False, na_values=custom_na_values)
-            
-            if not all_sheets:
-                raise ValueError("No sheets found in Excel file")
-            
-            print(f"Found {len(all_sheets)} sheets: {list(all_sheets.keys())}")
-            
-            # Combine all sheets into one DataFrame
-            df_list = []
-            for sheet_name, sheet_df in all_sheets.items():
-                print(f"Processing sheet: {sheet_name} with {len(sheet_df)} rows")
-                # Add sheet name as a column to track which sheet each row came from
-                sheet_df = sheet_df.copy()
-                sheet_df['_sheet_name'] = sheet_name
-                df_list.append(sheet_df)
-            
-            # Combine all DataFrames
-            df = pd.concat(df_list, ignore_index=True)
-            print(f"Combined data: {len(df)} total rows from {len(all_sheets)} sheets")
-            required_columns = [
-                'Gebiet', 'Touren', 'Nachname', 'Vorname', 'Ort', 'PLZ', 'Strasse', 'KW',
-                'Montag', 'Uhrzeit/Info Montag', 'Dienstag', 'Uhrzeit/Info Dienstag', 
-                'Mittwoch', 'Uhrzeit/Info Mittwoch', 'Donnerstag', 'Uhrzeit/Info Donnerstag',
-                'Freitag', 'Uhrzeit/Info Freitag', 'Telefon', 'Telefon2'
-            ]
-            
-            # Optional weekend columns
-            optional_weekend_columns = [
-                'Samstag', 'Uhrzeit/Info Samstag', 'Sonntag', 'Uhrzeit/Info Sonntag'
-            ]
-            
-            # Optional columns for specific employee assignment
-            optional_responsible_columns = [
-                'Zuständige Montag', 'Zuständige Dienstag', 'Zuständige Mittwoch', 
-                'Zuständige Donnerstag', 'Zuständige Freitag', 'Zuständige Samstag', 'Zuständige Sonntag'
-            ]
-            
-            # Weekend area column
-            weekend_area_column = 'Touren-Wochenende'
+        Create patients from a single sheet
+        """
+        # Extract and deduplicate patient addresses for geocoding
+        patient_address_tuples = []
+        for _, row in df.iterrows():
+            street = str(row['Strasse']).strip()
+            zip_code = str(row['PLZ']).strip()
+            city = str(row['Ort']).strip()
+            patient_address_tuples.append((street, zip_code, city))
+        unique_patient_address_tuples = list(set(patient_address_tuples))
+        
+        # Batch geocoding for this sheet
+        geocode_results = ExcelImportService.batch_geocode_addresses(unique_patient_address_tuples, max_workers=10)
+        
+        # Create patients
+        patients = []
+        for _, row in df.iterrows():
+            street = str(row['Strasse'])
+            zip_code = str(row['PLZ'])
+            city = str(row['Ort'])
+            latitude, longitude = geocode_results.get((street.strip(), zip_code.strip(), city.strip()), (None, None))
+            patient = Patient(
+                first_name=str(row['Vorname']),
+                last_name=str(row['Nachname']),
+                street=street,
+                zip_code=zip_code,
+                city=city,
+                latitude=latitude,
+                longitude=longitude,
+                phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
+                phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
+                calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,
+                area=str(row['Gebiet']) if pd.notna(row['Gebiet']) else None
+            )
+            patients.append(patient)
+        
+        # Save patients to get IDs
+        print(f"    Saving {len(patients)} patients from sheet {sheet_name}...")
+        db.session.add_all(patients)
+        db.session.commit()
+        print(f"    Saved {len(patients)} patients successfully")
+        
+        return patients
 
-            # Validate columns
-            if not all(col in df.columns for col in required_columns):
-                missing = [col for col in required_columns if col not in df.columns]
-                raise ValueError(f"Fehlende Spalten: {', '.join(missing)}")
-
-            # Check for optional responsible employee columns
-            found_responsible_columns = [col for col in optional_responsible_columns if col in df.columns]
-            if found_responsible_columns:
-                print(f"Found optional responsible employee columns: {found_responsible_columns}")
-            else:
-                print("No optional responsible employee columns found - using default assignment from 'Touren' column")
+    @staticmethod
+    def _create_appointments_from_sheet(df: pd.DataFrame, patients: List[Patient], employees: List[Employee], sheet_name: str) -> List[Appointment]:
+        """
+        Create appointments for patients from a single sheet
+        """
+        appointments = []
+        weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag']
+        
+        # Check which weekend columns are available
+        available_weekend_days = []
+        for day in ['Samstag', 'Sonntag']:
+            if day in df.columns:
+                available_weekend_days.append(day)
+        
+        weekend_days = available_weekend_days
+        if weekend_days:
+            print(f"    Found weekend columns: {weekend_days}")
+        
+        # Check for responsible employee columns
+        responsible_columns = [f"Zuständige {weekday}" for weekday in weekdays]
+        has_responsible_columns = any(col in df.columns for col in responsible_columns)
+        
+        if has_responsible_columns:
+            print(f"    Found responsible employee columns: {[col for col in responsible_columns if col in df.columns]}")
+        
+        # Check for weekend area column
+        weekend_area_column = 'Touren-Wochenende'
+        has_weekend_area = weekend_area_column in df.columns
+        
+        for idx, row in df.iterrows():
+            # Find the patient for this row (exact match including calendar_week)
+            row_calendar_week = int(row['KW']) if pd.notna(row['KW']) else None
+            patient = next((p for p in patients if 
+                           p.last_name == str(row['Nachname']).strip() and
+                           p.first_name == str(row['Vorname']).strip() and
+                           p.street == str(row['Strasse']).strip() and
+                           p.calendar_week == row_calendar_week), None)
+            if not patient:
+                print(f"    Warning: Patient not found for row {idx} in sheet {sheet_name}")
+                continue
             
-            # Check for weekend area column
-            has_weekend_area = weekend_area_column in df.columns
-            if has_weekend_area:
-                print(f"Found weekend area column: {weekend_area_column}")
-            else:
-                print("No weekend area column found - weekend appointments will not be assigned to areas")
-
-            # 1. Patientenadressen extrahieren und deduplizieren
-            patient_address_tuples = []
-            for _, row in df.iterrows():
-                street = str(row['Strasse']).strip()
-                zip_code = str(row['PLZ']).strip()
-                city = str(row['Ort']).strip()
-                patient_address_tuples.append((street, zip_code, city))
-            unique_patient_address_tuples = list(set(patient_address_tuples))
-
-            # 2. Batch-Geocoding
-            geocode_results = ExcelImportService.batch_geocode_addresses(unique_patient_address_tuples, max_workers=10)
-
-            # Step 2: Create and save all patients from the Excel file
-            print("Step 2: Creating patient records...")
-            patients = []
-            for _, row in df.iterrows():
-                street = str(row['Strasse'])
-                zip_code = str(row['PLZ'])
-                city = str(row['Ort'])
-                latitude, longitude = geocode_results.get((street.strip(), zip_code.strip(), city.strip()), (None, None))
-                patient = Patient(
-                    first_name=str(row['Vorname']),
-                    last_name=str(row['Nachname']),
-                    street=street,
-                    zip_code=zip_code,
-                    city=city,
-                    latitude=latitude,
-                    longitude=longitude,
-                    phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
-                    phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
-                    calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,
-                    area=str(row['Gebiet']) if pd.notna(row['Gebiet']) else None
+            print(f"    Processing patient {patient.first_name} {patient.last_name} (KW {patient.calendar_week})")
+            
+            # Default employee assignment from 'Touren' column
+            mitarbeiter_nachname_raw = str(row['Touren']).strip() if pd.notna(row['Touren']) else None
+            if not mitarbeiter_nachname_raw:
+                print(f"    Warning: No employee last name in 'Touren' for patient {patient.first_name} {patient.last_name} (KW {patient.calendar_week})")
+                continue
+            
+            # Find matching employees
+            matching_employees = [e for e in employees if e.last_name.lower() in mitarbeiter_nachname_raw.lower()]
+            if len(matching_employees) == 0:
+                print(f"    Warning: No employee found with last name in '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name} (KW {patient.calendar_week})")
+                continue
+            if len(matching_employees) > 1:
+                print(f"    Warning: Multiple employees match '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}: {[e.last_name for e in matching_employees]}")
+            
+            default_employee = matching_employees[0]
+            print(f"    → Assigned to {default_employee.first_name} {default_employee.last_name}")
+            
+            # Create weekday appointments
+            for weekday in weekdays:
+                weekday_value = row[weekday]
+                visit_type = None
+                duration = 0
+                if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
+                    visit_info = str(weekday_value).strip().upper()
+                    if "HB" in visit_info:
+                        visit_type = "HB"
+                    elif "NA" in visit_info:
+                        visit_type = "NA"
+                    elif "TK" in visit_info:
+                        visit_type = "TK"
+                    else:
+                        visit_type = "HB"
+                    duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
+                
+                # Check for specific responsible employee
+                responsible_column = f"Zuständige {weekday}"
+                assigned_employee = default_employee
+                
+                if has_responsible_columns and responsible_column in df.columns:
+                    responsible_alias = row.get(responsible_column)
+                    if pd.notna(responsible_alias) and str(responsible_alias).strip() != "":
+                        alias = str(responsible_alias).strip()
+                        alias_employee = next((e for e in employees if e.alias and e.alias.strip() == alias), None)
+                        if alias_employee:
+                            assigned_employee = alias_employee
+                            print(f"      {weekday}: Assigned to {alias_employee.first_name} {alias_employee.last_name} (alias: {alias})")
+                        else:
+                            print(f"      Warning: No employee found with alias '{alias}' for {weekday}, using default employee")
+                
+                # Parse time info
+                time_info_column = f"Uhrzeit/Info {weekday}"
+                time_info = None
+                if time_info_column in row and not pd.isna(row[time_info_column]):
+                    time_info = str(row[time_info_column])
+                appointment_time = None
+                if time_info and ':' in time_info:
+                    try:
+                        time_parts = time_info.split(':')
+                        hour, minute = int(time_parts[0]), int(time_parts[1])
+                        appointment_time = time(hour, minute)
+                    except (ValueError, IndexError):
+                        pass
+                
+                # Create appointment
+                weekday_map = {
+                    'Montag': 'monday',
+                    'Dienstag': 'tuesday',
+                    'Mittwoch': 'wednesday',
+                    'Donnerstag': 'thursday',
+                    'Freitag': 'friday'
+                }
+                english_weekday = weekday_map.get(weekday, weekday.lower())
+                visit_type_value = visit_type if visit_type is not None else ""
+                appointment = Appointment(
+                    patient_id=patient.id,
+                    employee_id=assigned_employee.id,
+                    weekday=english_weekday,
+                    time=appointment_time,
+                    visit_type=visit_type_value,
+                    duration=duration,
+                    info=time_info,
+                    area=patient.area,
+                    calendar_week=patient.calendar_week  # Set calendar_week from patient
                 )
-                patients.append(patient)
-            # Save all patients to the database to get IDs
-            print(f"Saving {len(patients)} patients to database...")
-            db.session.add_all(patients)
-            db.session.commit()
-            print(f"Saved {len(patients)} patients successfully")
+                appointments.append(appointment)
             
-            # Step 3: Load all employees
-            print("Step 3: Loading employees...")
-            employees = Employee.query.all()
-            print(f"Found {len(employees)} employees")
-            
-            # Step 4: Create appointments for each patient and assign to employee by last name from 'Touren' or specific alias columns
-            print("Step 4: Creating appointments for each patient...")
-            appointments = []
-            weekdays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag']
-            
-            # Check which weekend columns are available
-            available_weekend_days = []
-            for day in ['Samstag', 'Sonntag']:
-                if day in df.columns:
-                    available_weekend_days.append(day)
-            
-            weekend_days = available_weekend_days
+            # Create weekend appointments if available
             if weekend_days:
-                print(f"  Found weekend columns: {weekend_days}")
-            else:
-                print("  No weekend columns found - skipping weekend processing")
-            
-            # Check for new responsible employee columns
-            responsible_columns = [f"Zuständige {weekday}" for weekday in weekdays]
-            has_responsible_columns = any(col in df.columns for col in responsible_columns)
-            
-            if has_responsible_columns:
-                print(f"  Found responsible employee columns: {[col for col in responsible_columns if col in df.columns]}")
-            
-            # Check for weekend responsible employee columns
-            weekend_responsible_columns = [f"Zuständige {weekday}" for weekday in weekend_days]
-            has_weekend_responsible_columns = any(col in df.columns for col in weekend_responsible_columns)
-            
-            if has_weekend_responsible_columns:
-                print(f"  Found weekend responsible employee columns: {[col for col in weekend_responsible_columns if col in df.columns]}")
-            
-            for idx, row in df.iterrows():
-                patient = next((p for p in patients if 
-                               p.last_name == str(row['Nachname']).strip() and
-                               p.first_name == str(row['Vorname']).strip() and
-                               p.street == str(row['Strasse']).strip()), None)
-                if not patient:
-                    print(f"  Warning: Patient not found for row {row}")
-                    continue
-                
-                # Default employee assignment from 'Touren' column
-                mitarbeiter_nachname_raw = str(row['Touren']).strip() if pd.notna(row['Touren']) else None
-                if not mitarbeiter_nachname_raw:
-                    print(f"  Warning: No employee last name in 'Touren' for patient {patient.first_name} {patient.last_name}")
-                    continue
-                
-                # Suche Mitarbeiter, dessen Nachname als Substring in der Spalte steht
-                matching_employees = [e for e in employees if e.last_name.lower() in mitarbeiter_nachname_raw.lower()]
-                if len(matching_employees) == 0:
-                    print(f"  Warning: No employee found with last name in '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}")
-                    continue
-                if len(matching_employees) > 1:
-                    print(f"  Warning: Multiple employees match '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}: {[e.last_name for e in matching_employees]}")
-                
-                default_employee = matching_employees[0]
-                
-                for weekday in weekdays:
+                for weekday in weekend_days:
                     weekday_value = row[weekday]
                     visit_type = None
                     duration = 0
@@ -402,22 +424,19 @@ class ExcelImportService:
                             visit_type = "HB"
                         duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                     
-                    # Check if there's a specific responsible employee for this weekday
-                    responsible_column = f"Zuständige {weekday}"
-                    assigned_employee = default_employee
+                    # Weekend area assignment
+                    weekend_area = None
+                    if has_weekend_area and weekend_area_column in row and pd.notna(row[weekend_area_column]):
+                        weekend_area_raw = str(row[weekend_area_column]).strip()
+                        weekend_area_raw_lower = weekend_area_raw.lower()
+                        if "nord" in weekend_area_raw_lower:
+                            weekend_area = "Nord"
+                        elif "mitte" in weekend_area_raw_lower:
+                            weekend_area = "Mitte"
+                        elif "süd" in weekend_area_raw_lower or "sued" in weekend_area_raw_lower:
+                            weekend_area = "Süd"
                     
-                    if has_responsible_columns and responsible_column in df.columns:
-                        responsible_alias = row.get(responsible_column)
-                        if pd.notna(responsible_alias) and str(responsible_alias).strip() != "":
-                            alias = str(responsible_alias).strip()
-                            # Find employee by alias
-                            alias_employee = next((e for e in employees if e.alias and e.alias.strip() == alias), None)
-                            if alias_employee:
-                                assigned_employee = alias_employee
-                                print(f"  Assigned appointment for {patient.first_name} {patient.last_name} on {weekday} to employee {alias_employee.first_name} {alias_employee.last_name} (alias: {alias})")
-                            else:
-                                print(f"  Warning: No employee found with alias '{alias}' for patient {patient.first_name} {patient.last_name} on {weekday}, using default employee")
-                    
+                    # Parse time info
                     time_info_column = f"Uhrzeit/Info {weekday}"
                     time_info = None
                     if time_info_column in row and not pd.isna(row[time_info_column]):
@@ -430,325 +449,305 @@ class ExcelImportService:
                             appointment_time = time(hour, minute)
                         except (ValueError, IndexError):
                             pass
+                    
+                    # Create weekend appointment
                     weekday_map = {
-                        'Montag': 'monday',
-                        'Dienstag': 'tuesday',
-                        'Mittwoch': 'wednesday',
-                        'Donnerstag': 'thursday',
-                        'Freitag': 'friday'
+                        'Samstag': 'saturday',
+                        'Sonntag': 'sunday'
                     }
                     english_weekday = weekday_map.get(weekday, weekday.lower())
                     visit_type_value = visit_type if visit_type is not None else ""
-                    appointment = Appointment(
-                        patient_id=patient.id,
-                        employee_id=assigned_employee.id,
-                        weekday=english_weekday,
-                        time=appointment_time,
-                        visit_type=visit_type_value,
-                        duration=duration,
-                        info=time_info,
-                        area=patient.area
-                    )
-                    appointments.append(appointment)
-                
-                # Process weekend days (Samstag, Sonntag) - no employee assignment, area-based
-                # Only process if weekend columns are available
-                if weekend_days:
-                    for weekday in weekend_days:
-                        weekday_value = row[weekday]
-                        visit_type = None
-                        duration = 0
-                        if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
-                            visit_info = str(weekday_value).strip().upper()
-                            if "HB" in visit_info:
-                                visit_type = "HB"
-                            elif "NA" in visit_info:
-                                visit_type = "NA"
-                            elif "TK" in visit_info:
-                                visit_type = "TK"
-                            else:
-                                visit_type = "HB"
-                            duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
-                            
-                        # Validate weekend area assignment - always check if Touren-Wochenende column exists and has valid data
-                        weekend_area = None
-                        if has_weekend_area and weekend_area_column in row and pd.notna(row[weekend_area_column]):
-                            weekend_area_raw = str(row[weekend_area_column]).strip()
-                            # Make comparison case-insensitive and handle potential encoding issues
-                            weekend_area_raw_lower = weekend_area_raw.lower()
-                            if "nord" in weekend_area_raw_lower:
-                                weekend_area = "Nord"
-                            elif "mitte" in weekend_area_raw_lower:
-                                weekend_area = "Mitte"
-                            elif "süd" in weekend_area_raw_lower or "sued" in weekend_area_raw_lower:
-                                weekend_area = "Süd"
-                            # If weekend_area is still None, it means the value doesn't contain valid area info
-                        else:
-                            # No weekend area data available
-                            weekend_area = None
-                        
-                        time_info_column = f"Uhrzeit/Info {weekday}"
-                        time_info = None
-                        if time_info_column in row and not pd.isna(row[time_info_column]):
-                            time_info = str(row[time_info_column])
-                        appointment_time = None
-                        if time_info and ':' in time_info:
-                            try:
-                                time_parts = time_info.split(':')
-                                hour, minute = int(time_parts[0]), int(time_parts[1])
-                                appointment_time = time(hour, minute)
-                            except (ValueError, IndexError):
-                                pass
-                        weekday_map = {
-                            'Samstag': 'saturday',
-                            'Sonntag': 'sunday'
-                        }
-                        english_weekday = weekday_map.get(weekday, weekday.lower())
-                        visit_type_value = visit_type if visit_type is not None else ""
-                        
-                        # Only create appointment if there's a visit type (i.e., if there was a weekend appointment)
-                        if visit_type is not None:
-                            appointment = Appointment(
-                                patient_id=patient.id,
-                                employee_id=None,  # No employee assignment for weekend appointments
-                                weekday=english_weekday,
-                                time=appointment_time,
-                                visit_type=visit_type_value,
-                                duration=duration,
-                                info=time_info,
-                                area=weekend_area
-                            )
-                            appointments.append(appointment)
-            
-            print(f"  Created {len(appointments)} appointments.")
-            db.session.add_all(appointments)
-            db.session.commit()
-            print(f"  Saved {len(appointments)} appointments to database.")
-            
-            # Step 6: Create routes for each employee by weekday (only HB appointments)
-            print("\nStep 6: Creating routes for each employee by weekday...")
-            routes = []
-            
-            # Mapping von employee_id auf area für schnellen Zugriff
-            employee_id_to_area = {emp.id: emp.area for emp in employees}
-            
-            # Gruppiere Termine nach Mitarbeiter und Wochentag (nur Wochentage)
-            employee_weekday_appointments = {}
-            for app in appointments:
-                if app.visit_type in ('HB', 'NA') and app.employee_id is not None:  # Nur HB- und NA-Termine mit Mitarbeiter berücksichtigen
-                    key = (app.employee_id, app.weekday)
-                    if key not in employee_weekday_appointments:
-                        employee_weekday_appointments[key] = []
-                    employee_weekday_appointments[key].append(app)
-            
-            # Erstelle für jede Mitarbeiter-Wochentag-Kombination eine Route
-            for (employee_id, weekday), apps in employee_weekday_appointments.items():
-                if not apps:
-                    continue
-                
-                # Neue Route erstellen mit allen HB-Terminen für diesen Mitarbeiter an diesem Wochentag
-                appointment_ids = [app.id for app in apps]
-                route_area = employee_id_to_area.get(employee_id, '')
-                new_route = Route(
-                    employee_id=employee_id,
-                    weekday=weekday,
-                    route_order=json.dumps(appointment_ids),
-                    total_duration=0,  # Wird später aktualisiert
-                    total_distance=0,  # Wird später aktualisiert
-                    area=route_area
-                )
-                db.session.add(new_route)
-                routes.append(new_route)
-            
-            # Step 6b: Create weekend routes by area (no employee assignment)
-            # Only create weekend routes if weekend columns were available
-            weekend_routes = []
-            if weekend_days:
-                print("\nStep 6b: Creating weekend routes by area...")
-                
-                # Gruppiere Wochenend-Termine nach Area und Wochentag
-                weekend_area_appointments = {}
-                for app in appointments:
-                    if app.visit_type in ('HB', 'NA') and app.employee_id is None and app.weekday in ['saturday', 'sunday']:
-                        key = (app.area, app.weekday)
-                        if key not in weekend_area_appointments:
-                            weekend_area_appointments[key] = []
-                        weekend_area_appointments[key].append(app)
-                
-                # Erstelle für jede Area-Wochentag-Kombination eine Route
-                for (area, weekday), apps in weekend_area_appointments.items():
-                    if not apps:
-                        continue
                     
-                    # Neue Route erstellen mit allen HB-Terminen für diese Area an diesem Wochentag
-                    appointment_ids = [app.id for app in apps]
-                    new_route = Route(
-                        employee_id=None,  # No employee assignment for weekend routes
-                        weekday=weekday,
-                        route_order=json.dumps(appointment_ids),
-                        total_duration=0,  # Wird später aktualisiert
-                        total_distance=0,  # Wird später aktualisiert
-                        area=area
-                    )
-                    db.session.add(new_route)
-                    routes.append(new_route)
-                    weekend_routes.append(new_route)
-            else:
-                print("\nStep 6b: Skipping weekend routes (no weekend columns found)")
+                    if visit_type is not None:
+                        appointment = Appointment(
+                            patient_id=patient.id,
+                            employee_id=None,  # No employee assignment for weekend appointments
+                            weekday=english_weekday,
+                            time=appointment_time,
+                            visit_type=visit_type_value,
+                            duration=duration,
+                            info=time_info,
+                            area=weekend_area,
+                            calendar_week=patient.calendar_week  # Set calendar_week from patient
+                        )
+                        appointments.append(appointment)
+        
+        # Save appointments
+        print(f"    Saving {len(appointments)} appointments from sheet {sheet_name}...")
+        db.session.add_all(appointments)
+        db.session.commit()
+        print(f"    Saved {len(appointments)} appointments successfully")
+        
+        return appointments
+
+    @staticmethod
+    def _create_routes_from_sheet(appointments: List[Appointment], employees: List[Employee]) -> List[Route]:
+        """
+        Create routes for appointments from a single sheet
+        """
+        routes = []
+        
+        # Employee area mapping
+        employee_id_to_area = {emp.id: emp.area for emp in employees}
+        
+        # Group appointments by employee and weekday (weekdays only)
+        employee_weekday_appointments = {}
+        for app in appointments:
+            if app.visit_type in ('HB', 'NA') and app.employee_id is not None:
+                key = (app.employee_id, app.weekday)
+                if key not in employee_weekday_appointments:
+                    employee_weekday_appointments[key] = []
+                employee_weekday_appointments[key].append(app)
+        
+        # Create routes for each employee-weekday combination
+        for (employee_id, weekday), apps in employee_weekday_appointments.items():
+            if not apps:
+                continue
             
-            # Speichere alle Routen in der Datenbank
-            if routes:
-                print(f"  Saving {len(routes)} routes to database...")
-                db.session.commit()
-                print(f"  Routes saved successfully")
-            else:
-                print("  No routes to save")
+            appointment_ids = [app.id for app in apps]
+            route_area = employee_id_to_area.get(employee_id, '')
+            # Get calendar_week from first appointment (all appointments in this route should have same calendar_week)
+            route_calendar_week = apps[0].calendar_week
+            new_route = Route(
+                employee_id=employee_id,
+                weekday=weekday,
+                route_order=json.dumps(appointment_ids),
+                total_duration=0,
+                total_distance=0,
+                area=route_area,
+                calendar_week=route_calendar_week
+            )
+            routes.append(new_route)
+        
+        # Group weekend appointments by area and weekday
+        weekend_area_appointments = {}
+        for app in appointments:
+            if app.visit_type in ('HB', 'NA') and app.employee_id is None and app.weekday in ['saturday', 'sunday']:
+                key = (app.area, app.weekday)
+                if key not in weekend_area_appointments:
+                    weekend_area_appointments[key] = []
+                weekend_area_appointments[key].append(app)
+        
+        # Create weekend routes for each area-weekday combination
+        for (area, weekday), apps in weekend_area_appointments.items():
+            if not apps:
+                continue
             
-            # Step 7: Erstelle leere Routen für alle Mitarbeiter für jeden Wochentag,
-            # falls noch keine Route existiert
-            print("\nStep 7: Creating empty routes for all employees...")
-            weekday_map = {
-                'Montag': 'monday',
-                'Dienstag': 'tuesday',
-                'Mittwoch': 'wednesday',
-                'Donnerstag': 'thursday',
-                'Freitag': 'friday'
-            }
-            english_weekdays = list(weekday_map.values())
+            appointment_ids = [app.id for app in apps]
+            # Get calendar_week from first appointment (all appointments in this route should have same calendar_week)
+            route_calendar_week = apps[0].calendar_week
+            new_route = Route(
+                employee_id=None,
+                weekday=weekday,
+                route_order=json.dumps(appointment_ids),
+                total_duration=0,
+                total_distance=0,
+                area=area,
+                calendar_week=route_calendar_week
+            )
+            routes.append(new_route)
+        
+        # Save routes
+        if routes:
+            print(f"    Saving {len(routes)} routes...")
+            db.session.add_all(routes)
+            db.session.commit()
+            print(f"    Saved {len(routes)} routes successfully")
+        
+        return routes
+
+    @staticmethod
+    def _create_empty_routes(employees: List[Employee], calendar_weeks: List[int]) -> List[Route]:
+        """
+        Create empty routes for all employees for all weekdays for all calendar weeks
+        """
+        empty_routes = []
+        english_weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        
+        # Create empty routes for each calendar week
+        for calendar_week in calendar_weeks:
+            print(f"    Creating empty routes for KW {calendar_week}...")
             
-            empty_routes = []
-            all_employees = Employee.query.all()
-            for employee in all_employees:
+            for employee in employees:
                 for weekday in english_weekdays:
-                    # Prüfen, ob bereits eine Route für diesen Mitarbeiter und Tag existiert
+                    # Check if route already exists for this employee, weekday, and calendar_week
                     existing_route = Route.query.filter_by(
                         employee_id=employee.id,
-                        weekday=weekday
+                        weekday=weekday,
+                        calendar_week=calendar_week
                     ).first()
                     
                     if not existing_route:
-                        print(f"  Creating empty route for employee {employee.first_name} {employee.last_name} on {weekday}")
+                        print(f"      Creating empty route for employee {employee.first_name} {employee.last_name} on {weekday} (KW {calendar_week})")
                         new_route = Route(
                             employee_id=employee.id,
                             weekday=weekday,
-                            route_order=json.dumps([]),  # Leere Route
+                            route_order=json.dumps([]),
                             total_duration=0,
                             total_distance=0,
-                            area=employee.area or ''
+                            area=employee.area or '',
+                            calendar_week=calendar_week  # Set specific calendar_week
                         )
-                        db.session.add(new_route)
                         empty_routes.append(new_route)
             
-            # Step 7b: Erstelle leere Routen für alle Areas für jeden Wochenend-Tag
-            # Only create weekend routes if weekend columns were available
-            if weekend_days:
-                print("\nStep 7b: Creating empty weekend routes for all areas...")
-                weekend_areas = ['Nord', 'Mitte', 'Süd']
-                english_weekend_days = ['saturday', 'sunday']
-                
-                for area in weekend_areas:
-                    for weekday in english_weekend_days:
-                        # Prüfen, ob bereits eine Route für diese Area und Tag existiert
-                        existing_route = Route.query.filter_by(
+            # Create empty weekend routes for this calendar week
+            weekend_areas = ['Nord', 'Mitte', 'Süd']
+            english_weekend_days = ['saturday', 'sunday']
+            
+            for area in weekend_areas:
+                for weekday in english_weekend_days:
+                    existing_route = Route.query.filter_by(
+                        employee_id=None,
+                        weekday=weekday,
+                        area=area,
+                        calendar_week=calendar_week
+                    ).first()
+                    
+                    if not existing_route:
+                        print(f"      Creating empty weekend route for area {area} on {weekday} (KW {calendar_week})")
+                        new_route = Route(
                             employee_id=None,
                             weekday=weekday,
-                            area=area
-                        ).first()
-                        
-                        if not existing_route:
-                            print(f"  Creating empty weekend route for area {area} on {weekday}")
-                            new_route = Route(
-                                employee_id=None,
-                                weekday=weekday,
-                                route_order=json.dumps([]),  # Leere Route
-                                total_duration=0,
-                                total_distance=0,
-                                area=area
-                            )
-                            db.session.add(new_route)
-                            empty_routes.append(new_route)
-            else:
-                print("\nStep 7b: Skipping empty weekend routes (no weekend columns found)")
+                            route_order=json.dumps([]),
+                            total_duration=0,
+                            total_distance=0,
+                            area=area,
+                            calendar_week=calendar_week  # Set specific calendar_week
+                        )
+                        empty_routes.append(new_route)
+        
+        if empty_routes:
+            print(f"    Saving {len(empty_routes)} empty routes...")
+            db.session.add_all(empty_routes)
+            db.session.commit()
+            print(f"    Saved {len(empty_routes)} empty routes successfully")
+        
+        return empty_routes
+
+    @staticmethod
+    def _plan_all_routes(routes: List[Route]):
+        """
+        Plan all routes using the route planner
+        """
+        route_planner = RoutePlanner()
+        planned_routes = 0
+        failed_routes = 0
+        
+        # Plan ALL routes (including empty ones) for ALL calendar weeks
+        weekday_routes = [r for r in routes if r.employee_id is not None]
+        for route in weekday_routes:
+            try:
+                route_status = "with appointments" if route.get_route_order() else "empty"
+                print(f"    Planning route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
+                route_planner.plan_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
+                planned_routes += 1
+            except Exception as e:
+                print(f"    Failed to plan route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
+                failed_routes += 1
+        
+        # Plan weekend routes (without employee_id)
+        weekend_routes = [r for r in routes if r.employee_id is None]
+        for route in weekend_routes:
+            try:
+                route_status = "with appointments" if route.get_route_order() else "empty"
+                print(f"    Planning weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
+                route_planner.plan_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
+                planned_routes += 1
+            except Exception as e:
+                print(f"    Failed to plan weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
+                failed_routes += 1
+        
+        print(f"Route planning complete: {planned_routes} routes planned successfully, {failed_routes} routes failed")
+
+    @staticmethod
+    def import_patients(file_path) -> Dict[str, List[Any]]:
+        """
+        Import patients and their appointments from Excel file (supports multiple sheets)
+        Each sheet is processed separately to ensure proper calendar week handling
+        
+        Neuer Importablauf:
+        1. Alle Sheets aus der Excel-Datei laden
+        2. Mitarbeiter einmal laden (sind kalenderwochenunabhängig)
+        3. Jedes Sheet separat verarbeiten:
+           - Patienten für dieses Sheet erstellen
+           - Termine für diese Patienten erstellen
+           - Routen für diese Termine erstellen
+        4. Leere Routen für alle Mitarbeiter erstellen
+        5. Alle Routen planen
+        """
+        try:
+            # Step 1: Load all sheets from the Excel file
+            print("Step 1: Loading all sheets from Excel file...")
+            custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
+                               '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
             
-            if empty_routes:
-                print(f"  Saving {len(empty_routes)} empty routes to database...")
-                db.session.commit()
-                print(f"  Empty routes saved successfully")
-            else:
-                print("  No empty routes to save")
-
-            # Step 8: Plan routes for all non-empty routes
-            print("\nStep 8: Planning routes for all non-empty routes...")
-            route_planner = RoutePlanner()
-            planned_routes = 0
-            failed_routes = 0
-
-            # Plan routes for all non-empty weekday routes (only routes with employee_id)
-            for route in routes:
-                # Skip weekend routes (employee_id=None) - they are handled in Step 8b
-                if route.employee_id is None:
-                    continue
-                try:
-                    print(f"  Planning route for employee {route.employee_id} on {route.weekday}")
-                    route_planner.plan_route(route.weekday, route.employee_id)
-                    planned_routes += 1
-                except Exception as e:
-                    print(f"  Failed to plan route for employee {route.employee_id} on {route.weekday}: {str(e)}")
-                    failed_routes += 1
-                    continue
-
-            # Plan routes for all non-empty weekend routes
-            print("\nStep 8b: Planning weekend routes...")
-            for route in weekend_routes:
-                try:
-                    # Skip routes with no area assigned
-                    if not route.area:
-                        print(f"  Skipping weekend route with no area on {route.weekday}")
-                        continue
-                    print(f"  Planning weekend route for area {route.area} on {route.weekday}")
-                    route_planner.plan_route(route.weekday, area=route.area)
-                    planned_routes += 1
-                except Exception as e:
-                    print(f"  Failed to plan weekend route for area {route.area} on {route.weekday}: {str(e)}")
-                    failed_routes += 1
-                    continue
-
-            print(f"\nRoute planning complete: {planned_routes} routes planned successfully, {failed_routes} routes failed")
+            # Read all sheets from the Excel file
+            all_sheets = pd.read_excel(file_path, sheet_name=None, keep_default_na=False, na_values=custom_na_values)
             
-            # Return the results with summary
-            calendar_weeks = list(set([p.calendar_week for p in patients if p.calendar_week is not None]))
+            if not all_sheets:
+                raise ValueError("No sheets found in Excel file")
+            
+            print(f"Found {len(all_sheets)} sheets: {list(all_sheets.keys())}")
+            
+            # Step 2: Load all employees (kalenderwochenunabhängig)
+            print("Step 2: Loading employees...")
+            employees = Employee.query.all()
+            print(f"Found {len(employees)} employees")
+            
+            # Step 3: Process each sheet separately
+            all_patients = []
+            all_appointments = []
+            all_routes = []
+            
+            for sheet_name, df in all_sheets.items():
+                print(f"\n=== Processing sheet: {sheet_name} with {len(df)} rows ===")
+                
+                # Show calendar weeks in this sheet
+                kw_values = df['KW'].dropna().unique()
+                print(f"  Calendar weeks in sheet '{sheet_name}': {sorted(kw_values)}")
+                
+                # Process this sheet
+                sheet_result = ExcelImportService._process_single_sheet(df, sheet_name, employees)
+                
+                all_patients.extend(sheet_result['patients'])
+                all_appointments.extend(sheet_result['appointments'])
+                all_routes.extend(sheet_result['routes'])
+            
+            # Step 4: Create empty routes for all employees for all calendar weeks
+            print("\nStep 4: Creating empty routes for all employees...")
+            calendar_weeks = list(set([p.calendar_week for p in all_patients if p.calendar_week is not None]))
+            empty_routes = ExcelImportService._create_empty_routes(employees, calendar_weeks)
+            all_routes.extend(empty_routes)
+            
+            # Step 5: Plan all routes
+            print("\nStep 5: Planning all routes...")
+            ExcelImportService._plan_all_routes(all_routes)
+            
+            # Calculate final statistics
+            calendar_weeks = list(set([p.calendar_week for p in all_patients if p.calendar_week is not None]))
             calendar_weeks.sort()
             calendar_weeks_str = ', '.join(map(str, calendar_weeks)) if calendar_weeks else 'None'
-            print(f"\nImport complete: {len(patients)} patients, {len(appointments)} appointments, {len(routes) + len(empty_routes)} routes (including {len(empty_routes)} empty routes) for calendar weeks: {calendar_weeks_str}")
             
-            # Terminate with some statistics
-            appointment_by_day = {}
+            # Calculate appointment distribution by calendar week
             appointment_by_week = {}
-            for app in appointments:
-                if app.weekday not in appointment_by_day:
-                    appointment_by_day[app.weekday] = 0
-                appointment_by_day[app.weekday] += 1
-                
-                # Get calendar week from patient
-                patient = next((p for p in patients if p.id == app.patient_id), None)
+            for app in all_appointments:
+                patient = next((p for p in all_patients if p.id == app.patient_id), None)
                 if patient and patient.calendar_week:
                     week_key = f"KW {patient.calendar_week}"
                     if week_key not in appointment_by_week:
                         appointment_by_week[week_key] = 0
                     appointment_by_week[week_key] += 1
-                
-            print("Appointment distribution by day:")
-            for day, count in appointment_by_day.items():
-                print(f"  {day.capitalize()}: {count} appointments")
-                
-            print("Appointment distribution by calendar week:")
+            
+            print("\nFinal appointment distribution by calendar week:")
             for week, count in sorted(appointment_by_week.items()):
                 print(f"  {week}: {count} appointments")
             
+            print(f"\nImport complete: {len(all_patients)} patients, {len(all_appointments)} appointments, {len(all_routes)} routes for calendar weeks: {calendar_weeks_str}")
+            
             return {
-                'patients': patients,
-                'appointments': appointments,
-                'routes': routes
+                'patients': all_patients,
+                'appointments': all_appointments,
+                'routes': all_routes
             }
 
         except Exception as e:

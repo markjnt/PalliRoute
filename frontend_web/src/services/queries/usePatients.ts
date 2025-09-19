@@ -3,6 +3,7 @@ import { patientsApi } from '../api/patients';
 import { appointmentKeys } from './useAppointments';
 import { routeKeys } from './useRoutes';
 import { employeeKeys } from './useEmployees';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
 
 // Keys für React Query Cache
 export const patientKeys = {
@@ -11,13 +12,19 @@ export const patientKeys = {
   list: (filters: string) => [...patientKeys.lists(), { filters }] as const,
   details: () => [...patientKeys.all, 'detail'] as const,
   detail: (id: number) => [...patientKeys.details(), id] as const,
+  calendarWeeks: () => [...patientKeys.all, 'calendar-weeks'] as const,
 };
 
 // Hook zum Laden aller Patienten
-export const usePatients = () => {
+export const usePatients = (overrideCalendarWeek?: number) => {
+  const { selectedCalendarWeek } = useCalendarWeekStore();
+  
+  // Verwende override oder den ausgewählten Wert aus dem Store
+  const calendarWeek = overrideCalendarWeek !== undefined ? overrideCalendarWeek : selectedCalendarWeek;
+  
   return useQuery({
-    queryKey: patientKeys.lists(),
-    queryFn: () => patientsApi.getAll(),
+    queryKey: [...patientKeys.lists(), { calendarWeek }],
+    queryFn: () => patientsApi.getAll(calendarWeek || undefined),
   });
 };
 
@@ -27,6 +34,15 @@ export const usePatient = (id: number) => {
     queryKey: patientKeys.detail(id),
     queryFn: () => patientsApi.getById(id),
     enabled: !!id, // Nur ausführen, wenn eine ID vorhanden ist
+  });
+};
+
+// Hook zum Laden verfügbarer Kalenderwochen
+export const useCalendarWeeks = () => {
+  return useQuery({
+    queryKey: patientKeys.calendarWeeks(),
+    queryFn: () => patientsApi.getCalendarWeeks(),
+    staleTime: 5 * 60 * 1000, // 5 Minuten - Kalenderwochen ändern sich selten
   });
 };
 

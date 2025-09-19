@@ -23,6 +23,7 @@ def get_routes():
     - date: Filter by specific date (YYYY-MM-DD)
     - area: Filter by area (for weekend routes)
     - weekend_only: Filter only weekend routes (saturday, sunday)
+    - calendar_week: Filter by calendar week (via patient appointments)
     """
     try:
         # Get query parameters
@@ -31,6 +32,7 @@ def get_routes():
         date_str = request.args.get('date')
         area = request.args.get('area')
         weekend_only = request.args.get('weekend_only', '').lower() == 'true'
+        calendar_week = request.args.get('calendar_week', type=int)
 
         # Build query
         query = Route.query
@@ -46,6 +48,10 @@ def get_routes():
         
         if weekend_only:
             query = query.filter(Route.weekday.in_(['saturday', 'sunday']))
+        
+        if calendar_week:
+            # Direct filter by calendar_week (much simpler!)
+            query = query.filter_by(calendar_week=calendar_week)
         
         if date_str:
             try:
@@ -174,7 +180,8 @@ def optimize_routes():
     Expected JSON body: {
         "weekday": "monday",  # Wochentag (kleingeschrieben)
         "employee_id": 1,     # Mitarbeiter-ID (for weekday routes)
-        "area": "Nordkreis"   # Area (for weekend routes)
+        "area": "Nordkreis",  # Area (for weekend routes)
+        "calendar_week": 38   # Kalenderwoche (optional, wird automatisch ermittelt falls nicht angegeben)
     }
     """
     try:
@@ -184,18 +191,43 @@ def optimize_routes():
         weekday = data.get('weekday', '').lower()
         employee_id = data.get('employee_id')
         area = data.get('area')
+        calendar_week = data.get('calendar_week')  # Optional calendar_week from frontend
         
         if not weekday:
             return jsonify({'error': 'weekday is required'}), 400
         
         if employee_id:
-            # Optimize weekday route by employee
-            route_optimizer.optimize_route(weekday, employee_id)
-            return jsonify({'message': f'Routes optimized successfully for employee {employee_id} on {weekday}'})
+            if calendar_week:
+                # Optimize specific route for this calendar week
+                route_optimizer.optimize_route(weekday, employee_id, calendar_week=calendar_week)
+                return jsonify({'message': f'Route optimized successfully for employee {employee_id} on {weekday} (KW {calendar_week})'})
+            else:
+                # Optimize all routes for this employee/weekday (all calendar weeks)
+                routes = Route.query.filter_by(employee_id=employee_id, weekday=weekday).all()
+                optimized_count = 0
+                for route in routes:
+                    try:
+                        route_optimizer.optimize_route(weekday, employee_id, calendar_week=route.calendar_week)
+                        optimized_count += 1
+                    except Exception as e:
+                        print(f"Failed to optimize route for employee {employee_id} on {weekday} (KW {route.calendar_week}): {e}")
+                return jsonify({'message': f'{optimized_count} routes optimized successfully for employee {employee_id} on {weekday}'})
         elif area:
-            # Optimize weekend route by area
-            route_optimizer.optimize_route(weekday, area=area)
-            return jsonify({'message': f'Weekend routes optimized successfully for area {area} on {weekday}'})
+            if calendar_week:
+                # Optimize specific route for this calendar week
+                route_optimizer.optimize_route(weekday, area=area, calendar_week=calendar_week)
+                return jsonify({'message': f'Weekend route optimized successfully for area {area} on {weekday} (KW {calendar_week})'})
+            else:
+                # Optimize all routes for this area/weekday (all calendar weeks)
+                routes = Route.query.filter_by(employee_id=None, weekday=weekday, area=area).all()
+                optimized_count = 0
+                for route in routes:
+                    try:
+                        route_optimizer.optimize_route(weekday, area=area, calendar_week=route.calendar_week)
+                        optimized_count += 1
+                    except Exception as e:
+                        print(f"Failed to optimize weekend route for area {area} on {weekday} (KW {route.calendar_week}): {e}")
+                return jsonify({'message': f'{optimized_count} weekend routes optimized successfully for area {area} on {weekday}'})  
         else:
             return jsonify({'error': 'Either employee_id or area is required'}), 400
             

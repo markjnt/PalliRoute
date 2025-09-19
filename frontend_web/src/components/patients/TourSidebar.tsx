@@ -31,9 +31,9 @@ import { Employee } from '../../types/models';
 import { Weekday } from '../../stores/useWeekdayStore';
 import { ToursView } from './ToursView';
 import { SearchField } from './SearchField';
-import { useWeekdayStore } from '../../stores';
+import { useWeekdayStore, useCalendarWeekStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
-import { usePatients, usePatientImport } from '../../services/queries/usePatients';
+import { usePatients, usePatientImport, useCalendarWeeks } from '../../services/queries/usePatients';
 import { useLastPatientImportTime } from '../../services/queries/useConfig';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
@@ -49,6 +49,13 @@ interface TourPlanSidebarProps {
 export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 }) => {
     const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
+    const { 
+        selectedCalendarWeek, 
+        availableCalendarWeeks, 
+        setSelectedCalendarWeek, 
+        setAvailableCalendarWeeks,
+        getCurrentCalendarWeek 
+    } = useCalendarWeekStore();
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -72,8 +79,14 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const { 
         data: employees = [], 
         isLoading: loadingEmployees 
-    } = useEmployees();
+    } = useEmployees(); // Employees sind kalenderwochenunabhängig!
     
+    // Verfügbare Kalenderwochen (effizienter separater Endpoint)
+    const {
+        data: availableCalendarWeeksFromApi = [],
+    } = useCalendarWeeks();
+    
+    // Gefilterte Patienten für die aktuelle Ansicht (verwendet automatisch selectedCalendarWeek)
     const {
         data: patients = [],
         isLoading: loadingPatients,
@@ -103,6 +116,13 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             setLastPatientImportTime(new Date(lastImportTimeData.last_import_time));
         }
     }, [lastImportTimeData, setLastPatientImportTime]);
+
+    // Update available calendar weeks when API data changes
+    useEffect(() => {
+        if (availableCalendarWeeksFromApi.length > 0) {
+            setAvailableCalendarWeeks(availableCalendarWeeksFromApi);
+        }
+    }, [availableCalendarWeeksFromApi, setAvailableCalendarWeeks]);
 
     // Handle weekday change
     const handleDayChange = useCallback((newWeekday: Weekday) => {
@@ -182,33 +202,12 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         return weekdayNames[day] || 'Unbekannt';
     }, []);
 
-    // Get current calendar week (German/ISO 8601 standard)
-    const getCurrentCalendarWeek = useCallback(() => {
-        const now = new Date();
-        
-        // ISO 8601 week calculation - correct implementation
-        const date = new Date(now.getTime());
-        
-        // Set to nearest Thursday: current date + 4 - current day number
-        // Make Sunday's day number 7
-        const dayOfWeek = (date.getDay() + 6) % 7 + 1; // Monday = 1, Sunday = 7
-        date.setDate(date.getDate() + 4 - dayOfWeek);
-        
-        // Get first day of year
-        const yearStart = new Date(date.getFullYear(), 0, 1);
-        
-        // Calculate full weeks to nearest Thursday
-        const weekNumber = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-        
-        return weekNumber;
-    }, []);
 
-    // Check if displayed KW matches current KW
+    // Check if selected KW matches current KW
     const isCurrentWeek = useMemo(() => {
         const currentWeek = getCurrentCalendarWeek();
-        const displayedWeek = patients[0]?.calendar_week;
-        return displayedWeek && displayedWeek === currentWeek;
-    }, [patients, getCurrentCalendarWeek]);
+        return selectedCalendarWeek && selectedCalendarWeek === currentWeek;
+    }, [selectedCalendarWeek, getCurrentCalendarWeek]);
 
     
     // Memoize loading and error states
@@ -319,7 +318,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {/* Calendar Week Selector Button */}
-                    {patients[0]?.calendar_week && (
+                    {selectedCalendarWeek && (
                         <Button
                             variant="outlined"
                             onClick={handleKwPopoverOpen}
@@ -339,7 +338,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                                 }
                             }}
                         >
-                            KW {patients[0].calendar_week}
+                            KW {selectedCalendarWeek}
                         </Button>
                     )}
                     
@@ -456,36 +455,58 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 }}
             >
                 <List sx={{ p: 1 }}>
-                    <ListItem disablePadding>
-                        <ListItemButton
-                            onClick={handleKwPopoverClose}
-                            sx={{
-                                borderRadius: 1,
-                                backgroundColor: isCurrentWeek ? 'success.main' : 'primary.main',
-                                color: 'white',
-                                '&:hover': {
-                                    backgroundColor: isCurrentWeek ? 'success.dark' : 'primary.dark',
-                                }
-                            }}
-                        >
-                            <ListItemText 
-                                primary={`KW ${patients[0]?.calendar_week || 'N/A'}`}
-                                primaryTypographyProps={{
-                                    fontWeight: 600,
-                                    fontSize: '0.875rem'
-                                }}
-                            />
-                            {isCurrentWeek && (
-                                <RadioButtonCheckedIcon 
-                                    sx={{ 
-                                        fontSize: '1rem', 
-                                        ml: 1,
-                                        opacity: 0.9
-                                    }} 
-                                />
-                            )}
-                        </ListItemButton>
-                    </ListItem>
+                    {availableCalendarWeeks.map((week) => {
+                        const isCurrentWeekItem = week === getCurrentCalendarWeek();
+                        const isSelected = week === selectedCalendarWeek;
+                        
+                        return (
+                            <ListItem key={week} disablePadding>
+                                <ListItemButton
+                                    onClick={() => {
+                                        setSelectedCalendarWeek(week);
+                                        handleKwPopoverClose();
+                                    }}
+                                    selected={isSelected}
+                                    sx={{
+                                        borderRadius: 1,
+                                        mb: 0.5,
+                                        backgroundColor: isCurrentWeekItem ? 'success.50' : 'transparent',
+                                        '&.Mui-selected': {
+                                            backgroundColor: isCurrentWeekItem ? 'success.main' : 'primary.main',
+                                            color: 'white',
+                                            '&:hover': {
+                                                backgroundColor: isCurrentWeekItem ? 'success.dark' : 'primary.dark',
+                                            }
+                                        },
+                                        '&:hover': {
+                                            backgroundColor: isCurrentWeekItem ? 'success.100' : 'primary.50',
+                                        }
+                                    }}
+                                >
+                                    <ListItemText 
+                                        primary={`KW ${week}`}
+                                        primaryTypographyProps={{
+                                            fontWeight: isSelected ? 600 : 400,
+                                            fontSize: '0.875rem',
+                                            color: isCurrentWeekItem && !isSelected ? 'success.dark' : 'inherit'
+                                        }}
+                                    />
+                                    {isCurrentWeekItem && (
+                                        <Box
+                                            sx={{
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: '50%',
+                                                backgroundColor: isSelected ? 'white' : 'success.main',
+                                                ml: 1,
+                                                opacity: 0.9
+                                            }}
+                                        />
+                                    )}
+                                </ListItemButton>
+                            </ListItem>
+                        );
+                    })}
                 </List>
             </Popover>
 

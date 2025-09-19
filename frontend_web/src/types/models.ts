@@ -52,6 +52,7 @@ export interface Appointment {
     duration: number;
     info?: string;
     area: Area;
+    calendar_week?: number;  // Added for easier filtering
     created_at?: string;
     updated_at?: string;
 }
@@ -94,6 +95,7 @@ export interface Route {
     total_distance: number;
     polyline: string;
     area: Area;
+    calendar_week?: number;  // Added for easier filtering
     created_at: string;
     updated_at: string;
 } 

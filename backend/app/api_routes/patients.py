@@ -10,6 +10,24 @@ from datetime import datetime
 
 patients_bp = Blueprint('patients', __name__)
 
+@patients_bp.route('/calendar-weeks', methods=['GET'])
+def get_available_calendar_weeks():
+    """
+    Get all available calendar weeks from patients
+    Returns sorted list of unique calendar weeks
+    """
+    try:
+        # Get unique calendar weeks from patients, excluding None/null values
+        result = db.session.query(Patient.calendar_week).distinct().filter(Patient.calendar_week.isnot(None)).all()
+        calendar_weeks = sorted([week[0] for week in result])
+        
+        return jsonify({
+            'calendar_weeks': calendar_weeks,
+            'count': len(calendar_weeks)
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @patients_bp.route('/', methods=['GET'])
 def get_patients():
     calendar_week = request.args.get('calendar_week', type=int)

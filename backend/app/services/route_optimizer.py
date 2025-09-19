@@ -23,13 +23,14 @@ class RouteOptimizer:
         ordered_appointments = [appointments[i].id for i in waypoint_order]
         return str(ordered_appointments)
 
-    def optimize_route(self, weekday: str, employee_id: int = None, area: str = None) -> None:
+    def optimize_route(self, weekday: str, employee_id: int = None, area: str = None, calendar_week: int = None) -> None:
         """
         Optimize route for a single employee and weekday or for weekend routes by area
         Args:
             weekday: Day of the week
             employee_id: ID of the employee (for weekday routes)
             area: Area name (for weekend routes)
+            calendar_week: Calendar week for the route (optional, will be detected if not provided)
         """
         try:
             # Determine if this is a weekend route
@@ -47,20 +48,26 @@ class RouteOptimizer:
                         
             # Get route from database
             if is_weekend:
-                route = Route.query.filter_by(
+                query = Route.query.filter_by(
                     employee_id=None,
                     weekday=weekday.lower(),
                     area=area
-                ).first()
+                )
+                if calendar_week:
+                    query = query.filter_by(calendar_week=calendar_week)
+                route = query.first()
                 if not route:
-                    raise ValueError(f"No weekend route found for area {area} on {weekday}")
+                    raise ValueError(f"No weekend route found for area {area} on {weekday} (KW {calendar_week})")
             else:
-                route = Route.query.filter_by(
+                query = Route.query.filter_by(
                     employee_id=employee_id,
                     weekday=weekday.lower()
-                ).first()
+                )
+                if calendar_week:
+                    query = query.filter_by(calendar_week=calendar_week)
+                route = query.first()
                 if not route:
-                    raise ValueError(f"No route found for employee {employee_id} on {weekday}")
+                    raise ValueError(f"No route found for employee {employee_id} on {weekday} (KW {calendar_week})")
 
             # If route order is empty, set distance and duration to 0
             if not route.get_route_order():
@@ -95,8 +102,14 @@ class RouteOptimizer:
                 patient = appointment.patient
                 waypoints.append((patient.latitude, patient.longitude))
 
-            # Calculate departure time
-            departure_time = get_departure_time(weekday, patient.calendar_week)
+            # Calculate departure time - use calendar_week from route or parameter
+            route_calendar_week = calendar_week or route.calendar_week
+            if not route_calendar_week:
+                # Fallback: get from any patient if not available
+                patient = Patient.query.filter(Patient.calendar_week.isnot(None)).first()
+                route_calendar_week = patient.calendar_week if patient else None
+            
+            departure_time = get_departure_time(weekday, route_calendar_week)
 
             # Calculate optimized route
             result = self.gmaps.directions(

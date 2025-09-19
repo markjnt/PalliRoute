@@ -143,8 +143,8 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
     // Create position using coordinates from backend
     const position_coords = new google.maps.LatLng(patient.latitude, patient.longitude);
     
-    // If it's a HB (home visit) appointment and has a position, use it as the label
-    const label = appointment.visit_type === 'HB' && position ? position.toString() : undefined;
+    // If it's a HB or NA appointment and has a position, use it as the label (both are routed)
+    const label = (appointment.visit_type === 'HB' || appointment.visit_type === 'NA') && position ? position.toString() : undefined;
     
     return {
       position: position_coords,
@@ -187,8 +187,8 @@ export const createWeekendPatientMarkerData = (patient: Patient, appointment: Ap
     // Create position using coordinates from backend
     const position_coords = new google.maps.LatLng(patient.latitude, patient.longitude);
     
-    // If it's a HB (home visit) appointment and has a position, use it as the label
-    const label = appointment.visit_type === 'HB' && position ? position.toString() : undefined;
+    // If it's a HB or NA appointment and has a position, use it as the label (both are routed)
+    const label = (appointment.visit_type === 'HB' || appointment.visit_type === 'NA') && position ? position.toString() : undefined;
     
     return {
       position: position_coords,

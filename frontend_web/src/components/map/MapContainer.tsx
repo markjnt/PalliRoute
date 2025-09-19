@@ -11,6 +11,7 @@ import { MapMarkers } from './MapMarkers';
 import { RoutePolylines } from './RoutePolylines';
 import { routeLineColors, getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
+import AreaSelection from '../area_select/AreaSelection';
 
 /**
  * Main container component for the map that integrates all map features
@@ -36,7 +37,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   // Check if this is a weekend day
   const isWeekend = selectedWeekday === 'saturday' || selectedWeekday === 'sunday';
 
-  // Data hooks
+  // Data hooks - verwenden automatisch selectedCalendarWeek aus dem Store
   const { data: employees = [], isLoading: employeesLoading, refetch: refetchEmployees } = useEmployees();
   const { data: patients = [], isLoading: patientsLoading, error: patientsError, refetch: refetchPatients } = usePatients();
   const { data: appointments = [], isLoading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useAppointmentsByWeekday(selectedWeekday as Weekday);
@@ -228,6 +229,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
   return (
     <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      {/* Area Selection Button - positioned absolutely over the map */}
+      <Box sx={{
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        zIndex: 1000,
+      }}>
+        <AreaSelection compact={true} />
+      </Box>
+
       <GoogleMap
         mapContainerStyle={containerStyle}
         center={defaultCenter}

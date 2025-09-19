@@ -3,6 +3,7 @@ import { Weekday } from '../../types/models';
 import { appointmentsApi } from '../api/appointments';
 import { routeKeys } from './useRoutes';
 import { patientKeys } from './usePatients';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
 
 // Keys für React Query Cache
 export const appointmentKeys = {
@@ -24,10 +25,15 @@ export const useAppointments = () => {
 };
 
 // Hook zum Laden von Terminen für einen bestimmten Wochentag
-export const useAppointmentsByWeekday = (weekday: Weekday) => {
+export const useAppointmentsByWeekday = (weekday: Weekday, overrideCalendarWeek?: number) => {
+  const { selectedCalendarWeek } = useCalendarWeekStore();
+  
+  // Verwende override oder den ausgewählten Wert aus dem Store
+  const calendarWeek = overrideCalendarWeek !== undefined ? overrideCalendarWeek : selectedCalendarWeek;
+  
   return useQuery({
-    queryKey: appointmentKeys.byWeekday(weekday),
-    queryFn: () => appointmentsApi.getByWeekday(weekday),
+    queryKey: [...appointmentKeys.byWeekday(weekday), { calendarWeek }],
+    queryFn: () => appointmentsApi.getByWeekday(weekday, calendarWeek || undefined),
     enabled: !!weekday, // Nur ausführen, wenn ein Wochentag angegeben ist
   });
 };

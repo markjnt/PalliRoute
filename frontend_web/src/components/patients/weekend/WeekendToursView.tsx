@@ -331,7 +331,7 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
 export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay }) => {
     const { data: routes = [], isLoading: loadingRoutes, error: routesError } = useRoutes({ 
         weekday: selectedDay,
-        weekend_only: true 
+        weekend_only: true
     });
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();

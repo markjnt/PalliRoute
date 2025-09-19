@@ -76,7 +76,8 @@ export const createMarkerLabel = (count?: number, visitType?: string, label?: st
     };
   }
 
-  if (visitType === 'HB' && label) {
+  // Show route position for HB and NA appointments (both are routed)
+  if ((visitType === 'HB' || visitType === 'NA') && label) {
     return {
       text: label,
       color: 'white',

@@ -9,6 +9,7 @@ export const routesApi = {
         date?: string;
         area?: string;
         weekend_only?: boolean;
+        calendar_week?: number;
     }): Promise<Route[]> {
         try {
             const response = await api.get('/routes/', { params });
@@ -46,12 +47,16 @@ export const routesApi = {
     },
 
     // Optimize routes for a specific day and employee
-    async optimizeRoutes(weekday: string, employeeId: number): Promise<void> {
+    async optimizeRoutes(weekday: string, employeeId: number, calendarWeek?: number): Promise<void> {
         try {
-            const response = await api.post(`/routes/optimize`, {
+            const requestData: any = {
                 weekday: weekday.toLowerCase(),
                 employee_id: employeeId
-            });
+            };
+            if (calendarWeek) {
+                requestData.calendar_week = calendarWeek;
+            }
+            const response = await api.post(`/routes/optimize`, requestData);
             return response.data;
         } catch (error) {
             console.error(`Failed to optimize routes for weekday ${weekday} and employee ${employeeId}:`, error);
@@ -60,12 +65,16 @@ export const routesApi = {
     },
 
     // Optimize weekend routes for a specific day and area
-    async optimizeWeekendRoutes(weekday: string, area: string): Promise<void> {
+    async optimizeWeekendRoutes(weekday: string, area: string, calendarWeek?: number): Promise<void> {
         try {
-            const response = await api.post(`/routes/optimize`, {
+            const requestData: any = {
                 weekday: weekday.toLowerCase(),
                 area: area
-            });
+            };
+            if (calendarWeek) {
+                requestData.calendar_week = calendarWeek;
+            }
+            const response = await api.post(`/routes/optimize`, requestData);
             return response.data;
         } catch (error) {
             console.error(`Failed to optimize weekend routes for weekday ${weekday} and area ${area}:`, error);

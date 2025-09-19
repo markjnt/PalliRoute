@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Route, Weekday } from '../../types/models';
 import { routesApi } from '../api/routes';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
 
 // Keys for React Query cache
 export const routeKeys = {
@@ -21,10 +22,19 @@ export const useRoutes = (params?: {
   date?: string;
   area?: string;
   weekend_only?: boolean;
+  calendar_week?: number;
 }) => {
+  const { selectedCalendarWeek } = useCalendarWeekStore();
+  
+  // Automatisch selectedCalendarWeek verwenden, außer es wird explizit überschrieben
+  const finalParams = {
+    ...params,
+    calendar_week: params?.calendar_week !== undefined ? params.calendar_week : selectedCalendarWeek || undefined
+  };
+  
   return useQuery({
-    queryKey: routeKeys.list(params),
-    queryFn: () => routesApi.getRoutes(params),
+    queryKey: routeKeys.list(finalParams),
+    queryFn: () => routesApi.getRoutes(finalParams),
   });
 };
 
@@ -49,10 +59,11 @@ export const useRoutesForDay = (date: string, employeeId?: number) => {
 // Hook to optimize routes for a specific day
 export const useOptimizeRoutes = () => {
   const queryClient = useQueryClient();
+  const { selectedCalendarWeek } = useCalendarWeekStore();
   
   return useMutation({
-    mutationFn: ({ weekday, employeeId }: { weekday: string; employeeId: number }) => 
-      routesApi.optimizeRoutes(weekday, employeeId),
+    mutationFn: ({ weekday, employeeId, calendarWeek }: { weekday: string; employeeId: number; calendarWeek?: number }) => 
+      routesApi.optimizeRoutes(weekday, employeeId, calendarWeek || selectedCalendarWeek || undefined),
     onSuccess: () => {
       // Invalidate all route queries as they might be affected
       queryClient.invalidateQueries({ 
@@ -67,10 +78,11 @@ export const useOptimizeRoutes = () => {
 // Hook to optimize weekend routes for a specific day and area
 export const useOptimizeWeekendRoutes = () => {
   const queryClient = useQueryClient();
+  const { selectedCalendarWeek } = useCalendarWeekStore();
   
   return useMutation({
-    mutationFn: ({ weekday, area }: { weekday: string; area: string }) => 
-      routesApi.optimizeWeekendRoutes(weekday, area),
+    mutationFn: ({ weekday, area, calendarWeek }: { weekday: string; area: string; calendarWeek?: number }) => 
+      routesApi.optimizeWeekendRoutes(weekday, area, calendarWeek || selectedCalendarWeek || undefined),
     onSuccess: () => {
       // Invalidate all route queries as they might be affected
       queryClient.invalidateQueries({ 

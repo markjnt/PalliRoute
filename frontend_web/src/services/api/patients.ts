@@ -1,11 +1,17 @@
 import api from './api';
 import { Patient, PatientImportResponse } from '../../types/models';
 
+interface CalendarWeeksResponse {
+    calendar_weeks: number[];
+    count: number;
+}
+
 export const patientsApi = {
     // Get all patients
-    async getAll(): Promise<Patient[]> {
+    async getAll(calendarWeek?: number): Promise<Patient[]> {
         try {
-            const response = await api.get('/patients/');
+            const params = calendarWeek ? { calendar_week: calendarWeek } : {};
+            const response = await api.get('/patients/', { params });
             return response.data;
         } catch (error) {
             console.error('Failed to fetch patients:', error);
@@ -31,6 +37,17 @@ export const patientsApi = {
             return response.data;
         } catch (error) {
             console.error('Failed to import patients from Excel:', error);
+            throw error;
+        }
+    },
+
+    // Get available calendar weeks
+    async getCalendarWeeks(): Promise<number[]> {
+        try {
+            const response = await api.get('/patients/calendar-weeks');
+            return response.data.calendar_weeks;
+        } catch (error) {
+            console.error('Failed to fetch available calendar weeks:', error);
             throw error;
         }
     },

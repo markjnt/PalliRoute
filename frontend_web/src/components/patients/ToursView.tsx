@@ -31,8 +31,8 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
         return <WeekendToursView selectedDay={selectedDay} />;
     }
 
-    // React Query Hooks (only for weekdays)
-    const { data: employees = [], isLoading: loadingEmployees, error: employeesError } = useEmployees();
+    // React Query Hooks (only for weekdays) - verwenden automatisch selectedCalendarWeek
+    const { data: employees = [], isLoading: loadingEmployees, error: employeesError } = useEmployees(); // Employees sind kalenderwochenunabhängig!
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
     const { data: routes = [], isLoading: loadingRoutes, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedDay });
