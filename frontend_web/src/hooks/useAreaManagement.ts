@@ -34,7 +34,7 @@ export const useAreaManagement = ({
   
   // Check if all areas are selected
   const isAllAreas = useMemo(() => {
-    return currentArea === 'Nord- und Südkreis';
+    return currentArea === 'Nord- und Südkreis' || !currentArea;
   }, [currentArea]);
 
   // Filter routes by area
@@ -47,10 +47,10 @@ export const useAreaManagement = ({
     if (selectedDay === 'saturday' || selectedDay === 'sunday') {
       const filteredRoutes = routes.filter(r => (r.area as string) === 'Mitte');
       
-      if (currentArea === 'Nordkreis') {
+      if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
         const nordRoutes = routes.filter(r => (r.area as string) === 'Nord');
         filteredRoutes.push(...nordRoutes);
-      } else if (currentArea === 'Südkreis') {
+      } else if (currentArea === 'Südkreis' || currentArea === 'Süd') {
         const südRoutes = routes.filter(r => (r.area as string) === 'Süd');
         filteredRoutes.push(...südRoutes);
       }
@@ -58,12 +58,13 @@ export const useAreaManagement = ({
       return filteredRoutes;
     }
     
-    // For weekday routes, filter by selected area only
+    // For weekday routes, filter by selected area directly (Nordkreis/Südkreis)
+    // Handle both "Nordkreis"/"Südkreis" and "Nord"/"Süd" values
     let targetArea = currentArea;
-    if (currentArea === 'Nordkreis') {
-      targetArea = 'Nord';
-    } else if (currentArea === 'Südkreis') {
-      targetArea = 'Süd';
+    if (currentArea === 'Nord') {
+      targetArea = 'Nordkreis';
+    } else if (currentArea === 'Süd') {
+      targetArea = 'Südkreis';
     }
     
     return routes.filter(r => r.area === targetArea);
@@ -76,9 +77,9 @@ export const useAreaManagement = ({
       return ['Nord', 'Mitte', 'Süd'];
     } else {
       // Always show Mitte + selected area in correct order
-      if (currentArea === 'Nordkreis') {
+      if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
         return ['Nord', 'Mitte'];
-      } else if (currentArea === 'Südkreis') {
+      } else if (currentArea === 'Südkreis' || currentArea === 'Süd') {
         return ['Mitte', 'Süd'];
       }
       return ['Mitte'];
@@ -98,12 +99,12 @@ export const useAreaManagement = ({
       });
     } else {
       // Always show Mitte + selected area in correct order
-      if (currentArea === 'Nordkreis') {
+      if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
         const nordRoutes = routes.filter(r => (r.area as string) === 'Nord');
         areaMap.set('Nord', nordRoutes);
         const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
         areaMap.set('Mitte', mitteRoutes);
-      } else if (currentArea === 'Südkreis') {
+      } else if (currentArea === 'Südkreis' || currentArea === 'Süd') {
         const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
         areaMap.set('Mitte', mitteRoutes);
         const südRoutes = routes.filter(r => (r.area as string) === 'Süd');

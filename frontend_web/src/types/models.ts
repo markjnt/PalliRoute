@@ -80,7 +80,9 @@ export interface PatientImportResponse {
     message: string;
     patients: Patient[];
     appointments: Appointment[];
-    calendar_week?: number;
+    calendar_week?: number;  // Keep for backward compatibility
+    calendar_weeks?: number[];  // All calendar weeks found during import
+    calendar_weeks_str?: string;  // Formatted string for display
 }
 
 export interface Route {

@@ -133,9 +133,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             const result = await patientImportMutation.mutateAsync();
             setLastPatientImportTime(new Date());
             
-            // Add calendar week to success message if available
+            // Add calendar weeks to success message if available
             let message = result.message;
-            if (result.calendar_week) {
+            if (result.calendar_weeks_str) {
+                message += ` (KW ${result.calendar_weeks_str})`;
+            } else if (result.calendar_week) {
                 message += ` (KW ${result.calendar_week})`;
             }
             

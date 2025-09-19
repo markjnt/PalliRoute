@@ -88,8 +88,10 @@ def import_patients():
         patients = result['patients']
         appointments = result['appointments']
         
-        # Get the calendar week
-        calendar_week = patients[0].calendar_week if patients else None
+        # Get all calendar weeks
+        calendar_weeks = list(set([p.calendar_week for p in patients if p.calendar_week is not None]))
+        calendar_weeks.sort()
+        calendar_week = patients[0].calendar_week if patients else None  # Keep for backward compatibility
         
         # Get the number of created routes (from the result dictionary)
         routes = result.get('routes', [])
@@ -100,6 +102,7 @@ def import_patients():
         SystemInfo.set_value('last_patient_import_time', current_time)
         
         # Prepare the response
+        calendar_weeks_str = ', '.join(map(str, calendar_weeks)) if calendar_weeks else 'None'
         return jsonify({
             "message": f"Erfolgreich {len(patients)} Patienten, {len(appointments)} Termine und {len(routes)} Touren importiert",
             "patient_count": len(patients),
@@ -110,7 +113,9 @@ def import_patients():
                 "appointments": appointment_count,
                 "routes": route_count
             },
-            "calendar_week": calendar_week,
+            "calendar_week": calendar_week,  # Keep for backward compatibility
+            "calendar_weeks": calendar_weeks,  # New field with all calendar weeks
+            "calendar_weeks_str": calendar_weeks_str,  # Formatted string for display
             "last_import_time": current_time
         }), 200
     

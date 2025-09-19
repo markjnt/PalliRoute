@@ -56,14 +56,20 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           if (isAllAreas) return true;
           // Always show Mitte
           if ((route.area as string) === 'Mitte') return true;
-          // Filter others based on userArea
-          if (userArea === 'Nordkreis') return (route.area as string) === 'Nord';
-          if (userArea === 'Südkreis') return (route.area as string) === 'Süd';
+          // Filter others based on userArea - handle both "Nordkreis"/"Nord" and "Südkreis"/"Süd"
+          if (userArea === 'Nordkreis' || userArea === 'Nord') return (route.area as string) === 'Nord';
+          if (userArea === 'Südkreis' || userArea === 'Süd') return (route.area as string) === 'Süd';
           return false;
         });
       } else {
-        // Weekday routes - original logic
-        return routes.filter(route => route.weekday === selectedWeekday && (isAllAreas || route.area === userArea));
+        // Weekday routes - handle both "Nordkreis"/"Nord" and "Südkreis"/"Süd"
+        let targetArea = userArea;
+        if (userArea === 'Nord') {
+          targetArea = 'Nordkreis';
+        } else if (userArea === 'Süd') {
+          targetArea = 'Südkreis';
+        }
+        return routes.filter(route => route.weekday === selectedWeekday && (isAllAreas || route.area === targetArea));
       }
     },
     [routes, selectedWeekday, userArea, isAllAreas, isWeekend]

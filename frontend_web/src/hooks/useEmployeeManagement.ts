@@ -38,7 +38,16 @@ export const useEmployeeManagement = ({
     if (!currentArea || currentArea === 'Nord- und Südkreis') {
       return employees;
     }
-    return employees.filter(e => e.area === currentArea);
+    
+    // Handle both "Nordkreis"/"Südkreis" and "Nord"/"Süd" values
+    let targetArea = currentArea;
+    if (currentArea === 'Nord') {
+      targetArea = 'Nordkreis';
+    } else if (currentArea === 'Süd') {
+      targetArea = 'Südkreis';
+    }
+    
+    return employees.filter(e => e.area === targetArea);
   }, [employees, currentArea]);
 
   // Sort employees by area and name
