@@ -1,15 +1,21 @@
 import api from './api';
 import { Route, Weekday } from '../../types/models';
+import { getCurrentCalendarWeek, getBestCalendarWeek } from '../../utils/calendarUtils';
+import { patientsApi } from './patients';
+import { calendarWeekService } from './calendarWeek';
 
 export const routesApi = {
-    // Get all routes with optional filtering
+    // Get all routes with optional filtering for current or latest available calendar week
     async getRoutes(params?: {
         employee_id?: number;
         weekday?: Weekday;
         date?: string;
     }): Promise<Route[]> {
         try {
-            const response = await api.get('/routes/', { params });
+            // Use the calendar week service to get the best week
+            const weekToUse = await calendarWeekService.getBestWeek();
+            const queryParams = { ...params, calendar_week: weekToUse };
+            const response = await api.get('/routes/', { params: queryParams });
             return response.data.routes || [];
         } catch (error) {
             console.error('Failed to fetch routes:', error);
@@ -28,10 +34,16 @@ export const routesApi = {
         }
     },
 
-    // Get routes for a specific day and employee
+    // Get routes for a specific day and employee for current or latest available calendar week
     async getRoutesForDay(date: string, employee_id?: number): Promise<Route[]> {
         try {
-            const params: { date: string; employee_id?: number } = { date };
+            // Use the calendar week service to get the best week
+            const weekToUse = await calendarWeekService.getBestWeek();
+            
+            const params: { date: string; employee_id?: number; calendar_week: number } = { 
+                date, 
+                calendar_week: weekToUse 
+            };
             if (employee_id) {
                 params.employee_id = employee_id;
             }

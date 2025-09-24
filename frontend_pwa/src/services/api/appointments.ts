@@ -1,11 +1,19 @@
 import api from './api';
 import { Appointment, Weekday } from '../../types/models';
+import { getCurrentCalendarWeek, getBestCalendarWeek } from '../../utils/calendarUtils';
+import { patientsApi } from './patients';
+import { calendarWeekService } from './calendarWeek';
 
 export const appointmentsApi = {
-    // Get all appointments
+    // Get all appointments for current or latest available calendar week
     async getAll(): Promise<Appointment[]> {
         try {
-            const response = await api.get('/appointments/');
+            // Use the calendar week service to get the best week
+            const weekToUse = await calendarWeekService.getBestWeek();
+            
+            const response = await api.get('/appointments/', { 
+                params: { calendar_week: weekToUse } 
+            });
             return response.data;
         } catch (error) {
             console.error('Failed to fetch appointments:', error);
@@ -24,10 +32,15 @@ export const appointmentsApi = {
         }
     },
 
-    // Get appointments by weekday
+    // Get appointments by weekday for current or latest available calendar week
     async getByWeekday(weekday: Weekday): Promise<Appointment[]> {
         try {
-            const response = await api.get(`/appointments/weekday/${weekday}`);
+            // Use the calendar week service to get the best week
+            const weekToUse = await calendarWeekService.getBestWeek();
+            
+            const response = await api.get(`/appointments/weekday/${weekday}`, { 
+                params: { calendar_week: weekToUse } 
+            });
             return response.data;
         } catch (error) {
             console.error(`Failed to fetch appointments for weekday ${weekday}:`, error);

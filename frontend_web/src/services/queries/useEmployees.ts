@@ -4,6 +4,7 @@ import { employeesApi } from '../api/employees';
 import { patientKeys } from './usePatients';
 import { appointmentKeys } from './useAppointments';
 import { routeKeys } from './useRoutes';
+import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 
 // Keys for React Query cache
 export const employeeKeys = {
@@ -99,6 +100,7 @@ export const useDeleteEmployee = () => {
 // Hook to import employees from Excel
 export const useImportEmployees = () => {
   const queryClient = useQueryClient();
+  const { setLastEmployeeImportTime } = useLastUpdateStore();
   
   return useMutation({
     mutationFn: () => employeesApi.import(),
@@ -108,6 +110,9 @@ export const useImportEmployees = () => {
       queryClient.invalidateQueries({ queryKey: patientKeys.all });
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      
+      // Update last import time in store
+      setLastEmployeeImportTime(new Date());
     },
   });
 }; 

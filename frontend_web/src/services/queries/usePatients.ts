@@ -3,6 +3,7 @@ import { patientsApi } from '../api/patients';
 import { appointmentKeys } from './useAppointments';
 import { routeKeys } from './useRoutes';
 import { employeeKeys } from './useEmployees';
+import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
 
 // Keys für React Query Cache
@@ -49,6 +50,7 @@ export const useCalendarWeeks = () => {
 // Hook für Excel-Import von Patienten
 export const usePatientImport = () => {
   const queryClient = useQueryClient();
+  const { setLastPatientImportTime } = useLastUpdateStore();
   
   return useMutation({
     mutationFn: () => patientsApi.import(),
@@ -58,6 +60,9 @@ export const usePatientImport = () => {
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all});
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
       queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      
+      // Update last import time in store
+      setLastPatientImportTime(new Date());
     },
   });
 };

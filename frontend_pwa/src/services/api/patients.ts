@@ -1,11 +1,29 @@
 import api from './api';
 import { Patient, PatientImportResponse } from '../../types/models';
+import { getCurrentCalendarWeek, getBestCalendarWeek } from '../../utils/calendarUtils';
+import { calendarWeekService } from './calendarWeek';
 
 export const patientsApi = {
-    // Get all patients
+    // Get available calendar weeks from backend
+    async getCalendarWeeks(): Promise<number[]> {
+        try {
+            const response = await api.get('/patients/calendar-weeks');
+            return response.data.calendar_weeks;
+        } catch (error) {
+            console.error('Failed to fetch calendar weeks:', error);
+            throw error;
+        }
+    },
+
+    // Get all patients for current or latest available calendar week
     async getAll(): Promise<Patient[]> {
         try {
-            const response = await api.get('/patients/');
+            // Use the calendar week service to get the best week
+            const weekToUse = await calendarWeekService.getBestWeek();
+            
+            const response = await api.get('/patients/', { 
+                params: { calendar_week: weekToUse } 
+            });
             return response.data;
         } catch (error) {
             console.error('Failed to fetch patients:', error);

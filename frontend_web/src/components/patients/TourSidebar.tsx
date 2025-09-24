@@ -72,6 +72,19 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const { lastPatientImportTime, setLastPatientImportTime } = useLastUpdateStore();
+
+    // Format last update time for display
+    const formatLastUpdateTime = (time: Date | null): string => {
+        if (!time) return 'Noch nicht aktualisiert';
+        
+        const now = new Date();
+        const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
+        
+        if (diffInMinutes < 1) return 'Gerade aktualisiert';
+        if (diffInMinutes < 60) return `Vor ${diffInMinutes} Min`;
+        if (diffInMinutes < 1440) return `Vor ${Math.floor(diffInMinutes / 60)} Std`;
+        return time.toLocaleDateString('de-DE') + ' ' + time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    };
     const queryClient = useQueryClient();
     const { hiddenPolylines, hideAllPolylines, showAllPolylines, showAllMarkers } = useRouteVisibility();
 
@@ -151,7 +164,6 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const handleImport = async () => {
         try {
             const result = await patientImportMutation.mutateAsync();
-            setLastPatientImportTime(new Date());
             
             // Add calendar weeks to success message if available
             let message = result.message;
@@ -519,12 +531,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         onClick={handleImport}
                         disabled={!employees.length || patientImportMutation.isPending}
                     >
-                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${(lastImportTimeData?.last_import_time || lastPatientImportTime) ? ` (zuletzt ${new Date(lastImportTimeData?.last_import_time || lastPatientImportTime || '').toLocaleString('de-DE', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            day: '2-digit',
-                            month: '2-digit'
-                        })})` : ''}`}
+                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${(lastImportTimeData?.last_import_time || lastPatientImportTime) ? ` (${formatLastUpdateTime(lastImportTimeData?.last_import_time ? new Date(lastImportTimeData.last_import_time) : lastPatientImportTime)})` : ''}`}
                     </Button>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>

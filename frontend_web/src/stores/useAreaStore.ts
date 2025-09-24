@@ -10,9 +10,9 @@ interface AreaState {
 export const useAreaStore = create<AreaState>()(
   persist(
     (set) => ({
-      currentArea: null,
+      currentArea: 'Nord- und Südkreis',
       setCurrentArea: (area) => set({ currentArea: area }),
-      clearArea: () => set({ currentArea: null }),
+      clearArea: () => set({ currentArea: 'Nord- und Südkreis' }),
     }),
     {
       name: 'area-storage',

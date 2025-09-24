@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, IconButton, Typography, Chip, Button } from '@mui/material';
 import { 
   ArrowBack as ArrowBackIcon,
@@ -8,12 +8,14 @@ import {
   Route as RouteIcon
 } from '@mui/icons-material';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointments } from '../../services/queries/useAppointments';
 import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
 import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
+import { calendarWeekService } from '../../services/api/calendarWeek';
 import { Weekday } from '../../types/models';
 
 interface WeekdaySelectorProps {
@@ -28,6 +30,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   onWeekdaySelect,
 }) => {
   const { selectedWeekday } = useWeekdayStore();
+  const { selectedCalendarWeek, setSelectedCalendarWeek } = useCalendarWeekStore();
   const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { clearCompletedStops } = useRouteCompletionStore();
   
@@ -40,6 +43,22 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
 
   const selectedEmployee = employees.find(emp => emp.id === selectedUserId);
   const selectedRoute = allRoutes.find(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
+
+  // Set calendar week when data is loaded
+  useEffect(() => {
+    const setCalendarWeek = async () => {
+      try {
+        const week = await calendarWeekService.getBestWeek();
+        setSelectedCalendarWeek(week);
+      } catch (error) {
+        console.error('Failed to get calendar week:', error);
+      }
+    };
+    
+    if (!selectedCalendarWeek) {
+      setCalendarWeek();
+    }
+  }, [selectedCalendarWeek, setSelectedCalendarWeek]);
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -342,8 +361,8 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
         })}
       </Box>
 
-      {/* Optimize All Button */}
-      <Box sx={{ p: 1 }}>
+      {/* Optimize All Button and Calendar Week */}
+      <Box sx={{ p: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
         <Button
           variant="contained"
           onClick={handleOptimizeAll}
@@ -360,7 +379,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
             alignItems: 'center',
             gap: 1,
             justifyContent: 'flex-start',
-            width: '100%',
+            flex: 1,
             '&:hover': {
               bgcolor: '#388E3C',
             },
@@ -376,6 +395,36 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
               : 'Alle Routen optimieren'}
           </Typography>
         </Button>
+        
+        {/* Calendar Week Display */}
+        {selectedCalendarWeek && (
+          <Box
+            sx={{
+              bgcolor: 'rgba(0, 122, 255, 0.1)',
+              border: '1px solid rgba(0, 122, 255, 0.2)',
+              borderRadius: 1.5,
+              px: 1.5,
+              py: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              minWidth: 'fit-content',
+              minHeight: 'unset',
+              height: 'fit-content',
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#007AFF',
+                fontWeight: 600,
+                fontSize: '0.7rem',
+              }}
+            >
+              KW {selectedCalendarWeek}
+            </Typography>
+          </Box>
+        )}
       </Box>
     </Box>
   );
