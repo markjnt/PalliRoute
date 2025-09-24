@@ -16,15 +16,29 @@ export const useCalendarWeekStore = create<CalendarWeekStore>()(
             availableCalendarWeeks: [],
             
             setSelectedCalendarWeek: (week: number) => {
-                set({ selectedCalendarWeek: week });
+                const currentState = get();
+                // Nur setzen, wenn die Woche in den verfügbaren Wochen enthalten ist
+                if (currentState.availableCalendarWeeks.includes(week)) {
+                    set({ selectedCalendarWeek: week });
+                } else {
+                    console.warn(`Calendar week ${week} is not available. Available weeks: ${currentState.availableCalendarWeeks.join(', ')}`);
+                }
             },
             
             setAvailableCalendarWeeks: (weeks: number[]) => {
                 set({ availableCalendarWeeks: weeks });
                 
-                // Wenn noch keine Woche ausgewählt ist, wähle die aktuelle Woche aus
                 const currentState = get();
-                if (currentState.selectedCalendarWeek === null && weeks.length > 0) {
+                
+                // Prüfen, ob die aktuell ausgewählte Woche noch verfügbar ist
+                if (currentState.selectedCalendarWeek !== null && !weeks.includes(currentState.selectedCalendarWeek)) {
+                    // Aktuell ausgewählte Woche ist nicht mehr verfügbar, wähle eine neue aus
+                    const currentWeek = currentState.getCurrentCalendarWeek();
+                    const weekToSelect = weeks.includes(currentWeek) ? currentWeek : weeks[0];
+                    set({ selectedCalendarWeek: weekToSelect });
+                    console.warn(`Selected calendar week ${currentState.selectedCalendarWeek} is no longer available. Switched to week ${weekToSelect}`);
+                } else if (currentState.selectedCalendarWeek === null && weeks.length > 0) {
+                    // Wenn noch keine Woche ausgewählt ist, wähle die aktuelle Woche aus
                     const currentWeek = currentState.getCurrentCalendarWeek();
                     const weekToSelect = weeks.includes(currentWeek) ? currentWeek : weeks[0];
                     set({ selectedCalendarWeek: weekToSelect });
