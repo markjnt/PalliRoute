@@ -221,8 +221,7 @@ def batch_move_appointments():
                 # Clear source route order
                 source_route.set_route_order([])
                 # Recalculate source route (now empty)
-                if appointments:
-                    route_planner.plan_route(weekday, area=source_area, calendar_week=appointments[0].calendar_week)
+                route_planner.plan_route(weekday, area=source_area, calendar_week=source_route.calendar_week)
             
             if target_route:
                 # Get all HB and NA appointments for this weekday
@@ -235,8 +234,7 @@ def batch_move_appointments():
                 target_route.set_route_order(route_order)
                 
                 # Optimize weekend route
-                if appointments:
-                    route_optimizer.optimize_route(weekday, area=target_area, calendar_week=appointments[0].calendar_week)
+                route_optimizer.optimize_route(weekday, area=target_area, calendar_week=target_route.calendar_week)
             
             # Update all appointments to new area
             for appointment in appointments:
@@ -265,8 +263,7 @@ def batch_move_appointments():
                 # Clear source route order
                 source_route.set_route_order([])
                 # Plan source route
-                if appointments:
-                    route_planner.plan_route(weekday, source_employee_id, calendar_week=appointments[0].calendar_week)
+                route_planner.plan_route(weekday, source_employee_id, calendar_week=source_route.calendar_week)
             
             if target_route:
                 # Get all HB and NA appointments for this weekday
@@ -279,8 +276,7 @@ def batch_move_appointments():
                 target_route.set_route_order(route_order)
                 
                 # Optimize target route
-                if appointments:
-                    route_optimizer.optimize_route(weekday, target_employee_id, calendar_week=appointments[0].calendar_week)
+                route_optimizer.optimize_route(weekday, target_employee_id, calendar_week=target_route.calendar_week)
             
             # Update all appointments to new employee
             for appointment in appointments:
