@@ -3,37 +3,21 @@ import {
     Box,
     Button,
     Typography,
-    IconButton,
-    Tooltip,
     CircularProgress,
     Divider,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
-    Avatar,
-    Menu,
-    MenuItem,
-    Alert,
-    Chip,
 } from '@mui/material';
 import {
-    DataGrid,
-    GridColDef,
-    GridRenderCellParams,
-} from '@mui/x-data-grid';
-import {
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    CheckCircle as ActiveIcon,
-    Cancel as InactiveIcon,
-    LocationOn as LocationIcon,
-    ExitToApp as LogoutIcon,
     Refresh as RefreshIcon,
-    Add as AddIcon,
+    TableChart as TableIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
+import { EmployeeTablePopup } from './EmployeeTablePopup';
+import { WeeklyPlanningTable } from './WeeklyPlanningTable';
 import { useNavigate } from 'react-router-dom';
 import { useEmployees, useDeleteEmployee, useImportEmployees } from '../../services/queries/useEmployees';
 import { useNotificationStore } from '../../stores/useNotificationStore';
@@ -86,6 +70,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
+    const [tablePopupOpen, setTablePopupOpen] = useState(false);
     const navigate = useNavigate();
 
     // React Query hooks
@@ -156,104 +141,6 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         // Events entfernt, React Query übernimmt die Datensynchronisierung
     };
 
-    const columns: GridColDef[] = [
-
-        { 
-            field: 'last_name', 
-            headerName: 'Nachname', 
-            flex: 1,
-            minWidth: 120,
-            filterable: true,
-        },
-        { 
-            field: 'first_name', 
-            headerName: 'Vorname', 
-            flex: 1,
-            minWidth: 120,
-            filterable: true,
-        },
-        {
-            field: 'area',
-            headerName: 'Gebiet',
-            width: 120,
-            filterable: true,
-            type: 'singleSelect',
-            valueOptions: ['Nordkreis', 'Südkreis'],
-        },
-        { 
-            field: 'street', 
-            headerName: 'Straße', 
-            flex: 1.5,
-            minWidth: 150,
-            filterable: true,
-        },
-        { 
-            field: 'zip_code', 
-            headerName: 'PLZ', 
-            width: 80,
-            filterable: true,
-        },
-        { 
-            field: 'city', 
-            headerName: 'Ort', 
-            flex: 1,
-            minWidth: 120,
-            filterable: true,
-        },
-        { 
-            field: 'function', 
-            headerName: 'Funktion', 
-            flex: 1,
-            minWidth: 120,
-            filterable: true,
-        },
-        {
-            field: 'work_hours',
-            headerName: 'Stellenumfang',
-            width: 110,
-            filterable: true,
-            type: 'number',
-            renderCell: (params: GridRenderCellParams) => (
-                params.value === undefined || params.value === null ? '-' : `${params.value} %`
-            )
-        },
-        {
-            field: 'alias',
-            headerName: 'Alias',
-            width: 150,
-            filterable: true,
-            renderCell: (params: GridRenderCellParams) => (
-                params.value || '-'
-            )
-        },
-        {
-            field: 'actions',
-            headerName: 'Aktionen',
-            width: 100,
-            renderCell: (params: GridRenderCellParams) => (
-                <Box>
-                    <Tooltip title="Bearbeiten">
-                        <IconButton 
-                            onClick={() => handleEdit(params.row)} 
-                            size="small"
-                        >
-                            <EditIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Löschen">
-                        <IconButton 
-                            onClick={() => handleDeleteClick(params.row)} 
-                            color="error" 
-                            size="small"
-                            disabled={deleteEmployeeMutation.isPending}
-                        >
-                            <DeleteIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
-            ),
-        },
-    ];
 
     return (
         <Box
@@ -276,7 +163,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Typography variant="h6" component="h2">
-                        Mitarbeiterverwaltung
+                        Mitarbeiterplanung
                     </Typography>
                 </Box>
             </Box>
@@ -292,95 +179,19 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     {importEmployeesMutation.isPending ? 'Importiere...' : `Excel Import${lastEmployeeImportTime ? ` (${formatLastUpdateTime(lastEmployeeImportTime)})` : ''}`}
                 </Button>
                 <Button
-                    variant="contained"
-                    onClick={() => {
-                        setSelectedEmployee(null);
-                        setOpenForm(true);
-                    }}
+                    variant="outlined"
+                    onClick={() => setTablePopupOpen(true)}
                     fullWidth
-                    startIcon={<AddIcon />}
+                    startIcon={<TableIcon />}
                 >
-                    Mitarbeiter hinzufügen
+                    Mitarbeiterübersicht öffnen
                 </Button>
             </Box>
 
             <Divider />
 
-            <Box sx={{ flexGrow: 1, p: 2, width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-
-
-                {error instanceof Error && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        {error.message}
-                    </Alert>
-                )}
-                
-                {isLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <Box sx={{ flexGrow: 1, minHeight: 0 }}>
-                        <DataGrid
-                            rows={employees}
-                            columns={columns}
-                            hideFooter={true}
-                            disableRowSelectionOnClick
-                            localeText={{
-                                noRowsLabel: 'Keine Einträge',
-                                filterPanelAddFilter: 'Filter hinzufügen',
-                                filterPanelDeleteIconLabel: 'Löschen',
-                                filterPanelInputLabel: 'Wert',
-                                filterPanelInputPlaceholder: 'Filterwert',
-                                filterOperatorContains: 'enthält',
-                                filterOperatorEquals: 'ist gleich',
-                                filterOperatorStartsWith: 'beginnt mit',
-                                filterOperatorEndsWith: 'endet mit',
-                                filterOperatorIsEmpty: 'ist leer',
-                                filterOperatorIsNotEmpty: 'ist nicht leer',
-                                filterOperatorIs: 'ist',
-                                filterOperatorNot: 'ist nicht',
-                                filterOperatorAfter: 'ist nach',
-                                filterOperatorOnOrAfter: 'ist am oder nach',
-                                filterOperatorBefore: 'ist vor',
-                                filterOperatorOnOrBefore: 'ist am oder vor',
-                                columnMenuFilter: 'Filter',
-                                columnMenuHideColumn: 'Spalte ausblenden',
-                                columnMenuShowColumns: 'Spalten anzeigen',
-                                columnMenuManageColumns: 'Spalten verwalten',
-                                columnMenuSortAsc: 'Aufsteigend sortieren',
-                                columnMenuSortDesc: 'Absteigend sortieren',
-                                columnMenuUnsort: 'Sortierung aufheben',
-                            }}
-                            sx={{
-                                '& .MuiDataGrid-cell': {
-                                    py: 1
-                                },
-                                '& .MuiDataGrid-main': {
-                                    overflow: 'auto',
-                                    width: 'auto',
-                                    minWidth: '100%',
-                                },
-                                '& .MuiDataGrid-virtualScroller': {
-                                    overflow: 'auto !important'
-                                },
-                                '& .MuiDataGrid-filterIcon': {
-                                    opacity: 1,
-                                },
-                                height: '100%',
-                                border: 'none'
-                            }}
-                            initialState={{
-                                filter: {
-                                    filterModel: {
-                                        items: [],
-                                        quickFilterValues: [''],
-                                    },
-                                },
-                            }}
-                        />
-                    </Box>
-                )}
+            <Box sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <WeeklyPlanningTable employees={employees} />
             </Box>
 
             {openForm && (
@@ -391,8 +202,20 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                 />
             )}
 
-
-
+            <EmployeeTablePopup
+                open={tablePopupOpen}
+                onClose={() => setTablePopupOpen(false)}
+                employees={employees}
+                isLoading={isLoading}
+                error={error}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                onAdd={() => {
+                    setSelectedEmployee(null);
+                    setOpenForm(true);
+                }}
+                isDeleting={deleteEmployeeMutation.isPending}
+            />
 
             <Dialog
                 open={deleteDialogOpen}

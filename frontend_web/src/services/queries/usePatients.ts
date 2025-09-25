@@ -5,6 +5,7 @@ import { routeKeys } from './useRoutes';
 import { employeeKeys } from './useEmployees';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
+import { employeePlanningKeys } from './useEmployeePlanning';
 
 // Keys für React Query Cache
 export const patientKeys = {
@@ -51,18 +52,28 @@ export const useCalendarWeeks = () => {
 export const usePatientImport = () => {
   const queryClient = useQueryClient();
   const { setLastPatientImportTime } = useLastUpdateStore();
+  const { setAvailableCalendarWeeks, getCurrentCalendarWeek } = useCalendarWeekStore();
   
   return useMutation({
     mutationFn: () => patientsApi.import(),
-    onSuccess: () => {
+    onSuccess: async () => {
       // Patienten-Daten im Cache invalidieren
       queryClient.invalidateQueries({ queryKey: patientKeys.all });
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all});
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
       queryClient.invalidateQueries({ queryKey: employeeKeys.all });
+      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
       
       // Update last import time in store
       setLastPatientImportTime(new Date());
+      
+      // Lade verfügbare Kalenderwochen und setze sie im Store
+      try {
+        const calendarWeeks = await patientsApi.getCalendarWeeks();
+        setAvailableCalendarWeeks(calendarWeeks);
+      } catch (error) {
+        console.error('Failed to load calendar weeks after import:', error);
+      }
     },
   });
 };

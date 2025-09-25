@@ -4,6 +4,7 @@ import { appointmentsApi } from '../api/appointments';
 import { routeKeys } from './useRoutes';
 import { patientKeys } from './usePatients';
 import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
+import { employeePlanningKeys } from './useEmployeePlanning';
 
 // Keys für React Query Cache
 export const appointmentKeys = {
@@ -73,6 +74,7 @@ export const useMoveAppointment = () => {
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
       queryClient.invalidateQueries({ queryKey: patientKeys.all });
+      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
     }
   });
 };
@@ -100,6 +102,7 @@ export const useBatchMoveAppointments = () => {
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
       queryClient.invalidateQueries({ queryKey: patientKeys.all });
+      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
     }
   });
 };

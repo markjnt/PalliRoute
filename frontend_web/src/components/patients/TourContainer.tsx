@@ -258,7 +258,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     <TourControls
                         expanded={expanded}
                         optimizeState={{ isOptimizing: routeManagement.isOptimizing }}
-                        tourPatientsCount={sortedRoutePatients.length}
+                        tourPatientsCount={sortedRoutePatients.length + emptyTypePatients.length}
                         routeId={routeId}
                         isVisible={isVisible}
                         onOptimizeRoute={handleOptimizeRoute}

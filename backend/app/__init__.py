@@ -42,12 +42,14 @@ def create_app(config_class=Config):
     from .api_routes.appointments import appointments_bp
     from .api_routes.routes import routes_bp
     from .api_routes.config import bp as config_bp
+    from .api_routes.employee_plannings import employee_planning_bp
 
     app.register_blueprint(employees_bp, url_prefix='/api/employees')
     app.register_blueprint(patients_bp, url_prefix='/api/patients')
     app.register_blueprint(appointments_bp, url_prefix='/api/appointments')
     app.register_blueprint(routes_bp, url_prefix='/api/routes')
     app.register_blueprint(config_bp, url_prefix='/api/config')
+    app.register_blueprint(employee_planning_bp, url_prefix='/api/employee-planning')
 
     # Create database tables automatically
     with app.app_context():

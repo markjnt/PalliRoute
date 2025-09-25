@@ -7,6 +7,7 @@ interface CalendarWeekStore {
     setSelectedCalendarWeek: (week: number) => void;
     setAvailableCalendarWeeks: (weeks: number[]) => void;
     getCurrentCalendarWeek: () => number;
+    clearSelection: () => void;
 }
 
 export const useCalendarWeekStore = create<CalendarWeekStore>()(
@@ -63,6 +64,13 @@ export const useCalendarWeekStore = create<CalendarWeekStore>()(
                 const weekNumber = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
                 
                 return weekNumber;
+            },
+            
+            clearSelection: () => {
+                set({ 
+                    selectedCalendarWeek: null,
+                    availableCalendarWeeks: []
+                });
             },
         }),
         {

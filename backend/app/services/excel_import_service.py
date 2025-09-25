@@ -10,6 +10,7 @@ from ..models.employee import Employee
 from ..models.patient import Patient
 from ..models.appointment import Appointment, VISIT_TYPE_DURATIONS
 from ..models.route import Route
+from ..models.employee_planning import EmployeePlanning
 from .. import db
 import json
 from .route_planner import RoutePlanner
@@ -95,6 +96,7 @@ class ExcelImportService:
         """
         try:
             # Delete in correct order to maintain referential integrity
+            EmployeePlanning.query.delete()
             Route.query.delete()
             Appointment.query.delete()
             Patient.query.delete()
@@ -104,6 +106,72 @@ class ExcelImportService:
         except Exception as e:
             db.session.rollback()
             raise Exception(f"Error deleting data: {str(e)}")
+    
+    @staticmethod
+    def delete_patient_data():
+        """
+        Deletes only patient-related data, keeps employees
+        """
+        try:
+            # Delete in correct order to maintain referential integrity
+            EmployeePlanning.query.delete()
+            Route.query.delete()
+            Appointment.query.delete()
+            Patient.query.delete()
+            # Note: Employees are NOT deleted
+            db.session.commit()
+            print("Successfully deleted patient data from database")
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Error deleting patient data: {str(e)}")
+
+    @staticmethod
+    def create_default_employee_planning(calendar_weeks):
+        """
+        Create default 'available' planning entries for all employees for specified calendar weeks
+        """
+        try:
+            # Get all employees
+            employees = Employee.query.all()
+            if not employees:
+                return
+            
+            # Use only the provided calendar weeks from Excel
+            weeks_to_create = calendar_weeks
+            
+            # Weekdays in database format
+            weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+            
+            planning_entries = []
+            
+            for employee in employees:
+                for calendar_week in weeks_to_create:
+                    for weekday in weekdays:
+                        # Check if entry already exists
+                        existing = EmployeePlanning.query.filter_by(
+                            employee_id=employee.id,
+                            weekday=weekday,
+                            calendar_week=calendar_week
+                        ).first()
+                        
+                        if not existing:
+                            planning_entry = EmployeePlanning(
+                                employee_id=employee.id,
+                                weekday=weekday,
+                                status='available',
+                                calendar_week=calendar_week
+                            )
+                            planning_entries.append(planning_entry)
+            
+            # Bulk insert all planning entries
+            if planning_entries:
+                db.session.add_all(planning_entries)
+                db.session.commit()
+                print(f"Successfully created {len(planning_entries)} default planning entries")
+                
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Error creating default employee planning: {str(e)}")
 
     @staticmethod
     def import_employees(file_path) -> Dict[str, List[Any]]:
@@ -186,6 +254,10 @@ class ExcelImportService:
                     raise ValueError(f"Fehler in Zeile {idx + 2}: {str(row_error)}")
 
             db.session.commit()
+            
+            # Note: Default planning entries will be created during patient import
+            # using the calendar weeks from the patient data
+            
             return {
                 'added': added_employees,
                 'updated': []
@@ -459,6 +531,10 @@ class ExcelImportService:
                     visit_type_value = visit_type if visit_type is not None else ""
                     
                     if visit_type is not None:
+                        # Prüfe ob weekend_area gesetzt ist, wenn Weekend-Termine vorhanden sind
+                        if weekend_area is None:
+                            raise ValueError(f"Die Touren-Wochenende Spalte fehlt für {patient.first_name} {patient.last_name}")
+                        
                         appointment = Appointment(
                             patient_id=patient.id,
                             employee_id=None,  # No employee assignment for weekend appointments
@@ -676,8 +752,12 @@ class ExcelImportService:
         5. Alle Routen planen
         """
         try:
-            # Step 1: Load all sheets from the Excel file
-            print("Step 1: Loading all sheets from Excel file...")
+            # Step 1: Delete existing patient data (keep employees)
+            print("Step 1: Deleting existing patient data...")
+            ExcelImportService.delete_patient_data()
+            
+            # Step 2: Load all sheets from the Excel file
+            print("Step 2: Loading all sheets from Excel file...")
             custom_na_values = ['', '#N/A', '#N/A N/A', '#NA', '-1.#IND', '-1.#QNAN', '-NaN', '-nan', 
                                '1.#IND', '1.#QNAN', '<NA>', 'N/A', 'NULL', 'NaN', 'None', 'n/a', 'nan', 'null']
             
@@ -689,12 +769,12 @@ class ExcelImportService:
             
             print(f"Found {len(all_sheets)} sheets: {list(all_sheets.keys())}")
             
-            # Step 2: Load all employees (kalenderwochenunabhängig)
-            print("Step 2: Loading employees...")
+            # Step 3: Load all employees (kalenderwochenunabhängig)
+            print("Step 3: Loading employees...")
             employees = Employee.query.all()
             print(f"Found {len(employees)} employees")
             
-            # Step 3: Process each sheet separately
+            # Step 4: Process each sheet separately
             all_patients = []
             all_appointments = []
             all_routes = []
@@ -713,14 +793,19 @@ class ExcelImportService:
                 all_appointments.extend(sheet_result['appointments'])
                 all_routes.extend(sheet_result['routes'])
             
-            # Step 4: Create empty routes for all employees for all calendar weeks
-            print("\nStep 4: Creating empty routes for all employees...")
+            # Step 5: Create default planning entries for all employees for all calendar weeks
+            print("\nStep 5: Creating default planning entries for all employees...")
             calendar_weeks = list(set([p.calendar_week for p in all_patients if p.calendar_week is not None]))
+            print(f"Calendar weeks: {calendar_weeks}")
+            ExcelImportService.create_default_employee_planning(calendar_weeks)
+            
+            # Step 6: Create empty routes for all employees for all calendar weeks
+            print("\nStep 6: Creating empty routes for all employees...")
             empty_routes = ExcelImportService._create_empty_routes(employees, calendar_weeks)
             all_routes.extend(empty_routes)
             
-            # Step 5: Plan all routes
-            print("\nStep 5: Planning all routes...")
+            # Step 7: Plan all routes
+            print("\nStep 7: Planning all routes...")
             ExcelImportService._plan_all_routes(all_routes)
             
             # Calculate final statistics

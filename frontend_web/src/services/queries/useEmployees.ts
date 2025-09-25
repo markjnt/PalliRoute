@@ -5,6 +5,8 @@ import { patientKeys } from './usePatients';
 import { appointmentKeys } from './useAppointments';
 import { routeKeys } from './useRoutes';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
+import { employeePlanningKeys } from './useEmployeePlanning';
 
 // Keys for React Query cache
 export const employeeKeys = {
@@ -101,6 +103,7 @@ export const useDeleteEmployee = () => {
 export const useImportEmployees = () => {
   const queryClient = useQueryClient();
   const { setLastEmployeeImportTime } = useLastUpdateStore();
+  const { clearSelection } = useCalendarWeekStore();
   
   return useMutation({
     mutationFn: () => employeesApi.import(),
@@ -110,9 +113,13 @@ export const useImportEmployees = () => {
       queryClient.invalidateQueries({ queryKey: patientKeys.all });
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
       
       // Update last import time in store
       setLastEmployeeImportTime(new Date());
+      
+      // Leere den Kalenderwochen-Store, da Mitarbeiter-Import alle Daten löscht
+      clearSelection();
     },
   });
 }; 
