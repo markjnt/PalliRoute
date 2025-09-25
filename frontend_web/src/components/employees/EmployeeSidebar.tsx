@@ -99,13 +99,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const formatLastUpdateTime = (time: Date | null): string => {
         if (!time) return 'Noch nicht aktualisiert';
         
-        const now = new Date();
-        const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
-        
-        if (diffInMinutes < 1) return 'Gerade aktualisiert';
-        if (diffInMinutes < 60) return `Vor ${diffInMinutes} Min`;
-        if (diffInMinutes < 1440) return `Vor ${Math.floor(diffInMinutes / 60)} Std`;
-        return time.toLocaleDateString('de-DE') + ' ' + time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        return 'zuletzt ' + time.toLocaleDateString('de-DE') + ' ' + time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     };
 
     const handleEdit = (employee: Employee) => {

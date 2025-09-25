@@ -9,6 +9,7 @@ import { useAppointmentsByWeekday } from '../../services/queries/useAppointments
 import { useRoutes } from '../../services/queries/useRoutes';
 import { MapMarkers } from './MapMarkers';
 import { RoutePolylines } from './RoutePolylines';
+import { FloatingRefreshButton } from './FloatingRefreshButton';
 import { routeLineColors, getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
 import { useUserStore } from '../../stores/useUserStore';
@@ -262,6 +263,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           routes={routes}
         />
       </GoogleMap>
+      
+      {/* Floating Refresh Button */}
+      <FloatingRefreshButton />
     </Box>
   );
 };

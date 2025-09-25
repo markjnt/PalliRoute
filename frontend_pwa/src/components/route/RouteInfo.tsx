@@ -124,13 +124,7 @@ export const RouteInfo: React.FC = () => {
   const formatLastUpdateTime = (time: Date | null): string => {
     if (!time) return 'Noch nicht aktualisiert';
     
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Gerade aktualisiert';
-    if (diffInMinutes < 60) return `Vor ${diffInMinutes} Min`;
-    if (diffInMinutes < 1440) return `Vor ${Math.floor(diffInMinutes / 60)} Std`;
-    return time.toLocaleDateString('de-DE') + ' ' + time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return 'zuletzt ' + time.toLocaleDateString('de-DE') + ' ' + time.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   };
 
   const handleOptimize = async () => {
@@ -224,72 +218,38 @@ export const RouteInfo: React.FC = () => {
           </Box>
         </Box>
 
-        {/* Button Row - Optimize and Refresh */}
-        <Box sx={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          gap: 1,
-        }}>
-          {/* Optimize Button */}
-          <Button
-            variant="contained"
-            onClick={handleOptimize}
-            disabled={optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending}
-            sx={{
-              bgcolor: '#4CAF50',
-              borderRadius: 1.5,
-              textTransform: 'none',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              p: 1.5,
-              minHeight: 'unset',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              justifyContent: 'flex-start',
-              '&:hover': {
-                bgcolor: '#388E3C',
-              },
-              '&:disabled': {
-                bgcolor: 'rgba(76, 175, 80, 0.5)',
-              }
-            }}
-          >
-            <RouteIcon sx={{ fontSize: 18 }} />
-            <Typography variant="caption" sx={{ fontWeight: 500 }}>
-              {(optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending) 
-                ? 'Optimiere...' 
-                : 'Optimieren'}
-            </Typography>
-          </Button>
-
-          {/* Refresh Button with last update time */}
-          <Button
-            variant="contained"
-            onClick={refreshData}
-            sx={{
-              bgcolor: '#2196F3',
-              borderRadius: 1.5,
-              textTransform: 'none',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              p: 1.5,
-              minHeight: 'unset',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              justifyContent: 'flex-start',
-              '&:hover': {
-                bgcolor: '#1976D2',
-              }
-            }}
-          >
-            <RefreshIcon sx={{ fontSize: 18 }} />
-            <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
-              {formatLastUpdateTime(lastUpdateTime)}
-            </Typography>
-          </Button>
-        </Box>
+        {/* Optimize Button */}
+        <Button
+          variant="contained"
+          onClick={handleOptimize}
+          disabled={optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending}
+          sx={{
+            bgcolor: '#4CAF50',
+            borderRadius: 1.5,
+            textTransform: 'none',
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            p: 1.5,
+            minHeight: 'unset',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            justifyContent: 'flex-start',
+            '&:hover': {
+              bgcolor: '#388E3C',
+            },
+            '&:disabled': {
+              bgcolor: 'rgba(76, 175, 80, 0.5)',
+            }
+          }}
+        >
+          <RouteIcon sx={{ fontSize: 18 }} />
+          <Typography variant="caption" sx={{ fontWeight: 500 }}>
+            {(optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending) 
+              ? 'Optimiere...' 
+              : 'Optimieren'}
+          </Typography>
+        </Button>
       </Box>
     </Box>
   );

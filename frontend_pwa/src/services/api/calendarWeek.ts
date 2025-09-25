@@ -26,6 +26,17 @@ class CalendarWeekService {
         try {
             // Fetch available weeks from backend
             const availableWeeks = await patientsApi.getCalendarWeeks();
+            
+            // If no weeks available from backend, use current week as fallback
+            if (availableWeeks.length === 0) {
+                console.warn('No calendar weeks available from backend, using current week as fallback');
+                const { getCurrentCalendarWeek } = await import('../../utils/calendarUtils');
+                const currentWeek = getCurrentCalendarWeek();
+                this.cachedWeek = currentWeek;
+                this.cacheTimestamp = now;
+                return currentWeek;
+            }
+            
             const bestWeek = getBestCalendarWeek(availableWeeks);
             
             // Cache the result
@@ -35,7 +46,20 @@ class CalendarWeekService {
             return bestWeek;
         } catch (error) {
             console.error('Failed to get best calendar week:', error);
-            throw error;
+            
+            // If we have a cached week, use it as fallback
+            if (this.cachedWeek) {
+                console.warn('Using cached calendar week as fallback');
+                return this.cachedWeek;
+            }
+            
+            // If no cache available, use current week as final fallback
+            console.warn('No cached week available, using current week as fallback');
+            const { getCurrentCalendarWeek } = await import('../../utils/calendarUtils');
+            const currentWeek = getCurrentCalendarWeek();
+            this.cachedWeek = currentWeek;
+            this.cacheTimestamp = now;
+            return currentWeek;
         }
     }
 
