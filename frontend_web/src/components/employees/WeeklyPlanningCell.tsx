@@ -29,7 +29,6 @@ interface WeeklyPlanningCellProps {
     weekday: string;
     allPlanningData?: any[]; // Alle Planning-Daten werden übergeben
     onStatusChange: (employeeId: number, weekday: string, data: PlanningData) => void;
-    disabled?: boolean;
 }
 
 const statusOptions = [
@@ -44,7 +43,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     weekday,
     allPlanningData = [],
     onStatusChange,
-    disabled = false,
 }) => {
     // Map German weekday names to English database format
     const weekdayMapping: { [key: string]: string } = {
@@ -134,14 +132,13 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                         borderRadius: 1,
                         backgroundColor: isWeekend ? 'grey.100' : 'grey.50',
                         position: 'relative',
-                        opacity: disabled ? 0.5 : 1,
-                        '&:hover': disabled ? {} : {
+                        '&:hover': {
                             backgroundColor: isWeekend ? 'grey.200' : 'primary.50',
                             borderColor: isWeekend ? 'grey.400' : 'primary.300',
                             cursor: 'pointer'
                         }
                     }}
-                    onClick={disabled ? undefined : handleMenuOpen}
+                    onClick={handleMenuOpen}
                 >
                     {/* Conflict warning icon */}
                     {hasConflicts && (

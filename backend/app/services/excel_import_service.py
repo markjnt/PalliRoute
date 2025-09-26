@@ -88,37 +88,18 @@ class ExcelImportService:
                     print(f"  Error in geocoding for {address}: {exc}")
                     results[address] = (None, None)
         return results
-
-    @staticmethod
-    def delete_all_data():
-        """
-        Deletes all data from the database in the correct order to maintain referential integrity
-        """
-        try:
-            # Delete in correct order to maintain referential integrity
-            EmployeePlanning.query.delete()
-            Route.query.delete()
-            Appointment.query.delete()
-            Patient.query.delete()
-            Employee.query.delete()
-            db.session.commit()
-            print("Successfully deleted all data from database")
-        except Exception as e:
-            db.session.rollback()
-            raise Exception(f"Error deleting data: {str(e)}")
     
     @staticmethod
     def delete_patient_data():
         """
-        Deletes only patient-related data, keeps employees
+        Deletes only patient-related data, keeps employees and their planning
         """
         try:
             # Delete in correct order to maintain referential integrity
-            EmployeePlanning.query.delete()
             Route.query.delete()
             Appointment.query.delete()
             Patient.query.delete()
-            # Note: Employees are NOT deleted
+            # Note: Employees and EmployeePlanning are NOT deleted
             db.session.commit()
             print("Successfully deleted patient data from database")
         except Exception as e:
@@ -126,26 +107,32 @@ class ExcelImportService:
             raise Exception(f"Error deleting patient data: {str(e)}")
 
     @staticmethod
-    def create_default_employee_planning(calendar_weeks):
+    def delete_planning_for_employee(employee_id):
         """
-        Create default 'available' planning entries for all employees for specified calendar weeks
+        Delete all planning entries for a specific employee
         """
         try:
-            # Get all employees
-            employees = Employee.query.all()
-            if not employees:
-                return
+            # Delete all planning entries for this employee
+            deleted_count = EmployeePlanning.query.filter_by(employee_id=employee_id).delete()
+            print(f"Successfully deleted {deleted_count} planning entries for employee ID {employee_id}")
             
-            # Use only the provided calendar weeks from Excel
-            weeks_to_create = calendar_weeks
-            
-            # Weekdays in database format
+        except Exception as e:
+            raise Exception(f"Error deleting planning for employee {employee_id}: {str(e)}")
+
+    @staticmethod
+    def _create_planning_entries_for_employees(employees):
+        """
+        Create planning entries for all employees for all weeks and weekdays
+        """
+        try:
+            # Define weekdays
             weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
             
+            # Create planning entries for all 52 weeks of the year
             planning_entries = []
             
             for employee in employees:
-                for calendar_week in weeks_to_create:
+                for calendar_week in range(1, 53):  # Weeks 1-52
                     for weekday in weekdays:
                         # Check if entry already exists
                         existing = EmployeePlanning.query.filter_by(
@@ -167,22 +154,21 @@ class ExcelImportService:
             if planning_entries:
                 db.session.add_all(planning_entries)
                 db.session.commit()
-                print(f"Successfully created {len(planning_entries)} default planning entries")
+                print(f"Successfully created {len(planning_entries)} planning entries for {len(employees)} employees")
+            else:
+                print("No new planning entries needed - all entries already exist")
                 
         except Exception as e:
             db.session.rollback()
-            raise Exception(f"Error creating default employee planning: {str(e)}")
+            raise Exception(f"Error creating planning entries: {str(e)}")
 
     @staticmethod
     def import_employees(file_path) -> Dict[str, List[Any]]:
         """
-        Import employees from Excel file
+        Import employees from Excel file with dynamic planning management
         Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet, Alias
         """
         try:
-            # First delete all existing data
-            ExcelImportService.delete_all_data()
-            
             df = pd.read_excel(file_path)
             required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang', 'Gebiet']
             
@@ -193,8 +179,16 @@ class ExcelImportService:
 
             valid_areas = ['Nordkreis', 'Südkreis']
             valid_functions = ['PDL', 'Pflegekraft', 'Arzt', 'Honorararzt', 'Physiotherapie']
-            added_employees = []
-
+            
+            # Get existing employees from database
+            existing_employees = Employee.query.all()
+            existing_employee_keys = set()
+            for emp in existing_employees:
+                key = f"{emp.first_name.strip().lower()}_{emp.last_name.strip().lower()}"
+                existing_employee_keys.add(key)
+            
+            print(f"Found {len(existing_employees)} existing employees in database")
+            
             # 1. Adressen extrahieren und deduplizieren
             address_tuples = []
             for _, row in df.iterrows():
@@ -207,7 +201,11 @@ class ExcelImportService:
             # 2. Batch-Geocoding
             geocode_results = ExcelImportService.batch_geocode_addresses(unique_address_tuples, max_workers=10)
 
-            # 3. Employees anlegen
+            # 3. Process employees from Excel
+            added_employees = []
+            updated_employees = []
+            excel_employee_keys = set()
+            
             for idx, row in df.iterrows():
                 try:
                     stellenumfang = str(row['Stellenumfang']).replace('%', '')
@@ -235,32 +233,80 @@ class ExcelImportService:
                     elif 'Aliasse' in df.columns and pd.notna(row['Aliasse']):
                         alias = str(row['Aliasse']).strip()
 
-                    employee = Employee(
-                        first_name=str(row['Vorname']).strip(),
-                        last_name=str(row['Nachname']).strip(),
-                        street=street,
-                        zip_code=zip_code,
-                        city=city,
-                        latitude=latitude,
-                        longitude=longitude,
-                        function=function,
-                        work_hours=work_hours,
-                        area=area,
-                        alias=alias
-                    )
-                    added_employees.append(employee)
-                    db.session.add(employee)
+                    first_name = str(row['Vorname']).strip()
+                    last_name = str(row['Nachname']).strip()
+                    employee_key = f"{first_name.lower()}_{last_name.lower()}"
+                    excel_employee_keys.add(employee_key)
+                    
+                    # Check if employee already exists
+                    existing_employee = None
+                    for emp in existing_employees:
+                        if (emp.first_name.strip().lower() == first_name.lower() and 
+                            emp.last_name.strip().lower() == last_name.lower()):
+                            existing_employee = emp
+                            break
+                    
+                    if existing_employee:
+                        # Update existing employee
+                        existing_employee.street = street
+                        existing_employee.zip_code = zip_code
+                        existing_employee.city = city
+                        existing_employee.latitude = latitude
+                        existing_employee.longitude = longitude
+                        existing_employee.function = function
+                        existing_employee.work_hours = work_hours
+                        existing_employee.area = area
+                        existing_employee.alias = alias
+                        updated_employees.append(existing_employee)
+                        print(f"Updated employee: {first_name} {last_name}")
+                    else:
+                        # Create new employee
+                        employee = Employee(
+                            first_name=first_name,
+                            last_name=last_name,
+                            street=street,
+                            zip_code=zip_code,
+                            city=city,
+                            latitude=latitude,
+                            longitude=longitude,
+                            function=function,
+                            work_hours=work_hours,
+                            area=area,
+                            alias=alias
+                        )
+                        added_employees.append(employee)
+                        db.session.add(employee)
+                        print(f"Added new employee: {first_name} {last_name}")
+                        
                 except Exception as row_error:
                     raise ValueError(f"Fehler in Zeile {idx + 2}: {str(row_error)}")
 
+            # 4. Remove employees that are not in Excel
+            removed_employees = []
+            for emp in existing_employees:
+                emp_key = f"{emp.first_name.strip().lower()}_{emp.last_name.strip().lower()}"
+                if emp_key not in excel_employee_keys:
+                    removed_employees.append(emp)
+                    print(f"Removing employee: {emp.first_name} {emp.last_name}")
+            
+            # Delete planning entries and employees that are not in Excel
+            for emp in removed_employees:
+                ExcelImportService.delete_planning_for_employee(emp.id)
+                db.session.delete(emp)
+            
             db.session.commit()
             
-            # Note: Default planning entries will be created during patient import
-            # using the calendar weeks from the patient data
+            # 5. Create planning entries for new employees only
+            if added_employees:
+                print(f"Creating planning entries for {len(added_employees)} new employees...")
+                ExcelImportService._create_planning_entries_for_employees(added_employees)
+            
+            print(f"Import complete: {len(added_employees)} added, {len(updated_employees)} updated, {len(removed_employees)} removed")
             
             return {
                 'added': added_employees,
-                'updated': []
+                'updated': updated_employees,
+                'removed': removed_employees
             }
 
         except Exception as e:
@@ -752,7 +798,7 @@ class ExcelImportService:
         5. Alle Routen planen
         """
         try:
-            # Step 1: Delete existing patient data (keep employees)
+            # Step 1: Delete existing patient data (keep employees and their planning)
             print("Step 1: Deleting existing patient data...")
             ExcelImportService.delete_patient_data()
             
@@ -793,24 +839,19 @@ class ExcelImportService:
                 all_appointments.extend(sheet_result['appointments'])
                 all_routes.extend(sheet_result['routes'])
             
-            # Step 5: Create default planning entries for all employees for all calendar weeks
-            print("\nStep 5: Creating default planning entries for all employees...")
+            # Step 5: Create empty routes for all employees for all calendar weeks
+            print("\nStep 5: Creating empty routes for all employees...")
+            # Get all calendar weeks from the data
             calendar_weeks = list(set([p.calendar_week for p in all_patients if p.calendar_week is not None]))
-            print(f"Calendar weeks: {calendar_weeks}")
-            ExcelImportService.create_default_employee_planning(calendar_weeks)
-            
-            # Step 6: Create empty routes for all employees for all calendar weeks
-            print("\nStep 6: Creating empty routes for all employees...")
+            calendar_weeks.sort()
             empty_routes = ExcelImportService._create_empty_routes(employees, calendar_weeks)
             all_routes.extend(empty_routes)
             
-            # Step 7: Plan all routes
-            print("\nStep 7: Planning all routes...")
+            # Step 6: Plan all routes
+            print("\nStep 6: Planning all routes...")
             ExcelImportService._plan_all_routes(all_routes)
             
             # Calculate final statistics
-            calendar_weeks = list(set([p.calendar_week for p in all_patients if p.calendar_week is not None]))
-            calendar_weeks.sort()
             calendar_weeks_str = ', '.join(map(str, calendar_weeks)) if calendar_weeks else 'None'
             
             # Calculate appointment distribution by calendar week

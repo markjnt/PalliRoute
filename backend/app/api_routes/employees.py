@@ -4,6 +4,7 @@ from app import db
 from app.models.employee import Employee
 from app.models.route import Route
 from app.models.appointment import Appointment
+from app.models.employee_planning import EmployeePlanning
 from app.services.excel_import_service import ExcelImportService
 
 employees_bp = Blueprint('employees', __name__)
@@ -93,6 +94,9 @@ def delete_employee(id):
         # Delete related appointments
         Appointment.query.filter_by(employee_id=id).delete()
         
+        # Delete related employee planning
+        EmployeePlanning.query.filter_by(employee_id=id).delete()
+        
         # Now delete the employee
         db.session.delete(employee)
         db.session.commit()
@@ -134,19 +138,35 @@ def import_employees():
         result = ExcelImportService.import_employees(newest_file)
         added_employees = result['added']
         updated_employees = result['updated']
+        removed_employees = result['removed']
         
-        message = f"Successfully processed {len(added_employees) + len(updated_employees)} employees"
-        if added_employees and updated_employees:
-            message += f" ({len(added_employees)} neu hinzugefügt, {len(updated_employees)} aktualisiert)"
-        elif added_employees:
-            message += f" ({len(added_employees)} neu hinzugefügt)"
-        elif updated_employees:
-            message += f" ({len(updated_employees)} aktualisiert)"
+        # Create detailed message
+        total_processed = len(added_employees) + len(updated_employees) + len(removed_employees)
+        message_parts = []
+        
+        if added_employees:
+            message_parts.append(f"{len(added_employees)} hinzugefügt")
+        if updated_employees:
+            message_parts.append(f"{len(updated_employees)} aktualisiert")
+        if removed_employees:
+            message_parts.append(f"{len(removed_employees)} entfernt")
+        
+        if message_parts:
+            message = f"Import erfolgreich: {', '.join(message_parts)}"
+        else:
+            message = "Keine Änderungen erforderlich"
             
         return jsonify({
             "message": message,
+            "summary": {
+                "total_processed": total_processed,
+                "added": len(added_employees),
+                "updated": len(updated_employees),
+                "removed": len(removed_employees)
+            },
             "added_employees": [emp.to_dict() for emp in added_employees],
-            "updated_employees": [emp.to_dict() for emp in updated_employees]
+            "updated_employees": [emp.to_dict() for emp in updated_employees],
+            "removed_employees": [emp.to_dict() for emp in removed_employees]
         }), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400

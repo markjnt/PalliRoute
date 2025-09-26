@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { employeePlanningApi, EmployeePlanningData } from '../api/employeePlanning';
-import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
+import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
 
 // Keys for React Query cache
 export const employeePlanningKeys = {
@@ -13,8 +13,8 @@ export const employeePlanningKeys = {
 
 // Hook to get all planning entries
 export const useEmployeePlanning = () => {
-  const { selectedCalendarWeek, getCurrentCalendarWeek } = useCalendarWeekStore();
-  const currentWeek = selectedCalendarWeek || getCurrentCalendarWeek();
+  const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
+  const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
   
   return useQuery({
     queryKey: employeePlanningKeys.list(currentWeek),
@@ -25,7 +25,7 @@ export const useEmployeePlanning = () => {
 // Hook to update planning status
 export const useUpdateEmployeePlanning = () => {
   const queryClient = useQueryClient();
-  const { selectedCalendarWeek, getCurrentCalendarWeek } = useCalendarWeekStore();
+  const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
   
   return useMutation({
     mutationFn: ({ employeeId, weekday, data }: {
@@ -36,14 +36,14 @@ export const useUpdateEmployeePlanning = () => {
         custom_text?: string;
       };
     }) => {
-      const currentWeek = selectedCalendarWeek || getCurrentCalendarWeek();
+      const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
       return employeePlanningApi.update(employeeId, weekday, {
         ...data,
         calendar_week: currentWeek,
       });
     },
     onSuccess: (_, variables) => {
-      const currentWeek = selectedCalendarWeek || getCurrentCalendarWeek();
+      const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
     },
@@ -53,8 +53,8 @@ export const useUpdateEmployeePlanning = () => {
 
 // Hook to check for conflicts
 export const useCheckPlanningConflicts = (employeeId: number, weekday: string) => {
-  const { selectedCalendarWeek, getCurrentCalendarWeek } = useCalendarWeekStore();
-  const currentWeek = selectedCalendarWeek || getCurrentCalendarWeek();
+  const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
+  const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
   
   return useQuery({
     queryKey: employeePlanningKeys.conflicts(employeeId, weekday, currentWeek),

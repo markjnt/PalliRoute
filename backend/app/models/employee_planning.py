@@ -9,12 +9,14 @@ class EmployeePlanning(db.Model):
     weekday = db.Column(db.String(20), nullable=False)  # monday, tuesday, etc.
     status = db.Column(db.String(20), nullable=False)  # available, vacation, sick, custom
     custom_text = db.Column(db.String(200), nullable=True)  # For custom status
+    replacement_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)  # Replacement employee
     calendar_week = db.Column(db.Integer, nullable=True)  # Denormalized for easier filtering
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationship
-    employee = db.relationship('Employee', backref='planning_entries')
+    # Relationships
+    employee = db.relationship('Employee', foreign_keys=[employee_id], backref='planning_entries')
+    replacement = db.relationship('Employee', foreign_keys=[replacement_id], backref='replacement_entries')
     
     # Unique constraint: one planning entry per employee per weekday per week
     __table_args__ = (
@@ -28,6 +30,7 @@ class EmployeePlanning(db.Model):
             'weekday': self.weekday,
             'status': self.status,
             'custom_text': self.custom_text,
+            'replacement_id': self.replacement_id,
             'calendar_week': self.calendar_week,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
@@ -40,5 +43,6 @@ class EmployeePlanning(db.Model):
             weekday=data.get('weekday'),
             status=data.get('status'),
             custom_text=data.get('custom_text'),
+            replacement_id=data.get('replacement_id'),
             calendar_week=data.get('calendar_week')
         )

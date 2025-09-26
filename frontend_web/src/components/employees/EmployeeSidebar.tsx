@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Button,
@@ -9,10 +9,20 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    IconButton,
+    Popover,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemText,
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
     TableChart as TableIcon,
+    CalendarMonth as CalendarIcon,
+    ChevronLeft as ChevronLeftIcon,
+    ChevronRight as ChevronRightIcon,
+    ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { EmployeeForm } from './EmployeeForm';
@@ -22,6 +32,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEmployees, useDeleteEmployee, useImportEmployees } from '../../services/queries/useEmployees';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
+import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
 
 // Function to generate a random color based on the user's name
 const stringToColor = (string: string) => {
@@ -71,6 +82,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [employeeToDelete, setEmployeeToDelete] = useState<{id: number, name: string} | null>(null);
     const [tablePopupOpen, setTablePopupOpen] = useState(false);
+    const [kwAnchorEl, setKwAnchorEl] = useState<null | HTMLElement>(null);
     const navigate = useNavigate();
 
     // React Query hooks
@@ -79,6 +91,16 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const importEmployeesMutation = useImportEmployees();
     const { setNotification } = useNotificationStore();
     const { lastEmployeeImportTime, setLastEmployeeImportTime } = useLastUpdateStore();
+    
+    // Planning week store
+    const { 
+        selectedPlanningWeek, 
+        setSelectedPlanningWeek,
+        getCurrentPlanningWeek,
+        getAvailablePlanningWeeks 
+    } = usePlanningWeekStore();
+    
+    const availablePlanningWeeks = getAvailablePlanningWeeks();
 
     // Format last update time for display
     const formatLastUpdateTime = (time: Date | null): string => {
@@ -120,8 +142,34 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
     const handleImport = async () => {
         try {
             const result = await importEmployeesMutation.mutateAsync();
-            const totalEmployees = result.added_employees.length;
-            setNotification(`${totalEmployees} Mitarbeiter wurden erfolgreich importiert`, 'success');
+            
+            // Create detailed success message
+            const { summary } = result;
+            let message = 'Import erfolgreich: ';
+            const parts = [];
+            
+            if (summary.added > 0) {
+                parts.push(`${summary.added} hinzugefügt`);
+            }
+            if (summary.updated > 0) {
+                parts.push(`${summary.updated} aktualisiert`);
+            }
+            if (summary.removed > 0) {
+                parts.push(`${summary.removed} entfernt`);
+            }
+            
+            if (parts.length > 0) {
+                message += parts.join(', ');
+                
+                // Add detailed breakdown if there are multiple types of changes
+                if (parts.length > 1) {
+                    message += ` (Gesamt: ${summary.total_processed})`;
+                }
+            } else {
+                message = 'Keine Änderungen erforderlich';
+            }
+            
+            setNotification(message, 'success');
         } catch (error: any) {
             console.error('Error importing employees:', error);
             let message = 'Fehler beim Importieren der Mitarbeiter';
@@ -141,6 +189,38 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         // Events entfernt, React Query übernimmt die Datensynchronisierung
     };
 
+    // Handle KW popover open/close
+    const handleKwPopoverOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setKwAnchorEl(event.currentTarget);
+    };
+
+    const handleKwPopoverClose = () => {
+        setKwAnchorEl(null);
+    };
+
+    // Handle week navigation
+    const handlePreviousWeek = () => {
+        if (selectedPlanningWeek && selectedPlanningWeek > 1) {
+            setSelectedPlanningWeek(selectedPlanningWeek - 1);
+        }
+    };
+
+    const handleNextWeek = () => {
+        if (selectedPlanningWeek && selectedPlanningWeek < 52) {
+            setSelectedPlanningWeek(selectedPlanningWeek + 1);
+        }
+    };
+
+    // Check if selected week matches current week
+    const isCurrentWeek = selectedPlanningWeek === getCurrentPlanningWeek();
+
+    // Set current week if no week is selected
+    useEffect(() => {
+        if (selectedPlanningWeek === null) {
+            setSelectedPlanningWeek(getCurrentPlanningWeek());
+        }
+    }, [selectedPlanningWeek, setSelectedPlanningWeek, getCurrentPlanningWeek]);
+
 
     return (
         <Box
@@ -155,16 +235,67 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                justifyContent: 'flex-start',
+                justifyContent: 'space-between',
                 p: 2,
                 height: 64,
                 borderBottom: 1,
                 borderColor: 'divider'
             }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="h6" component="h2">
-                        Mitarbeiterplanung
-                    </Typography>
+                <Typography variant="h6" component="h2" sx={{ pl: 2 }}>
+                    Mitarbeiterplanung
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, mr: 5 }}>
+                    {/* Previous Week Button */}
+                    <IconButton
+                        onClick={handlePreviousWeek}
+                        disabled={!selectedPlanningWeek || selectedPlanningWeek <= 1}
+                        size="small"
+                        sx={{ 
+                            color: 'primary.main',
+                            '&:hover': { backgroundColor: 'primary.50' }
+                        }}
+                    >
+                        <ChevronLeftIcon />
+                    </IconButton>
+                    
+                    {/* Calendar Week Selector Button */}
+                    {selectedPlanningWeek && (
+                        <Button
+                            variant="outlined"
+                            onClick={handleKwPopoverOpen}
+                            startIcon={<CalendarIcon />}
+                            endIcon={<ExpandMoreIcon />}
+                            sx={{
+                                minWidth: 100,
+                                justifyContent: 'space-between',
+                                textTransform: 'none',
+                                fontWeight: 500,
+                                borderColor: isCurrentWeek ? 'success.main' : 'primary.main',
+                                color: isCurrentWeek ? 'success.main' : 'primary.main',
+                                backgroundColor: isCurrentWeek ? 'success.50' : 'transparent',
+                                '&:hover': {
+                                    borderColor: isCurrentWeek ? 'success.dark' : 'primary.dark',
+                                    backgroundColor: isCurrentWeek ? 'success.100' : 'primary.50',
+                                }
+                            }}
+                        >
+                            KW {selectedPlanningWeek}
+                        </Button>
+                    )}
+                    
+                    {/* Next Week Button */}
+                    <IconButton
+                        onClick={handleNextWeek}
+                        disabled={!selectedPlanningWeek || selectedPlanningWeek >= 52}
+                        size="small"
+                        sx={{ 
+                            color: 'primary.main',
+                            '&:hover': { backgroundColor: 'primary.50' }
+                        }}
+                    >
+                        <ChevronRightIcon />
+                    </IconButton>
                 </Box>
             </Box>
 
@@ -193,6 +324,84 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
             <Box sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 <WeeklyPlanningTable employees={employees} />
             </Box>
+
+            {/* Calendar Week Selection Popover */}
+            <Popover
+                open={Boolean(kwAnchorEl)}
+                anchorEl={kwAnchorEl}
+                onClose={handleKwPopoverClose}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'left',
+                }}
+                PaperProps={{
+                    sx: {
+                        minWidth: 150,
+                        mt: 1,
+                        borderRadius: 2,
+                        boxShadow: 3,
+                    }
+                }}
+            >
+                <List sx={{ p: 1 }}>
+                    {availablePlanningWeeks.map((week) => {
+                        const isCurrentWeekItem = week === getCurrentPlanningWeek();
+                        const isSelected = week === selectedPlanningWeek;
+                        
+                        return (
+                            <ListItem key={week} disablePadding>
+                                <ListItemButton
+                                    onClick={() => {
+                                        setSelectedPlanningWeek(week);
+                                        handleKwPopoverClose();
+                                    }}
+                                    selected={isSelected}
+                                    sx={{
+                                        borderRadius: 1,
+                                        mb: 0.5,
+                                        backgroundColor: isCurrentWeekItem ? 'success.50' : 'transparent',
+                                        '&.Mui-selected': {
+                                            backgroundColor: isCurrentWeekItem ? 'success.main' : 'primary.main',
+                                            color: 'white',
+                                            '&:hover': {
+                                                backgroundColor: isCurrentWeekItem ? 'success.dark' : 'primary.dark',
+                                            }
+                                        },
+                                        '&:hover': {
+                                            backgroundColor: isCurrentWeekItem ? 'success.100' : 'primary.50',
+                                        }
+                                    }}
+                                >
+                                    <ListItemText 
+                                        primary={`KW ${week}`}
+                                        primaryTypographyProps={{
+                                            fontWeight: isSelected ? 600 : 400,
+                                            fontSize: '0.875rem',
+                                            color: isCurrentWeekItem && !isSelected ? 'success.dark' : 'inherit'
+                                        }}
+                                    />
+                                    {isCurrentWeekItem && (
+                                        <Box
+                                            sx={{
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: '50%',
+                                                backgroundColor: isSelected ? 'white' : 'success.main',
+                                                ml: 1,
+                                                opacity: 0.9
+                                            }}
+                                        />
+                                    )}
+                                </ListItemButton>
+                            </ListItem>
+                        );
+                    })}
+                </List>
+            </Popover>
 
             {openForm && (
                 <EmployeeForm

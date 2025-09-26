@@ -18,7 +18,7 @@ import { getColorForEmployeeType } from '../../utils/mapUtils';
 import { WeeklyPlanningCell } from './WeeklyPlanningCell';
 import type { PlanningData } from './WeeklyPlanningCell';
 import { useEmployeePlanning, useUpdateEmployeePlanning } from '../../services/queries/useEmployeePlanning';
-import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
+import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
 
 interface WeeklyPlanningTableProps {
     employees: Employee[];
@@ -58,13 +58,40 @@ const weekdays = [
 export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
     employees,
 }) => {
-    // React Query hooks - calendar week is automatically read from store
+    // React Query hooks - planning week is automatically read from store
     const { data: planningEntries = [], isLoading } = useEmployeePlanning();
     const updatePlanningMutation = useUpdateEmployeePlanning();
-    const { selectedCalendarWeek } = useCalendarWeekStore();
+    const { selectedPlanningWeek } = usePlanningWeekStore();
     
-    // Check if calendar week is selected
-    const isCalendarWeekSelected = selectedCalendarWeek !== null;
+    // Check if planning week is selected
+    const isPlanningWeekSelected = selectedPlanningWeek !== null;
+
+    // Sort employees by function priority and then by name
+    const sortedEmployees = React.useMemo(() => {
+        const functionPriority: Record<string, number> = {
+            'Pflegekraft': 1,
+            'PDL': 2,
+            'Physiotherapie': 3,
+            'Arzt': 4,
+            'Honorararzt': 5,
+        };
+
+        return [...employees].sort((a, b) => {
+            // First sort by function priority
+            const aPriority = functionPriority[a.function] || 999;
+            const bPriority = functionPriority[b.function] || 999;
+            
+            if (aPriority !== bPriority) {
+                return aPriority - bPriority;
+            }
+            
+            // Then sort by last name, then first name
+            const aName = `${a.last_name} ${a.first_name}`.toLowerCase();
+            const bName = `${b.last_name} ${b.first_name}`.toLowerCase();
+            
+            return aName.localeCompare(bName);
+        });
+    }, [employees]);
 
     const handleStatusChange = async (employeeId: number, weekday: string, data: PlanningData) => {
         try {
@@ -132,7 +159,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {employees.map((employee) => (
+                        {sortedEmployees.map((employee) => (
                             <TableRow 
                                 key={employee.id} 
                                 hover
@@ -190,7 +217,6 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                                             weekday={day}
                                             allPlanningData={getAllPlanningData()}
                                             onStatusChange={handleStatusChange}
-                                            disabled={!isCalendarWeekSelected}
                                         />
                                     </TableCell>
                                 ))}

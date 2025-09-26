@@ -18,7 +18,7 @@ export const employeePlanningApi = {
     // Get all planning entries for current week
     getAll: (calendarWeek?: number) => {
         const params = calendarWeek ? `?calendar_week=${calendarWeek}` : '';
-        return api.get(`/employee-planning${params}`);
+        return api.get(`/employee-planning/${params}`);
     },
 
     // Update planning status for employee and weekday

@@ -1,5 +1,6 @@
 from datetime import datetime
 from app import db
+from sqlalchemy import event
 
 class Employee(db.Model):
     __tablename__ = 'employees'

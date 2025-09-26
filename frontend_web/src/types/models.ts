@@ -35,8 +35,15 @@ export interface EmployeeFormData extends Omit<Employee, 'id' | 'created_at' | '
 
 export interface EmployeeImportResponse {
     message: string;
+    summary: {
+        total_processed: number;
+        added: number;
+        updated: number;
+        removed: number;
+    };
     added_employees: Employee[];
     updated_employees: Employee[];
+    removed_employees: Employee[];
 }
 
 export type VisitType = 'HB' | 'NA' | 'TK';
