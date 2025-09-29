@@ -367,11 +367,27 @@ class ExcelImportService:
         
         # Create patients
         patients = []
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
             street = str(row['Strasse'])
             zip_code = str(row['PLZ'])
             city = str(row['Ort'])
             latitude, longitude = geocode_results.get((street.strip(), zip_code.strip(), city.strip()), (None, None))
+            # Process area field with substring matching
+            area_raw = str(row['Gebiet']).strip() if pd.notna(row['Gebiet']) else ""
+            
+            # Check if area field is empty
+            if not area_raw:
+                raise ValueError(f"Gebiet-Spalte ist leer für Patient {row['Vorname']} {row['Nachname']} in Zeile {idx + 2}")
+            
+            # Determine area based on substring matching
+            area_raw_lower = area_raw.lower()
+            if "nordkreis" in area_raw_lower:
+                patient_area = "Nordkreis"
+            elif "südkreis" in area_raw_lower or "suedkreis" in area_raw_lower:
+                patient_area = "Südkreis"
+            else:
+                raise ValueError(f"Ungültiges Gebiet '{area_raw}' für Patient {row['Vorname']} {row['Nachname']} in Zeile {idx + 2}. Erwartet: 'Nordkreis' oder 'Südkreis'")
+            
             patient = Patient(
                 first_name=str(row['Vorname']),
                 last_name=str(row['Nachname']),
@@ -383,7 +399,7 @@ class ExcelImportService:
                 phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
                 phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
                 calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,
-                area=str(row['Gebiet']) if pd.notna(row['Gebiet']) else None
+                area=patient_area
             )
             patients.append(patient)
         
