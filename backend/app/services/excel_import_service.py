@@ -368,16 +368,37 @@ class ExcelImportService:
         # Create patients
         patients = []
         for idx, row in df.iterrows():
-            street = str(row['Strasse'])
-            zip_code = str(row['PLZ'])
-            city = str(row['Ort'])
-            latitude, longitude = geocode_results.get((street.strip(), zip_code.strip(), city.strip()), (None, None))
+            # Validate required fields
+            first_name = str(row['Vorname']).strip()
+            last_name = str(row['Nachname']).strip()
+            street = str(row['Strasse']).strip()
+            zip_code = str(row['PLZ']).strip()
+            city = str(row['Ort']).strip()
+            
+            # Check required fields are not empty
+            if not first_name:
+                raise ValueError(f"Vorname ist leer in Zeile {idx + 2}")
+            if not last_name:
+                raise ValueError(f"Nachname ist leer in Zeile {idx + 2}")
+            if not street:
+                raise ValueError(f"Strasse ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+            if not zip_code:
+                raise ValueError(f"PLZ ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+            if not city:
+                raise ValueError(f"Ort ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+            
+            # Validate PLZ format (German postal codes: 5 digits)
+            if not zip_code.isdigit() or len(zip_code) != 5:
+                raise ValueError(f"Ungültige PLZ '{zip_code}' für Patient {first_name} {last_name} in Zeile {idx + 2}. PLZ muss 5 Ziffern haben")
+            
+            latitude, longitude = geocode_results.get((street, zip_code, city), (None, None))
+            
             # Process area field with substring matching
             area_raw = str(row['Gebiet']).strip() if pd.notna(row['Gebiet']) else ""
             
             # Check if area field is empty
             if not area_raw:
-                raise ValueError(f"Gebiet-Spalte ist leer für Patient {row['Vorname']} {row['Nachname']} in Zeile {idx + 2}")
+                raise ValueError(f"Gebiet-Spalte ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
             
             # Determine area based on substring matching
             area_raw_lower = area_raw.lower()
@@ -386,11 +407,21 @@ class ExcelImportService:
             elif "südkreis" in area_raw_lower or "suedkreis" in area_raw_lower:
                 patient_area = "Südkreis"
             else:
-                raise ValueError(f"Ungültiges Gebiet '{area_raw}' für Patient {row['Vorname']} {row['Nachname']} in Zeile {idx + 2}. Erwartet: 'Nordkreis' oder 'Südkreis'")
+                raise ValueError(f"Ungültiges Gebiet '{area_raw}' für Patient {first_name} {last_name} in Zeile {idx + 2}. Erwartet: 'Nordkreis' oder 'Südkreis'")
+            
+            # Validate calendar week (KW)
+            calendar_week = None
+            if pd.notna(row['KW']):
+                try:
+                    calendar_week = int(row['KW'])
+                    if calendar_week < 1 or calendar_week > 53:
+                        raise ValueError(f"Ungültige Kalenderwoche {calendar_week} für Patient {first_name} {last_name} in Zeile {idx + 2}. Muss zwischen 1 und 53 sein")
+                except (ValueError, TypeError):
+                    raise ValueError(f"Ungültige Kalenderwoche '{row['KW']}' für Patient {first_name} {last_name} in Zeile {idx + 2}. Muss eine Zahl zwischen 1 und 53 sein")
             
             patient = Patient(
-                first_name=str(row['Vorname']),
-                last_name=str(row['Nachname']),
+                first_name=first_name,
+                last_name=last_name,
                 street=street,
                 zip_code=zip_code,
                 city=city,
@@ -398,7 +429,7 @@ class ExcelImportService:
                 longitude=longitude,
                 phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
                 phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
-                calendar_week=int(row['KW']) if pd.notna(row['KW']) else None,
+                calendar_week=calendar_week,
                 area=patient_area
             )
             patients.append(patient)
@@ -457,16 +488,15 @@ class ExcelImportService:
             # Default employee assignment from 'Touren' column
             mitarbeiter_nachname_raw = str(row['Touren']).strip() if pd.notna(row['Touren']) else None
             if not mitarbeiter_nachname_raw:
-                print(f"    Warning: No employee last name in 'Touren' for patient {patient.first_name} {patient.last_name} (KW {patient.calendar_week})")
-                continue
+                raise ValueError(f"Touren-Spalte ist leer für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2}")
             
             # Find matching employees
             matching_employees = [e for e in employees if e.last_name.lower() in mitarbeiter_nachname_raw.lower()]
             if len(matching_employees) == 0:
-                print(f"    Warning: No employee found with last name in '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name} (KW {patient.calendar_week})")
-                continue
+                available_employees = [e.last_name for e in employees]
+                raise ValueError(f"Kein Mitarbeiter gefunden mit Nachname in '{mitarbeiter_nachname_raw}' für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2}. Verfügbare Mitarbeiter: {', '.join(available_employees)}")
             if len(matching_employees) > 1:
-                print(f"    Warning: Multiple employees match '{mitarbeiter_nachname_raw}' for patient {patient.first_name} {patient.last_name}: {[e.last_name for e in matching_employees]}")
+                raise ValueError(f"Mehrere Mitarbeiter passen zu '{mitarbeiter_nachname_raw}' für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2}: {[e.last_name for e in matching_employees]}. Bitte spezifischer werden.")
             
             default_employee = matching_employees[0]
             print(f"    → Assigned to {default_employee.first_name} {default_employee.last_name}")
@@ -485,7 +515,9 @@ class ExcelImportService:
                     elif "TK" in visit_info:
                         visit_type = "TK"
                     else:
-                        visit_type = "HB"
+                        # Validate that only valid visit types are used
+                        valid_visit_types = ["HB", "NA", "TK"]
+                        raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2}. Erlaubte Werte: {', '.join(valid_visit_types)}")
                     duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                 
                 # Check for specific responsible employee
@@ -555,7 +587,9 @@ class ExcelImportService:
                         elif "TK" in visit_info:
                             visit_type = "TK"
                         else:
-                            visit_type = "HB"
+                            # Validate that only valid visit types are used
+                            valid_visit_types = ["HB", "NA", "TK"]
+                            raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2}. Erlaubte Werte: {', '.join(valid_visit_types)}")
                         duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                     
                     # Weekend area assignment
