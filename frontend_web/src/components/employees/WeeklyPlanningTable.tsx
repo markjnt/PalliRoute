@@ -163,7 +163,6 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                             <TableRow 
                                 key={employee.id} 
                                 hover
-                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                             >
                                 {/* Mitarbeiter Spalte - Sticky */}
                                 <TableCell 
