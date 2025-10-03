@@ -163,6 +163,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                             <TableRow 
                                 key={employee.id} 
                                 hover
+                                sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}
                             >
                                 {/* Mitarbeiter Spalte - Sticky */}
                                 <TableCell 
@@ -215,6 +216,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                                             employeeId={employee.id || 0}
                                             weekday={day}
                                             allPlanningData={getAllPlanningData()}
+                                            availableEmployees={employees}
                                             onStatusChange={handleStatusChange}
                                         />
                                     </TableCell>

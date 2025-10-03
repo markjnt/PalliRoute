@@ -6,11 +6,19 @@ export interface EmployeePlanningData {
     weekday: string;
     status: 'available' | 'vacation' | 'sick' | 'custom';
     custom_text?: string;
+    replacement_id?: number;
+    replacement_employee?: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        function: string;
+    };
     calendar_week?: number;
     created_at?: string;
     updated_at?: string;
     has_conflicts?: boolean;
     appointments_count?: number;
+    patient_count?: number;
 }
 
 
@@ -25,15 +33,18 @@ export const employeePlanningApi = {
     update: (employeeId: number, weekday: string, data: {
         status: 'available' | 'vacation' | 'sick' | 'custom';
         custom_text?: string;
+        replacement_id?: number;
         calendar_week?: number;
     }) => {
         return api.put(`/employee-planning/${employeeId}/${weekday}`, data);
     },
 
+    // Update replacement for employee and weekday
+    updateReplacement: (employeeId: number, weekday: string, data: {
+        replacement_id?: number;
+        calendar_week?: number;
+    }) => {
+        return api.put(`/employee-planning/${employeeId}/${weekday}/replacement`, data);
+    },
 
-    // Check for conflicts before updating
-    checkConflicts: (employeeId: number, weekday: string, calendarWeek?: number) => {
-        const params = calendarWeek ? `?calendar_week=${calendarWeek}` : '';
-        return api.get(`/employee-planning/check-conflicts/${employeeId}/${weekday}${params}`);
-    }
 };

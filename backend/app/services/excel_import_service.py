@@ -330,13 +330,26 @@ class ExcelImportService:
             missing = [col for col in required_columns if col not in df.columns]
             raise ValueError(f"Missing columns in sheet {sheet_name}: {', '.join(missing)}")
         
+        # Load replacement information for this sheet
+        print(f"  Loading replacement information for sheet {sheet_name}...")
+        replacement_assignments = {}
+        for emp in employees:
+            planning_entries = EmployeePlanning.query.filter_by(employee_id=emp.id).all()
+            for entry in planning_entries:
+                if entry.replacement_id:
+                    key = (entry.weekday, entry.calendar_week)
+                    if key not in replacement_assignments:
+                        replacement_assignments[key] = {}
+                    replacement_assignments[key][emp.id] = entry.replacement_id
+                    print(f"    Found replacement: {emp.first_name} {emp.last_name} -> {entry.replacement.first_name} {entry.replacement.last_name} on {entry.weekday} (KW {entry.calendar_week})")
+        
         # 1. Create patients for this sheet
         print(f"  Step 1: Creating patients from sheet {sheet_name}...")
         patients = ExcelImportService._create_patients_from_sheet(df, sheet_name)
         
         # 2. Create appointments for this sheet's patients
         print(f"  Step 2: Creating appointments for sheet {sheet_name}...")
-        appointments = ExcelImportService._create_appointments_from_sheet(df, patients, employees, sheet_name)
+        appointments = ExcelImportService._create_appointments_from_sheet(df, patients, employees, sheet_name, replacement_assignments)
         
         # 3. Create routes for this sheet's appointments
         print(f"  Step 3: Creating routes for sheet {sheet_name}...")
@@ -443,7 +456,7 @@ class ExcelImportService:
         return patients
 
     @staticmethod
-    def _create_appointments_from_sheet(df: pd.DataFrame, patients: List[Patient], employees: List[Employee], sheet_name: str) -> List[Appointment]:
+    def _create_appointments_from_sheet(df: pd.DataFrame, patients: List[Patient], employees: List[Employee], sheet_name: str, replacement_assignments: Dict) -> List[Appointment]:
         """
         Create appointments for patients from a single sheet
         """
@@ -549,7 +562,7 @@ class ExcelImportService:
                     except (ValueError, IndexError):
                         pass
                 
-                # Create appointment
+                # Check for replacement employee (highest priority)
                 weekday_map = {
                     'Montag': 'monday',
                     'Dienstag': 'tuesday',
@@ -558,6 +571,19 @@ class ExcelImportService:
                     'Freitag': 'friday'
                 }
                 english_weekday = weekday_map.get(weekday, weekday.lower())
+                replacement_key = (english_weekday, patient.calendar_week)
+                
+                # Check if assigned employee has a replacement for this weekday and calendar week
+                if replacement_key in replacement_assignments and assigned_employee.id in replacement_assignments[replacement_key]:
+                    replacement_id = replacement_assignments[replacement_key][assigned_employee.id]
+                    replacement_employee = next((e for e in employees if e.id == replacement_id), None)
+                    if replacement_employee:
+                        print(f"      {weekday}: Using replacement employee {replacement_employee.first_name} {replacement_employee.last_name} (replacing {assigned_employee.first_name} {assigned_employee.last_name})")
+                        assigned_employee = replacement_employee
+                    else:
+                        print(f"      Warning: Replacement employee with ID {replacement_id} not found, using original employee")
+                
+                # Create appointment
                 visit_type_value = visit_type if visit_type is not None else ""
                 appointment = Appointment(
                     patient_id=patient.id,

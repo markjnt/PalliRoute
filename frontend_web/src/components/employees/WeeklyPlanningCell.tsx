@@ -14,8 +14,13 @@ import {
     Button,
     Tooltip,
     Alert,
+    Avatar,
 } from '@mui/material';
-import { Warning } from '@mui/icons-material';
+import { Warning, PersonAdd } from '@mui/icons-material';
+import { ReplacementMenu } from './ReplacementMenu';
+import { ReplacementConfirmationDialog } from './ReplacementConfirmationDialog';
+import { useUpdateReplacement } from '../../services/queries/useEmployeePlanning';
+import { getColorForTour } from '../../utils/colors';
 
 export type PlanningStatus = 'available' | 'vacation' | 'sick' | 'custom';
 
@@ -28,6 +33,7 @@ interface WeeklyPlanningCellProps {
     employeeId: number;
     weekday: string;
     allPlanningData?: any[]; // Alle Planning-Daten werden übergeben
+    availableEmployees?: any[]; // Available employees for replacement
     onStatusChange: (employeeId: number, weekday: string, data: PlanningData) => void;
 }
 
@@ -42,6 +48,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     employeeId,
     weekday,
     allPlanningData = [],
+    availableEmployees = [],
     onStatusChange,
 }) => {
     // Map German weekday names to English database format
@@ -67,10 +74,41 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     const currentCustomText: string = relevantData?.custom_text || '';
     const hasConflicts: boolean = relevantData?.has_conflicts || false;
     const appointmentsCount: number = relevantData?.appointments_count || 0;
+    const replacementEmployee = relevantData?.replacement_employee;
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [customDialogOpen, setCustomDialogOpen] = useState(false);
     const [tempCustomText, setTempCustomText] = useState('');
+    const [replacementMenuAnchor, setReplacementMenuAnchor] = useState<null | HTMLElement>(null);
+    const [confirmationDialogOpen, setConfirmationDialogOpen] = useState(false);
+    const [pendingReplacement, setPendingReplacement] = useState<{
+        targetEmployee: any;
+        isRemoving: boolean;
+        replacementId: number | null;
+    } | null>(null);
+    
+    const updateReplacementMutation = useUpdateReplacement();
+
+    // Function to get patient counts for all employees from planning data
+    const getPatientCountsForAllEmployees = () => {
+        const counts = new Map<number, number>();
+        
+        // Get all unique employee IDs from available employees
+        availableEmployees.forEach(emp => {
+            const employeeId = emp.id || 0;
+            
+            // Find planning data for this employee and current weekday
+            const planningEntry = allPlanningData.find(
+                (entry: any) => entry.employee_id === employeeId && entry.weekday === dbWeekday
+            );
+            
+            // Use patient_count from planning data, or 0 if not found
+            const patientCount = planningEntry?.patient_count || 0;
+            counts.set(employeeId, patientCount);
+        });
+        
+        return counts;
+    };
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -109,6 +147,94 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         setTempCustomText('');
     };
 
+    const handleReplacementMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        event.stopPropagation(); // Prevent status menu from opening
+        setReplacementMenuAnchor(event.currentTarget);
+    };
+
+    const handleReplacementMenuClose = () => {
+        setReplacementMenuAnchor(null);
+    };
+
+    const handleSelectReplacement = async (replacementId: number | null) => {
+        // Determine source and target employees based on current state
+        let sourceEmployee: any;
+        let targetEmployee: any = null;
+        let isRemoving = false;
+
+        if (replacementId === null) {
+            // Removing replacement - source is current replacement, target is original employee
+            if (replacementEmployee) {
+                sourceEmployee = replacementEmployee;
+                targetEmployee = availableEmployees.find(emp => emp.id === employeeId);
+                isRemoving = true;
+            } else {
+                // No replacement to remove, just set to null
+                try {
+                    await updateReplacementMutation.mutateAsync({
+                        employeeId,
+                        weekday,
+                        replacementId: undefined
+                    });
+                } catch (error) {
+                    console.error('Error updating replacement:', error);
+                }
+                return;
+            }
+        } else {
+            // Setting replacement - source is original employee, target is new replacement
+            sourceEmployee = availableEmployees.find(emp => emp.id === employeeId);
+            targetEmployee = availableEmployees.find(emp => emp.id === replacementId);
+        }
+
+        // Check if there are patients to move
+        const sourcePatientCount = getPatientCountsForAllEmployees().get(sourceEmployee?.id) || 0;
+        
+        if (sourcePatientCount > 0) {
+            // Show confirmation dialog
+            setPendingReplacement({
+                targetEmployee,
+                isRemoving,
+                replacementId
+            });
+            setConfirmationDialogOpen(true);
+        } else {
+            // No patients to move, just update replacement
+            try {
+                await updateReplacementMutation.mutateAsync({
+                    employeeId,
+                    weekday,
+                    replacementId: replacementId || undefined
+                });
+            } catch (error) {
+                console.error('Error updating replacement:', error);
+            }
+        }
+    };
+
+    const handleConfirmReplacement = async () => {
+        if (!pendingReplacement) return;
+
+        try {
+            // Update replacement after successful patient move
+            await updateReplacementMutation.mutateAsync({
+                employeeId,
+                weekday,
+                replacementId: pendingReplacement.replacementId || undefined
+            });
+        } catch (error) {
+            console.error('Error updating replacement:', error);
+        } finally {
+            setConfirmationDialogOpen(false);
+            setPendingReplacement(null);
+        }
+    };
+
+    const handleCancelReplacement = () => {
+        setConfirmationDialogOpen(false);
+        setPendingReplacement(null);
+    };
+
     // Get status display info
     const statusInfo = statusOptions.find(option => option.value === currentStatus) || statusOptions[0];
 
@@ -116,30 +242,26 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
 
     return (
         <>
-            <Tooltip 
-                title={hasConflicts ? `${appointmentsCount} Termin${appointmentsCount !== 1 ? 'e' : ''} vorhanden` : ''}
-                arrow
-                placement="top"
+            <Box 
+                sx={{ 
+                    minHeight: 40,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    border: '1px dashed',
+                    borderColor: hasConflicts ? 'error.main' : 'grey.300',
+                    borderRadius: 1,
+                    backgroundColor: isWeekend ? 'grey.100' : 'grey.50',
+                    position: 'relative',
+                    px: 1,
+                    '&:hover': {
+                        backgroundColor: 'grey.200',
+                        borderColor: 'grey.400',
+                        cursor: 'pointer'
+                    }
+                }}
+                onClick={handleMenuOpen}
             >
-                <Box 
-                    sx={{ 
-                        minHeight: 40,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '1px dashed',
-                        borderColor: hasConflicts ? 'error.main' : 'grey.300',
-                        borderRadius: 1,
-                        backgroundColor: isWeekend ? 'grey.100' : 'grey.50',
-                        position: 'relative',
-                        '&:hover': {
-                            backgroundColor: isWeekend ? 'grey.200' : 'primary.50',
-                            borderColor: isWeekend ? 'grey.400' : 'primary.300',
-                            cursor: 'pointer'
-                        }
-                    }}
-                    onClick={handleMenuOpen}
-                >
                     {/* Conflict warning icon */}
                     {hasConflicts && (
                         <Box
@@ -162,30 +284,115 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                         </Box>
                     )}
                     
-                    {currentStatus === 'available' ? (
-                        <Typography variant="caption" color="text.secondary">
-                            Verfügbar
-                        </Typography>
-                    ) : (
-                        <Chip
-                            label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
-                            size="small"
-                            sx={{
-                                backgroundColor: statusInfo.color,
-                                color: 'white',
-                                fontSize: '0.75rem',
-                                height: 20,
-                                maxWidth: '100%',
-                                '& .MuiChip-label': {
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                }
-                            }}
-                        />
-                    )}
+                    {/* Status display */}
+                    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                        {hasConflicts ? (
+                            <Tooltip 
+                                title={`${appointmentsCount} Termin${appointmentsCount !== 1 ? 'e' : ''} vorhanden`}
+                                arrow
+                                placement="top"
+                            >
+                                <Box>
+                                    {currentStatus === 'available' ? (
+                                        <Typography variant="caption" color="text.secondary">
+                                            Verfügbar
+                                        </Typography>
+                                    ) : (
+                                        <Chip
+                                            label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
+                                            size="small"
+                                            sx={{
+                                                backgroundColor: statusInfo.color,
+                                                color: 'white',
+                                                fontSize: '0.75rem',
+                                                height: 20,
+                                                maxWidth: '100%',
+                                                '& .MuiChip-label': {
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+                            </Tooltip>
+                        ) : (
+                            <>
+                                {currentStatus === 'available' ? (
+                                    <Typography variant="caption" color="text.secondary">
+                                        Verfügbar
+                                    </Typography>
+                                ) : (
+                                    <Chip
+                                        label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
+                                        size="small"
+                                        sx={{
+                                            backgroundColor: statusInfo.color,
+                                            color: 'white',
+                                            fontSize: '0.75rem',
+                                            height: 20,
+                                            maxWidth: '100%',
+                                            '& .MuiChip-label': {
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                            }
+                                        }}
+                                    />
+                                )}
+                            </>
+                        )}
+                    </Box>
+
+                {/* Replacement Avatar - Only for weekdays */}
+                {!isWeekend && (
+                    <Box sx={{ ml: 1 }}>
+                        {replacementEmployee ? (
+                            <Tooltip 
+                                title={`Vertretung: ${replacementEmployee.first_name} ${replacementEmployee.last_name}`}
+                                arrow
+                                placement="top"
+                            >
+                                <Avatar
+                                    sx={{
+                                        width: 24,
+                                        height: 24,
+                                        bgcolor: getColorForTour(replacementEmployee.id),
+                                        fontSize: '0.7rem',
+                                        color: 'white',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        '&:hover': {
+                                            opacity: 0.8
+                                        }
+                                    }}
+                                    onClick={handleReplacementMenuOpen}
+                                >
+                                    {`${replacementEmployee.first_name[0]}${replacementEmployee.last_name[0]}`.toUpperCase()}
+                                </Avatar>
+                            </Tooltip>
+                        ) : (
+                            <Tooltip title="Vertretung hinzufügen" arrow placement="top">
+                                <IconButton
+                                    size="small"
+                                    onClick={handleReplacementMenuOpen}
+                                    sx={{
+                                        width: 24,
+                                        height: 24,
+                                        p: 0,
+                                        '&:hover': {
+                                            backgroundColor: 'primary.50'
+                                        }
+                                    }}
+                                >
+                                    <PersonAdd sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                    </Box>
+                )}
                 </Box>
-            </Tooltip>
 
             <Menu
                 anchorEl={anchorEl}
@@ -256,6 +463,33 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Replacement Menu */}
+            <ReplacementMenu
+                open={Boolean(replacementMenuAnchor)}
+                anchorEl={replacementMenuAnchor}
+                onClose={handleReplacementMenuClose}
+                availableEmployees={availableEmployees}
+                currentEmployeeId={employeeId}
+                weekday={weekday}
+                patientCountByEmployee={getPatientCountsForAllEmployees()}
+                onSelectReplacement={handleSelectReplacement}
+            />
+
+            {/* Replacement Confirmation Dialog */}
+            {pendingReplacement && (
+                <ReplacementConfirmationDialog
+                    open={confirmationDialogOpen}
+                    onClose={handleCancelReplacement}
+                    onConfirm={handleConfirmReplacement}
+                    sourceEmployee={pendingReplacement.isRemoving ? replacementEmployee : availableEmployees.find(emp => emp.id === employeeId)}
+                    targetEmployee={pendingReplacement.targetEmployee}
+                    weekday={weekday}
+                    patientCount={getPatientCountsForAllEmployees().get(pendingReplacement.isRemoving ? replacementEmployee?.id : employeeId) || 0}
+                    targetPatientCount={getPatientCountsForAllEmployees().get(pendingReplacement.targetEmployee?.id) || 0}
+                    isRemovingReplacement={pendingReplacement.isRemoving}
+                />
+            )}
         </>
     );
 };

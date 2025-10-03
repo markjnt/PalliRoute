@@ -89,18 +89,24 @@ def move_appointment():
                 return jsonify({'error': 'source_area and target_area are required for weekend appointments'}), 400
             
             # Get source route for this weekday and area
-            source_route = Route.query.filter_by(
+            source_route_query = Route.query.filter_by(
                 employee_id=None,
                 weekday=weekday,
                 area=source_area
-            ).first()
+            )
+            if appointment.calendar_week:
+                source_route_query = source_route_query.filter_by(calendar_week=appointment.calendar_week)
+            source_route = source_route_query.first()
             
             # Get target route for this weekday and area
-            target_route = Route.query.filter_by(
+            target_route_query = Route.query.filter_by(
                 employee_id=None,
                 weekday=weekday,
                 area=target_area
-            ).first()
+            )
+            if appointment.calendar_week:
+                target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)
+            target_route = target_route_query.first()
             
             # Update appointment's area
             appointment.area = target_area
@@ -129,16 +135,22 @@ def move_appointment():
                 return jsonify({'error': 'source_employee_id and target_employee_id are required for weekday appointments'}), 400
             
             # Get source route for this weekday
-            source_route = Route.query.filter_by(
+            source_route_query = Route.query.filter_by(
                 employee_id=source_employee_id,
                 weekday=weekday
-            ).first()
+            )
+            if appointment.calendar_week:
+                source_route_query = source_route_query.filter_by(calendar_week=appointment.calendar_week)
+            source_route = source_route_query.first()
             
             # Get target route for this weekday
-            target_route = Route.query.filter_by(
+            target_route_query = Route.query.filter_by(
                 employee_id=target_employee_id,
                 weekday=weekday
-            ).first()
+            )
+            if appointment.calendar_week:
+                target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)
+            target_route = target_route_query.first()
             
             # Update appointment's employee
             appointment.employee_id = target_employee_id
@@ -178,7 +190,8 @@ def batch_move_appointments():
         "target_employee_id": 2,  # For weekday appointments
         "source_area": "Nordkreis",  # For weekend appointments
         "target_area": "Südkreis",   # For weekend appointments
-        "weekday": "monday"
+        "weekday": "monday",
+        "calendar_week": 42  # Optional, defaults to current week
     }
     """
     try:
@@ -191,6 +204,7 @@ def batch_move_appointments():
         source_area = data.get('source_area')
         target_area = data.get('target_area')
         weekday = data['weekday']
+        calendar_week = data.get('calendar_week')
         
         # Determine if this is a weekday or weekend operation
         is_weekend = weekday in ['saturday', 'sunday']
@@ -200,22 +214,31 @@ def batch_move_appointments():
             if not source_area or not target_area:
                 return jsonify({'error': 'source_area and target_area are required for weekend operations'}), 400
             
-            # Get all appointments for source area for this specific weekday
-            appointments = Appointment.query.filter_by(area=source_area, weekday=weekday, employee_id=None).all()
+            # Get all appointments for source area for this specific weekday and calendar week
+            query = Appointment.query.filter_by(area=source_area, weekday=weekday, employee_id=None)
+            if calendar_week:
+                query = query.filter_by(calendar_week=calendar_week)
+            appointments = query.all()
             
             # Get source route for this weekday and area
-            source_route = Route.query.filter_by(
+            source_route_query = Route.query.filter_by(
                 employee_id=None,
                 weekday=weekday,
                 area=source_area
-            ).first()
+            )
+            if calendar_week:
+                source_route_query = source_route_query.filter_by(calendar_week=calendar_week)
+            source_route = source_route_query.first()
             
             # Get target route for this weekday and area
-            target_route = Route.query.filter_by(
+            target_route_query = Route.query.filter_by(
                 employee_id=None,
                 weekday=weekday,
                 area=target_area
-            ).first()
+            )
+            if calendar_week:
+                target_route_query = target_route_query.filter_by(calendar_week=calendar_week)
+            target_route = target_route_query.first()
             
             if source_route:
                 # Clear source route order
@@ -244,20 +267,29 @@ def batch_move_appointments():
             if not source_employee_id or not target_employee_id:
                 return jsonify({'error': 'source_employee_id and target_employee_id are required for weekday operations'}), 400
             
-            # Get all appointments for source employee for this specific weekday
-            appointments = Appointment.query.filter_by(employee_id=source_employee_id, weekday=weekday).all()
+            # Get all appointments for source employee for this specific weekday and calendar week
+            query = Appointment.query.filter_by(employee_id=source_employee_id, weekday=weekday)
+            if calendar_week:
+                query = query.filter_by(calendar_week=calendar_week)
+            appointments = query.all()
             
             # Get source route for this weekday
-            source_route = Route.query.filter_by(
+            source_route_query = Route.query.filter_by(
                 employee_id=source_employee_id,
                 weekday=weekday
-            ).first()
+            )
+            if calendar_week:
+                source_route_query = source_route_query.filter_by(calendar_week=calendar_week)
+            source_route = source_route_query.first()
             
             # Get target route for this weekday
-            target_route = Route.query.filter_by(
+            target_route_query = Route.query.filter_by(
                 employee_id=target_employee_id,
                 weekday=weekday
-            ).first()
+            )
+            if calendar_week:
+                target_route_query = target_route_query.filter_by(calendar_week=calendar_week)
+            target_route = target_route_query.first()
             
             if source_route:
                 # Clear source route order
@@ -283,6 +315,7 @@ def batch_move_appointments():
                 appointment.employee_id = target_employee_id
         
         db.session.commit()
+
         return jsonify({'message': 'Appointments moved successfully'})
         
     except Exception as e:

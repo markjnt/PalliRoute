@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { patientKeys } from './usePatients';
 import { appointmentKeys } from './useAppointments';
 import { routeKeys } from './useRoutes';
+import { calendarWeekKeys } from './useCalendarWeek';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 
 /**
@@ -18,6 +19,7 @@ export const useRefresh = () => {
     queryClient.invalidateQueries({ queryKey: patientKeys.all });
     queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
     queryClient.invalidateQueries({ queryKey: routeKeys.all });
+    queryClient.invalidateQueries({ queryKey: calendarWeekKeys.all });
     
     // Update last update time
     setLastUpdateTime(new Date());

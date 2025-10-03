@@ -62,13 +62,14 @@ export const useMoveAppointment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea }: { 
+    mutationFn: ({ appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea, calendarWeek }: { 
       appointmentId: number; 
       sourceEmployeeId?: number; 
       targetEmployeeId?: number; 
       sourceArea?: string;
       targetArea?: string;
-    }) => appointmentsApi.moveAppointment(appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea),
+      calendarWeek?: number;
+    }) => appointmentsApi.moveAppointment(appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea, calendarWeek),
     onSuccess: () => {
       // Invalidate all appointment queries to refetch data
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
@@ -89,14 +90,16 @@ export const useBatchMoveAppointments = () => {
       targetEmployeeId, 
       weekday,
       sourceArea,
-      targetArea
+      targetArea,
+      calendarWeek
     }: { 
       sourceEmployeeId?: number; 
       targetEmployeeId?: number; 
       weekday: string;
       sourceArea?: string;
       targetArea?: string;
-    }) => appointmentsApi.batchMoveAppointments(sourceEmployeeId, targetEmployeeId, weekday, sourceArea, targetArea),
+      calendarWeek?: number;
+    }) => appointmentsApi.batchMoveAppointments(sourceEmployeeId, targetEmployeeId, weekday, sourceArea, targetArea, calendarWeek),
     onSuccess: () => {
       // Invalidate all appointment queries to refetch data
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });

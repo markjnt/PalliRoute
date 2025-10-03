@@ -15,7 +15,7 @@ import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../se
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
 import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
-import { calendarWeekService } from '../../services/api/calendarWeek';
+import { useCalendarWeek } from '../../services/queries/useCalendarWeek';
 import { Weekday } from '../../types/models';
 
 interface WeekdaySelectorProps {
@@ -38,6 +38,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   const { data: allAppointments = [] } = useAppointments();
   const { data: allRoutes = [] } = useRoutes();
   const { data: employees = [] } = useEmployees();
+  const { data: bestCalendarWeek } = useCalendarWeek();
   const optimizeRoutesMutation = useOptimizeRoutes();
   const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
 
@@ -46,19 +47,10 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
 
   // Set calendar week when data is loaded
   useEffect(() => {
-    const setCalendarWeek = async () => {
-      try {
-        const week = await calendarWeekService.getBestWeek();
-        setSelectedCalendarWeek(week);
-      } catch (error) {
-        console.error('Failed to get calendar week:', error);
-      }
-    };
-    
-    if (!selectedCalendarWeek) {
-      setCalendarWeek();
+    if (bestCalendarWeek && !selectedCalendarWeek) {
+      setSelectedCalendarWeek(bestCalendarWeek);
     }
-  }, [selectedCalendarWeek, setSelectedCalendarWeek]);
+  }, [bestCalendarWeek, selectedCalendarWeek, setSelectedCalendarWeek]);
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {

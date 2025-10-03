@@ -36,20 +36,42 @@ def get_employee_planning():
     for entry in planning_entries:
         entry_dict = entry.to_dict()
         
-        # Check for appointments for this employee and weekday (only with valid visit_type)
+        # Add replacement employee info if exists
+        if entry.replacement:
+            entry_dict['replacement_employee'] = {
+                'id': entry.replacement.id,
+                'first_name': entry.replacement.first_name,
+                'last_name': entry.replacement.last_name,
+                'function': entry.replacement.function
+            }
+        else:
+            entry_dict['replacement_employee'] = None
+        
+        # Check for appointments for this employee and weekday (including appointments without visit_type)
         appointments = Appointment.query.filter(
             Appointment.employee_id == entry.employee_id,
             Appointment.weekday == entry.weekday,
-            Appointment.calendar_week == calendar_week,
-            Appointment.visit_type.in_(['HB', 'NA', 'TK'])
+            Appointment.calendar_week == calendar_week
+        ).filter(
+            (Appointment.visit_type.in_(['HB', 'NA', 'TK'])) | 
+            (Appointment.visit_type.is_(None)) | 
+            (Appointment.visit_type == '')
         ).all()
+        
+        # Count unique patients (not appointments)
+        unique_patients = set(app.patient_id for app in appointments)
+        patient_count = len(unique_patients)
         
         # Only show conflicts if status is not 'available' AND there are appointments
         entry_dict['has_conflicts'] = entry.status != 'available' and len(appointments) > 0
-        entry_dict['appointments_count'] = len(appointments)        
+        entry_dict['appointments_count'] = len(appointments)
+        entry_dict['patient_count'] = patient_count
+        
         entries_with_conflicts.append(entry_dict)
     
     return jsonify(entries_with_conflicts), 200
+
+
 
 @employee_planning_bp.route('/<int:employee_id>/<string:weekday>', methods=['PUT'])
 def update_employee_planning(employee_id, weekday):
@@ -62,6 +84,7 @@ def update_employee_planning(employee_id, weekday):
     
     status = data['status']
     custom_text = data.get('custom_text')
+    replacement_id = data.get('replacement_id')
     calendar_week = data.get('calendar_week', get_current_calendar_week())
     
     # Validate status
@@ -91,6 +114,7 @@ def update_employee_planning(employee_id, weekday):
         # Update existing entry
         existing_entry.status = status
         existing_entry.custom_text = custom_text
+        existing_entry.replacement_id = replacement_id
         existing_entry.updated_at = datetime.utcnow()
     else:
         # Create new entry
@@ -99,6 +123,7 @@ def update_employee_planning(employee_id, weekday):
             weekday=db_weekday,
             status=status,
             custom_text=custom_text,
+            replacement_id=replacement_id,
             calendar_week=calendar_week
         )
         db.session.add(new_entry)
@@ -109,3 +134,39 @@ def update_employee_planning(employee_id, weekday):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update planning status: {str(e)}"}), 500
+
+@employee_planning_bp.route('/<int:employee_id>/<string:weekday>/replacement', methods=['PUT'])
+def update_replacement(employee_id, weekday):
+    """Update replacement for specific employee and weekday"""
+    data = request.get_json()
+    
+    replacement_id = data.get('replacement_id')
+    calendar_week = data.get('calendar_week', get_current_calendar_week())
+
+    # Map German weekday to English
+    weekday_mapping = get_weekday_mapping()
+    if weekday not in weekday_mapping:
+        return jsonify({"error": f"Invalid weekday. Must be one of: {list(weekday_mapping.keys())}"}), 400
+    
+    db_weekday = weekday_mapping[weekday]
+    
+    # Check if planning entry exists
+    existing_entry = EmployeePlanning.query.filter_by(
+        employee_id=employee_id,
+        weekday=db_weekday,
+        calendar_week=calendar_week
+    ).first()
+    
+    if not existing_entry:
+        return jsonify({"error": "Planning entry not found"}), 404
+    
+    # Update replacement
+    existing_entry.replacement_id = replacement_id
+    existing_entry.updated_at = datetime.utcnow()
+    
+    try:
+        db.session.commit()
+        return jsonify({"success": True, "message": "Replacement updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to update replacement: {str(e)}"}), 500

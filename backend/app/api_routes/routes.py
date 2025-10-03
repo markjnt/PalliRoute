@@ -146,10 +146,10 @@ def update_route(route_id):
 
         # Recalculate route using RoutePlanner
         if route.employee_id:
-            route_planner.plan_route(route.weekday, route.employee_id)
+            route_planner.plan_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
         else:
             # For weekend routes, plan by area
-            route_planner.plan_route(route.weekday, area=route.area)
+            route_planner.plan_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
 
         # Note: plan_route already commits changes to database
 

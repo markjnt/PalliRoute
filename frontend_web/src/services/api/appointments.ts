@@ -47,11 +47,15 @@ export const appointmentsApi = {
         }
     },
 
-    async moveAppointment(appointmentId: number, sourceEmployeeId?: number, targetEmployeeId?: number, sourceArea?: string, targetArea?: string): Promise<void> {
+    async moveAppointment(appointmentId: number, sourceEmployeeId?: number, targetEmployeeId?: number, sourceArea?: string, targetArea?: string, calendarWeek?: number): Promise<void> {
         try {
             const payload: any = {
                 appointment_id: appointmentId
             };
+            
+            if (calendarWeek) {
+                payload.calendar_week = calendarWeek;
+            }
             
             if (sourceEmployeeId !== undefined && targetEmployeeId !== undefined) {
                 // Employee-based move
@@ -77,10 +81,15 @@ export const appointmentsApi = {
         targetEmployeeId?: number, 
         weekday?: string,
         sourceArea?: string,
-        targetArea?: string
+        targetArea?: string,
+        calendarWeek?: number
     ): Promise<void> {
         try {
             const payload: any = { weekday };
+            
+            if (calendarWeek) {
+                payload.calendar_week = calendarWeek;
+            }
             
             if (sourceEmployeeId && targetEmployeeId) {
                 // Employee-based move (for weekday appointments)
