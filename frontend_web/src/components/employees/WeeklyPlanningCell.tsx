@@ -293,37 +293,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                                 placement="top"
                             >
                                 <Box>
-                                    {currentStatus === 'available' ? (
-                                        <Typography variant="caption" color="text.secondary">
-                                            Verfügbar
-                                        </Typography>
-                                    ) : (
-                                        <Chip
-                                            label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
-                                            size="small"
-                                            sx={{
-                                                backgroundColor: statusInfo.color,
-                                                color: 'white',
-                                                fontSize: '0.75rem',
-                                                height: 20,
-                                                maxWidth: '100%',
-                                                '& .MuiChip-label': {
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                }
-                                            }}
-                                        />
-                                    )}
-                                </Box>
-                            </Tooltip>
-                        ) : (
-                            <>
-                                {currentStatus === 'available' ? (
-                                    <Typography variant="caption" color="text.secondary">
-                                        Verfügbar
-                                    </Typography>
-                                ) : (
                                     <Chip
                                         label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
                                         size="small"
@@ -340,8 +309,25 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                                             }
                                         }}
                                     />
-                                )}
-                            </>
+                                </Box>
+                            </Tooltip>
+                        ) : (
+                            <Chip
+                                label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
+                                size="small"
+                                sx={{
+                                    backgroundColor: statusInfo.color,
+                                    color: 'white',
+                                    fontSize: '0.75rem',
+                                    height: 20,
+                                    maxWidth: '100%',
+                                    '& .MuiChip-label': {
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    }
+                                }}
+                            />
                         )}
                     </Box>
 
