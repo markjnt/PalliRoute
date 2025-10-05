@@ -6,7 +6,6 @@ import {
 } from '@mui/material';
 import { 
     Route as RouteIcon,
-    SwapHoriz as SwapHorizIcon,
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
@@ -21,7 +20,6 @@ interface WeekendTourControlsProps {
     routeId?: number;
     isVisible: boolean;
     onOptimizeRoute: () => void;
-    onMenuOpen: (event: React.MouseEvent<HTMLElement>) => void;
     onToggleVisibility: () => void;
 }
 
@@ -32,7 +30,6 @@ export const WeekendTourControls: React.FC<WeekendTourControlsProps> = ({
     routeId,
     isVisible,
     onOptimizeRoute,
-    onMenuOpen,
     onToggleVisibility
 }) => {
     if (!expanded) return null;
@@ -44,7 +41,7 @@ export const WeekendTourControls: React.FC<WeekendTourControlsProps> = ({
             gap: 1,
             mt: 0.5
         }}>
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 2, alignItems: 'center' }}>
                 {/* Optimize button */}
                 <Button
                     variant="outlined"
@@ -63,32 +60,6 @@ export const WeekendTourControls: React.FC<WeekendTourControlsProps> = ({
                     {isOptimizing ? 'Optimiert...' : 'Optimieren'}
                 </Button>
                 
-                {/* Reassign button */}
-                <Tooltip title="Alle neu zuweisen" arrow>
-                    <span>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={onMenuOpen}
-                            disabled={tourPatientsCount === 0}
-                            sx={{
-                                left: '2px', 
-                                minWidth: '40px',
-                                width: '40px',
-                                px: 0,
-                                height: '31px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                '&:hover': {
-                                    backgroundColor: 'primary.light',
-                                    color: 'primary.contrastText'
-                                }
-                            }}
-                        >
-                            <SwapHorizIcon fontSize="small" />
-                        </Button>
-                    </span>
-                </Tooltip>
                 
                 {/* Visibility toggle button */}
                 {routeId !== undefined && (
@@ -105,7 +76,7 @@ export const WeekendTourControls: React.FC<WeekendTourControlsProps> = ({
                                     display: 'flex',
                                     justifyContent: 'center',
                                     alignItems: 'center',
-                                    ml: 0.5,
+                                    ml: 0.25,
                                     '&:hover': {
                                         backgroundColor: 'primary.light',
                                         color: 'primary.contrastText'

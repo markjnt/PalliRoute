@@ -20,7 +20,6 @@ import { TourHeader } from './tour/TourHeader';
 import { TourStats } from './tour/TourStats';
 import { TourControls } from './tour/TourControls';
 import { TourSummary } from './tour/TourSummary';
-import { ReassignMenu } from './tour/ReassignMenu';
 import { 
     usePatientManagement, 
     useRouteManagement, 
@@ -44,10 +43,6 @@ interface DropState {
     canDrop: boolean;
 }
 
-interface MenuState {
-    open: boolean;
-    anchorEl: HTMLElement | null;
-}
 
 
 export const TourContainer: React.FC<TourContainerProps> = ({
@@ -59,10 +54,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     routes
 }) => {
     const [expanded, setExpanded] = useState(false);
-    const [menuState, setMenuState] = useState<MenuState>({
-        open: false,
-        anchorEl: null
-    });
     const dropRef = useRef<HTMLDivElement>(null);
 
     // Custom hooks for business logic
@@ -149,31 +140,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         })
     });
 
-    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-        setMenuState({
-            open: true,
-            anchorEl: event.currentTarget
-        });
-    };
-
-    const handleMenuClose = () => {
-        setMenuState({
-            open: false,
-            anchorEl: null
-        });
-    };
-
     const handleOptimizeRoute = async () => {
         await routeManagement.optimizeRoute();
-        handleMenuClose();
-    };
-
-    const handleMoveAllPatients = async (targetEmployeeId: number) => {
-        await appointmentManagement.moveAllAppointments({
-            sourceEmployeeId: employee.id || 0,
-            targetEmployeeId
-        });
-        handleMenuClose();
     };
 
     const handleMoveUp = async (patientId: number) => {
@@ -194,9 +162,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         await routeManagement.movePatientDown(routeId, appointment.id);
     };
 
-    // Get available employees and patient counts using custom hook
-    const availableEmployees = employeeManagement.getAvailableEmployees(employee.id);
-    const patientCountByEmployee = patientManagement.getPatientCountByEmployee(employees);
     
     // Define the border style based on drag and drop state
     const getBorderStyle = () => {
@@ -262,7 +227,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                         routeId={routeId}
                         isVisible={isVisible}
                         onOptimizeRoute={handleOptimizeRoute}
-                        onMenuOpen={handleMenuOpen}
                         onToggleVisibility={routeVisibility.toggleVisibility}
                     />
                 </Box>
@@ -309,14 +273,6 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 )}
             </Collapse>
             
-            <ReassignMenu
-                open={menuState.open}
-                anchorEl={menuState.anchorEl}
-                onClose={handleMenuClose}
-                availableEmployees={availableEmployees}
-                patientCountByEmployee={patientCountByEmployee}
-                onMoveAllPatients={handleMoveAllPatients}
-            />
         </Paper>
     );
 }; 

@@ -76,37 +76,4 @@ export const appointmentsApi = {
         }
     },
 
-    async batchMoveAppointments(
-        sourceEmployeeId?: number, 
-        targetEmployeeId?: number, 
-        weekday?: string,
-        sourceArea?: string,
-        targetArea?: string,
-        calendarWeek?: number
-    ): Promise<void> {
-        try {
-            const payload: any = { weekday };
-            
-            if (calendarWeek) {
-                payload.calendar_week = calendarWeek;
-            }
-            
-            if (sourceEmployeeId && targetEmployeeId) {
-                // Employee-based move (for weekday appointments)
-                payload.source_employee_id = sourceEmployeeId;
-                payload.target_employee_id = targetEmployeeId;
-            } else if (sourceArea && targetArea) {
-                // Area-based move (for weekend appointments)
-                payload.source_area = sourceArea;
-                payload.target_area = targetArea;
-            } else {
-                throw new Error('Either employee IDs or areas must be provided');
-            }
-            
-            await api.post('/appointments/batchmove', payload);
-        } catch (error) {
-            console.error('Fehler beim Batch-Verschieben der Termine:', error);
-            throw error;
-        }
-    }
 }; 

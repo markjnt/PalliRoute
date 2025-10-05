@@ -80,33 +80,4 @@ export const useMoveAppointment = () => {
   });
 };
 
-// Hook zum Verschieben aller Termine eines Mitarbeiters oder zwischen Bereichen
-export const useBatchMoveAppointments = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: ({ 
-      sourceEmployeeId, 
-      targetEmployeeId, 
-      weekday,
-      sourceArea,
-      targetArea,
-      calendarWeek
-    }: { 
-      sourceEmployeeId?: number; 
-      targetEmployeeId?: number; 
-      weekday: string;
-      sourceArea?: string;
-      targetArea?: string;
-      calendarWeek?: number;
-    }) => appointmentsApi.batchMoveAppointments(sourceEmployeeId, targetEmployeeId, weekday, sourceArea, targetArea, calendarWeek),
-    onSuccess: () => {
-      // Invalidate all appointment queries to refetch data
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
-      queryClient.invalidateQueries({ queryKey: routeKeys.all });
-      queryClient.invalidateQueries({ queryKey: patientKeys.all });
-      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
-    }
-  });
-};
 

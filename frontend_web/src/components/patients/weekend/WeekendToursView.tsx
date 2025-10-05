@@ -26,7 +26,6 @@ import { WeekendTourHeader } from './tour/WeekendTourHeader';
 import { WeekendTourStats } from './tour/WeekendTourStats';
 import { WeekendTourControls } from './tour/WeekendTourControls';
 import { WeekendTourSummary } from './tour/WeekendTourSummary';
-import { WeekendReassignMenu } from './tour/WeekendReassignMenu';
 import { 
     usePatientManagement, 
     useRouteManagement, 
@@ -59,13 +58,6 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
     selectedDay
 }) => {
     const [expanded, setExpanded] = useState(false);
-    const [menuState, setMenuState] = useState<{
-        open: boolean;
-        anchorEl: HTMLElement | null;
-    }>({
-        open: false,
-        anchorEl: null
-    });
 
     // Custom hooks for business logic
     const patientManagement = usePatientManagement({
@@ -127,27 +119,7 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
         await routeManagement.optimizeWeekendRoute();
     };
 
-    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-        setMenuState({
-            open: true,
-            anchorEl: event.currentTarget
-        });
-    };
 
-    const handleMenuClose = () => {
-        setMenuState({
-            open: false,
-            anchorEl: null
-        });
-    };
-
-    const handleMoveAllPatients = async (targetArea: string) => {
-        await appointmentManagement.moveAllAppointments({
-            sourceArea: area,
-            targetArea
-        });
-        handleMenuClose();
-    };
 
     const handleMoveUp = async (patientId: number) => {
         if (!routeId) return;
@@ -203,7 +175,6 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
                         routeId={routeId}
                         isVisible={isVisible}
                         onOptimizeRoute={handleOptimizeRoute}
-                        onMenuOpen={handleMenuOpen}
                         onToggleVisibility={routeVisibility.toggleVisibility}
                     />
                 </Box>
@@ -317,13 +288,6 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
                 )}
             </Collapse>
             
-            <WeekendReassignMenu
-                open={menuState.open}
-                anchorEl={menuState.anchorEl}
-                onClose={handleMenuClose}
-                currentArea={area}
-                onMoveAllPatients={handleMoveAllPatients}
-            />
         </Paper>
     );
 };
