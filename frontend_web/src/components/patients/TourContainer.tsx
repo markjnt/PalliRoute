@@ -20,6 +20,7 @@ import { TourHeader } from './tour/TourHeader';
 import { TourStats } from './tour/TourStats';
 import { TourControls } from './tour/TourControls';
 import { TourSummary } from './tour/TourSummary';
+import { ReplacementConfirmationDialog } from './MoveConfirmationDialog';
 import { 
     usePatientManagement, 
     useRouteManagement, 
@@ -43,6 +44,15 @@ interface DropState {
     canDrop: boolean;
 }
 
+interface ReplacementDialogState {
+    open: boolean;
+    appointmentId?: number;
+    sourceEmployeeId?: number;
+    targetEmployeeId?: number;
+    patientName?: string;
+    replacementEmployee?: any;
+}
+
 
 
 export const TourContainer: React.FC<TourContainerProps> = ({
@@ -54,6 +64,9 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     routes
 }) => {
     const [expanded, setExpanded] = useState(false);
+    const [replacementDialog, setReplacementDialog] = useState<ReplacementDialogState>({
+        open: false
+    });
     const dropRef = useRef<HTMLDivElement>(null);
 
     // Custom hooks for business logic
@@ -118,11 +131,45 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             return;
         }
 
-        await appointmentManagement.moveAppointment({
-            appointmentId: item.appointmentIds[0],
-            sourceEmployeeId: item.sourceEmployeeId,
-            targetEmployeeId: employee.id || 0
-        });
+        const appointmentId = item.appointmentIds[0];
+        const targetEmployeeId = employee.id || 0;
+
+        try {
+            // Check if target employee has a replacement
+            const replacementInfo = await appointmentManagement.checkReplacement(
+                targetEmployeeId, 
+                selectedDay.toLowerCase()
+            );
+
+            if (replacementInfo.has_replacement) {
+                // Show dialog to ask user
+                setReplacementDialog({
+                    open: true,
+                    appointmentId,
+                    sourceEmployeeId: item.sourceEmployeeId,
+                    targetEmployeeId,
+                    patientName: `${patient.first_name} ${patient.last_name}`,
+                    replacementEmployee: replacementInfo.replacement_employee
+                });
+            } else {
+                // No replacement, move directly
+                await appointmentManagement.moveAppointment({
+                    appointmentId,
+                    sourceEmployeeId: item.sourceEmployeeId,
+                    targetEmployeeId,
+                    respectReplacement: false
+                });
+            }
+        } catch (error) {
+            console.error('Fehler beim Prüfen der Vertretung:', error);
+            // Fallback: move directly without checking replacement
+            await appointmentManagement.moveAppointment({
+                appointmentId,
+                sourceEmployeeId: item.sourceEmployeeId,
+                targetEmployeeId,
+                respectReplacement: false
+            });
+        }
     };
 
     const [{ isOver, canDrop }, drop] = useDrop<PatientDragItem, void, DropState>({
@@ -142,6 +189,21 @@ export const TourContainer: React.FC<TourContainerProps> = ({
 
     const handleOptimizeRoute = async () => {
         await routeManagement.optimizeRoute();
+    };
+
+    const handleReplacementDialogClose = () => {
+        setReplacementDialog({ open: false });
+    };
+
+    const handleReplacementDialogConfirm = async (respectReplacement: boolean) => {
+        if (replacementDialog.appointmentId && replacementDialog.sourceEmployeeId && replacementDialog.targetEmployeeId) {
+            await appointmentManagement.moveAppointment({
+                appointmentId: replacementDialog.appointmentId,
+                sourceEmployeeId: replacementDialog.sourceEmployeeId,
+                targetEmployeeId: replacementDialog.targetEmployeeId,
+                respectReplacement
+            });
+        }
     };
 
     const handleMoveUp = async (patientId: number) => {
@@ -273,6 +335,16 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                 )}
             </Collapse>
             
+            <ReplacementConfirmationDialog
+                open={replacementDialog.open}
+                onClose={handleReplacementDialogClose}
+                onConfirm={handleReplacementDialogConfirm}
+                sourceEmployee={employees.find(e => e.id === replacementDialog.sourceEmployeeId) || employee}
+                targetEmployee={employees.find(e => e.id === replacementDialog.targetEmployeeId) || employee}
+                replacementEmployee={replacementDialog.replacementEmployee}
+                patientName={replacementDialog.patientName || ''}
+                weekday={selectedDay}
+            />
         </Paper>
     );
 }; 

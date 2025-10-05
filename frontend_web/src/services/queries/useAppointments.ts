@@ -62,14 +62,15 @@ export const useMoveAppointment = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea, calendarWeek }: { 
+    mutationFn: ({ appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea, calendarWeek, respectReplacement }: { 
       appointmentId: number; 
       sourceEmployeeId?: number; 
       targetEmployeeId?: number; 
       sourceArea?: string;
       targetArea?: string;
       calendarWeek?: number;
-    }) => appointmentsApi.moveAppointment(appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea, calendarWeek),
+      respectReplacement?: boolean;
+    }) => appointmentsApi.moveAppointment(appointmentId, sourceEmployeeId, targetEmployeeId, sourceArea, targetArea, calendarWeek, respectReplacement),
     onSuccess: () => {
       // Invalidate all appointment queries to refetch data
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
@@ -77,6 +78,17 @@ export const useMoveAppointment = () => {
       queryClient.invalidateQueries({ queryKey: patientKeys.all });
       queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
     }
+  });
+};
+
+// Hook zum Prüfen der Vertretung
+export const useCheckReplacement = () => {
+  return useMutation({
+    mutationFn: ({ targetEmployeeId, weekday, calendarWeek }: {
+      targetEmployeeId: number;
+      weekday: string;
+      calendarWeek?: number;
+    }) => appointmentsApi.checkReplacement(targetEmployeeId, weekday, calendarWeek)
   });
 };
 

@@ -32,6 +32,7 @@ import { getColorForTour, employeeTypeColors } from '../../utils/colors';
 import { useAppointmentsByPatient } from '../../services/queries/useAppointments';
 import WeekdayOverview from './WeekdayOverview';
 import { useAppointmentManagement } from '../../hooks';
+import { ReplacementConfirmationDialog } from './MoveConfirmationDialog';
 
 interface PatientCardProps {
     patient: Patient;
@@ -60,6 +61,13 @@ export const PatientCard: React.FC<PatientCardProps> = ({
 }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [replacementDialog, setReplacementDialog] = useState<{
+        open: boolean;
+        appointmentId?: number;
+        sourceEmployeeId?: number;
+        targetEmployeeId?: number;
+        replacementEmployee?: any;
+    }>({ open: false });
     const { data: employees = [] } = useEmployees();
     const { data: patientAppointments = [], isLoading, error } = useAppointmentsByPatient(patient.id ?? 0);
     
@@ -132,14 +140,47 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             return;
         }
 
-        // Use the appointment for the selected day
-        if (typeof selectedDayAppointment.id === 'number') {
+        const appointmentId = selectedDayAppointment.id;
+        if (typeof appointmentId !== 'number') {
+            return;
+        }
+
+        try {
+            // Check if target employee has a replacement
+            const replacementInfo = await appointmentManagement.checkReplacement(
+                employeeId, 
+                selectedDay.toLowerCase()
+            );
+
+            if (replacementInfo.has_replacement) {
+                // Show dialog to ask user
+                setReplacementDialog({
+                    open: true,
+                    appointmentId,
+                    sourceEmployeeId: currentEmployeeId,
+                    targetEmployeeId: employeeId,
+                    replacementEmployee: replacementInfo.replacement_employee
+                });
+            } else {
+                // No replacement, move directly
+                await appointmentManagement.moveAppointment({
+                    appointmentId,
+                    sourceEmployeeId: currentEmployeeId,
+                    targetEmployeeId: employeeId,
+                    respectReplacement: false
+                });
+            }
+        } catch (error) {
+            console.error('Fehler beim Prüfen der Vertretung:', error);
+            // Fallback: move directly without checking replacement
             await appointmentManagement.moveAppointment({
-                appointmentId: selectedDayAppointment.id,
+                appointmentId,
                 sourceEmployeeId: currentEmployeeId,
-                targetEmployeeId: employeeId
+                targetEmployeeId: employeeId,
+                respectReplacement: false
             });
         }
+        
         handleMenuClose();
     };
 
@@ -156,9 +197,49 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         }
     };
 
-    // Filter all employees
-    const availableEmployees = [...employees]
-        .sort((a, b) => a.last_name.localeCompare(b.last_name));
+    const handleReplacementDialogClose = () => {
+        setReplacementDialog({ open: false });
+    };
+
+    const handleReplacementDialogConfirm = async (respectReplacement: boolean) => {
+        if (replacementDialog.appointmentId && replacementDialog.sourceEmployeeId && replacementDialog.targetEmployeeId) {
+            await appointmentManagement.moveAppointment({
+                appointmentId: replacementDialog.appointmentId,
+                sourceEmployeeId: replacementDialog.sourceEmployeeId,
+                targetEmployeeId: replacementDialog.targetEmployeeId,
+                respectReplacement
+            });
+        }
+    };
+
+    // Filter and sort employees like in ReplacementMenu
+    const availableEmployees = React.useMemo(() => {
+        const functionPriority: Record<string, number> = {
+            'Pflegekraft': 1,
+            'PDL': 2,
+            'Physiotherapie': 3,
+            'Arzt': 4,
+            'Honorararzt': 5,
+        };
+
+        return employees
+            .filter(emp => emp.id !== currentEmployeeId) // Filter out current employee
+            .sort((a, b) => {
+                // First sort by function priority
+                const aPriority = functionPriority[a.function] || 999;
+                const bPriority = functionPriority[b.function] || 999;
+                
+                if (aPriority !== bPriority) {
+                    return aPriority - bPriority;
+                }
+                
+                // Then sort by last name, then first name
+                const aName = `${a.last_name} ${a.first_name}`.toLowerCase();
+                const bName = `${b.last_name} ${b.first_name}`.toLowerCase();
+                
+                return aName.localeCompare(bName);
+            });
+    }, [employees, currentEmployeeId]);
 
     return (
         <Card 
@@ -278,19 +359,14 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 }}
             >
                 {availableEmployees.map((employee) => {
-                    const isCurrentEmployee = employee.id === currentEmployeeId;
-                    const disabled = isCurrentEmployee;
                     const menuItem = (
                         <MenuItem 
                             key={employee.id}
-                            onClick={() => employee.id && !disabled && handleAssignEmployee(employee.id)}
-                            disabled={disabled}
+                            onClick={() => employee.id && handleAssignEmployee(employee.id)}
                             sx={{
-                                backgroundColor: disabled ? 'rgba(0, 0, 0, 0.04)' : 'inherit',
-                                opacity: disabled ? 0.7 : 1,
                                 py: 1,
                                 '&:hover': {
-                                    backgroundColor: disabled ? 'rgba(0, 0, 0, 0.04)' : 'rgba(0, 0, 0, 0.04)'
+                                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
                                 }
                             }}
                         >
@@ -303,7 +379,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                             height: 20,
                                             bgcolor: getColorForTour(employee.id),
                                             color: 'white',
-                                            opacity: disabled ? 0.7 : 1,
                                             '& .MuiChip-label': {
                                                 px: 1,
                                                 fontSize: '0.75rem'
@@ -319,7 +394,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                             fontSize: '0.7rem',
                                             borderColor: employeeTypeColors[employee.function] || employeeTypeColors.default,
                                             color: employeeTypeColors[employee.function] || employeeTypeColors.default,
-                                            opacity: disabled ? 0.7 : 1,
                                             '& .MuiChip-label': {
                                                 px: 1,
                                                 fontSize: '0.7rem'
@@ -430,6 +504,17 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                     </Box>
                 </Box>
             </CardContent>
+            
+            <ReplacementConfirmationDialog
+                open={replacementDialog.open}
+                onClose={handleReplacementDialogClose}
+                onConfirm={handleReplacementDialogConfirm}
+                sourceEmployee={employees.find(e => e.id === replacementDialog.sourceEmployeeId) || employees[0]}
+                targetEmployee={employees.find(e => e.id === replacementDialog.targetEmployeeId) || employees[0]}
+                replacementEmployee={replacementDialog.replacementEmployee}
+                patientName={`${patient.first_name} ${patient.last_name}`}
+                weekday={selectedDay}
+            />
         </Card>
     );
 }; 

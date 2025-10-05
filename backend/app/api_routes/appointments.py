@@ -61,7 +61,8 @@ def move_appointment():
         "source_employee_id": 1,  # For weekday appointments
         "target_employee_id": 2,  # For weekday appointments
         "source_area": "Nordkreis",  # For weekend appointments
-        "target_area": "Südkreis"   # For weekend appointments
+        "target_area": "Südkreis",   # For weekend appointments
+        "respect_replacement": true  # Whether to respect replacement chain
     }
     """
     try:
@@ -74,6 +75,7 @@ def move_appointment():
         target_employee_id = data.get('target_employee_id')
         source_area = data.get('source_area')
         target_area = data.get('target_area')
+        respect_replacement = data.get('respect_replacement', True)
 
         # Get the appointment and its patient
         appointment = Appointment.query.get_or_404(appointment_id)
@@ -143,17 +145,30 @@ def move_appointment():
                 source_route_query = source_route_query.filter_by(calendar_week=appointment.calendar_week)
             source_route = source_route_query.first()
             
-            # Get target route for this weekday
+            # Update appointment's employee first to determine final employee
+            if respect_replacement:
+                # Import the get_current_responsible function
+                from .employee_plannings import get_current_responsible
+                # Get the currently responsible employee (considering replacement chain)
+                current_responsible = get_current_responsible(target_employee_id, weekday, appointment.calendar_week)
+                appointment.employee_id = current_responsible
+                final_employee_id = current_responsible  # Use the replacement employee for route operations
+            else:
+                # Direct assignment without considering replacement
+                appointment.employee_id = target_employee_id
+                final_employee_id = target_employee_id  # Use the original target employee for route operations
+            
+            # Always update origin_employee_id to the target employee
+            appointment.origin_employee_id = target_employee_id
+            
+            # Get target route for the final employee (replacement or original)
             target_route_query = Route.query.filter_by(
-                employee_id=target_employee_id,
+                employee_id=final_employee_id,
                 weekday=weekday
             )
             if appointment.calendar_week:
                 target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)
             target_route = target_route_query.first()
-            
-            # Update appointment's employee
-            appointment.employee_id = target_employee_id
             
             if source_route:
                 # Remove appointment from source route
@@ -171,12 +186,58 @@ def move_appointment():
                 route_order.append(appointment.id)
                 target_route.set_route_order(route_order)
                 
-                # Optimize target route
-                route_optimizer.optimize_route(weekday, target_employee_id, calendar_week=appointment.calendar_week)
+                # Optimize target route using the final employee ID (replacement or original)
+                route_optimizer.optimize_route(weekday, final_employee_id, calendar_week=appointment.calendar_week)
         
         db.session.commit()
         return jsonify({'message': 'Appointment moved successfully'})
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@appointments_bp.route('/check-replacement', methods=['POST'])
+def check_replacement():
+    """
+    Check if target employee has a replacement for the given weekday
+    Expected JSON body: {
+        "target_employee_id": 2,
+        "weekday": "monday",
+        "calendar_week": 42  # Optional
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'target_employee_id' not in data or 'weekday' not in data:
+            return jsonify({'error': 'target_employee_id and weekday are required'}), 400
+
+        target_employee_id = data['target_employee_id']
+        weekday = data['weekday']
+        calendar_week = data.get('calendar_week')
+
+        # Import the get_current_responsible function
+        from .employee_plannings import get_current_responsible
+        
+        # Get the currently responsible employee (considering replacement chain)
+        current_responsible = get_current_responsible(target_employee_id, weekday, calendar_week)
+        
+        # Check if there's a replacement
+        has_replacement = current_responsible != target_employee_id
+        
+        result = {
+            'has_replacement': has_replacement,
+            'target_employee_id': target_employee_id,
+            'current_responsible_id': current_responsible
+        }
+        
+        if has_replacement:
+            # Get the replacement employee details
+            from app.models.employee import Employee
+            replacement_employee = Employee.query.get(current_responsible)
+            if replacement_employee:
+                result['replacement_employee'] = replacement_employee.to_dict()
+        
+        return jsonify(result)
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500

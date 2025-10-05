@@ -47,7 +47,7 @@ export const appointmentsApi = {
         }
     },
 
-    async moveAppointment(appointmentId: number, sourceEmployeeId?: number, targetEmployeeId?: number, sourceArea?: string, targetArea?: string, calendarWeek?: number): Promise<void> {
+    async moveAppointment(appointmentId: number, sourceEmployeeId?: number, targetEmployeeId?: number, sourceArea?: string, targetArea?: string, calendarWeek?: number, respectReplacement?: boolean): Promise<void> {
         try {
             const payload: any = {
                 appointment_id: appointmentId
@@ -55,6 +55,10 @@ export const appointmentsApi = {
             
             if (calendarWeek) {
                 payload.calendar_week = calendarWeek;
+            }
+            
+            if (respectReplacement !== undefined) {
+                payload.respect_replacement = respectReplacement;
             }
             
             if (sourceEmployeeId !== undefined && targetEmployeeId !== undefined) {
@@ -72,6 +76,25 @@ export const appointmentsApi = {
             await api.post('/appointments/move', payload);
         } catch (error) {
             console.error('Fehler beim Verschieben des Termins:', error);
+            throw error;
+        }
+    },
+
+    async checkReplacement(targetEmployeeId: number, weekday: string, calendarWeek?: number): Promise<any> {
+        try {
+            const payload: any = {
+                target_employee_id: targetEmployeeId,
+                weekday: weekday
+            };
+            
+            if (calendarWeek) {
+                payload.calendar_week = calendarWeek;
+            }
+            
+            const response = await api.post('/appointments/check-replacement', payload);
+            return response.data;
+        } catch (error) {
+            console.error('Fehler beim Prüfen der Vertretung:', error);
             throw error;
         }
     },
