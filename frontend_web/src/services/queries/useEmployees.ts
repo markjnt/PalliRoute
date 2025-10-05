@@ -118,7 +118,7 @@ export const useImportEmployees = () => {
       // Update last import time in store
       setLastEmployeeImportTime(new Date());
       
-      // Leere den Kalenderwochen-Store, da Mitarbeiter-Import alle Daten löscht
+      // Leere den Kalenderwochen-Store, da Mitarbeiter-Import alle Daten löscht (inkl. Patienten, Termine, Routen)
       clearSelection();
     },
   });

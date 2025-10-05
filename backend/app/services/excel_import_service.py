@@ -167,8 +167,14 @@ class ExcelImportService:
         """
         Import employees from Excel file with dynamic planning management
         Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet, Alias
+        
+        Note: This import also deletes all patient, appointment and route data
         """
         try:
+            # Step 1: Delete existing patient data (patients, appointments, routes)
+            print("Step 1: Deleting existing patient data...")
+            ExcelImportService.delete_patient_data()
+            
             df = pd.read_excel(file_path)
             required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang', 'Gebiet']
             
