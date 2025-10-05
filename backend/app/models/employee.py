@@ -20,7 +20,10 @@ class Employee(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    appointments = db.relationship('Appointment', backref='employee', lazy='dynamic')
+    # Current appointments (where employee_id points to this employee)
+    appointments = db.relationship('Appointment', foreign_keys='Appointment.employee_id', backref='employee', lazy='dynamic')
+    # Original appointments (where origin_employee_id points to this employee)
+    original_appointments = db.relationship('Appointment', foreign_keys='Appointment.origin_employee_id', backref='origin_employee', lazy='dynamic')
     routes = db.relationship('Route', backref='employee', lazy='dynamic')
     
     def to_dict(self):

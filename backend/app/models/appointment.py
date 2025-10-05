@@ -22,6 +22,7 @@ class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)  # Nullable for weekend appointments
+    origin_employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)  # Original employee before replacement
     weekday = db.Column(db.String(20), nullable=False)
     time = db.Column(db.Time, nullable=True)
     visit_type = db.Column(db.String(10), nullable=False)
@@ -37,6 +38,7 @@ class Appointment(db.Model):
             'id': self.id,
             'patient_id': self.patient_id,
             'employee_id': self.employee_id,
+            'origin_employee_id': self.origin_employee_id,
             'weekday': self.weekday,
             'time': self.time.strftime('%H:%M') if self.time else None,
             'visit_type': self.visit_type,

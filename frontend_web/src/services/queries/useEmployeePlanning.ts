@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { employeePlanningApi, EmployeePlanningData } from '../api/employeePlanning';
 import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
-import api from '../api/api';
 import { routeKeys } from './useRoutes';
 import { appointmentKeys } from './useAppointments';
+import { patientKeys } from './usePatients';
 
 // Keys for React Query cache
 export const employeePlanningKeys = {
@@ -75,47 +75,25 @@ export const useUpdateReplacement = () => {
       const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      queryClient.invalidateQueries({ queryKey: patientKeys.all });
     },
   });
 };
 
-export const useMoveAllPatients = () => {
-  const queryClient = useQueryClient();
+// Hook to get count of appointments that would be affected by replacement
+export const useReplacementCount = (employeeId: number, weekday: string) => {
   const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
   
-  // Map German weekday names to English
-  const mapWeekdayToEnglish = (weekday: string): string => {
-    const mapping: Record<string, string> = {
-      'montag': 'monday',
-      'dienstag': 'tuesday',
-      'mittwoch': 'wednesday',
-      'donnerstag': 'thursday',
-      'freitag': 'friday',
-      'samstag': 'saturday',
-      'sonntag': 'sunday'
-    };
-    return mapping[weekday.toLowerCase()] || weekday.toLowerCase();
-  };
-  
-  return useMutation({
-    mutationFn: ({ sourceEmployeeId, weekday, targetEmployeeId }: {
-      sourceEmployeeId: number;
-      weekday: string;
-      targetEmployeeId: number;
-    }) => {
+  return useQuery({
+    queryKey: ['replacement-count', employeeId, weekday, selectedPlanningWeek],
+    queryFn: async () => {
       const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
-      return api.post('/appointments/batchmove', {
-        source_employee_id: sourceEmployeeId,
-        target_employee_id: targetEmployeeId,
-        weekday: mapWeekdayToEnglish(weekday),
-        calendar_week: currentWeek,
-      });
+      const response = await employeePlanningApi.getReplacementCount(employeeId, weekday, currentWeek);
+      return response.data;
     },
-    onSuccess: (_, variables) => {
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
-      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
-      queryClient.invalidateQueries({ queryKey: routeKeys.all });
-    },
+    enabled: !!employeeId && !!weekday,
   });
 };
+

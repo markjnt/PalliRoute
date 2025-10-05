@@ -548,6 +548,9 @@ class ExcelImportService:
                         else:
                             print(f"      Warning: No employee found with alias '{alias}' for {weekday}, using default employee")
                 
+                # Store the original assigned employee (before any replacement logic)
+                original_employee_id = assigned_employee.id
+                
                 # Parse time info
                 time_info_column = f"Uhrzeit/Info {weekday}"
                 time_info = None
@@ -588,6 +591,7 @@ class ExcelImportService:
                 appointment = Appointment(
                     patient_id=patient.id,
                     employee_id=assigned_employee.id,
+                    origin_employee_id=original_employee_id,
                     weekday=english_weekday,
                     time=appointment_time,
                     visit_type=visit_type_value,
@@ -660,6 +664,7 @@ class ExcelImportService:
                         appointment = Appointment(
                             patient_id=patient.id,
                             employee_id=None,  # No employee assignment for weekend appointments
+                            origin_employee_id=None,  # No original employee for weekend appointments
                             weekday=english_weekday,
                             time=appointment_time,
                             visit_type=visit_type_value,

@@ -19,7 +19,7 @@ import {
 import { Warning, PersonAdd } from '@mui/icons-material';
 import { ReplacementMenu } from './ReplacementMenu';
 import { ReplacementConfirmationDialog } from './ReplacementConfirmationDialog';
-import { useUpdateReplacement } from '../../services/queries/useEmployeePlanning';
+import { useUpdateReplacement, useReplacementCount } from '../../services/queries/useEmployeePlanning';
 import { getColorForTour } from '../../utils/colors';
 
 export type PlanningStatus = 'available' | 'vacation' | 'sick' | 'custom';
@@ -85,9 +85,12 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         targetEmployee: any;
         isRemoving: boolean;
         replacementId: number | null;
+        originalEmployee: any;
+        currentEmployee: any;
     } | null>(null);
     
     const updateReplacementMutation = useUpdateReplacement();
+    const { data: replacementCountData } = useReplacementCount(employeeId, weekday);
 
     // Function to get patient counts for all employees from planning data
     const getPatientCountsForAllEmployees = () => {
@@ -163,65 +166,63 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         let isRemoving = false;
 
         if (replacementId === null) {
-            // Removing replacement - source is current replacement, target is original employee
-            if (replacementEmployee) {
-                sourceEmployee = replacementEmployee;
-                targetEmployee = availableEmployees.find(emp => emp.id === employeeId);
-                isRemoving = true;
-            } else {
-                // No replacement to remove, just set to null
-                try {
-                    await updateReplacementMutation.mutateAsync({
-                        employeeId,
-                        weekday,
-                        replacementId: undefined
-                    });
-                } catch (error) {
-                    console.error('Error updating replacement:', error);
-                }
-                return;
-            }
-        } else {
-            // Setting replacement - source is original employee, target is new replacement
-            sourceEmployee = availableEmployees.find(emp => emp.id === employeeId);
-            targetEmployee = availableEmployees.find(emp => emp.id === replacementId);
-        }
-
-        // Check if there are patients to move
-        const sourcePatientCount = getPatientCountsForAllEmployees().get(sourceEmployee?.id) || 0;
-        
-        if (sourcePatientCount > 0) {
-            // Show confirmation dialog
-            setPendingReplacement({
-                targetEmployee,
-                isRemoving,
-                replacementId
-            });
-            setConfirmationDialogOpen(true);
-        } else {
-            // No patients to move, just update replacement
+            // Removing replacement - no dialog needed, just remove directly
             try {
-                await updateReplacementMutation.mutateAsync({
+                const result = await updateReplacementMutation.mutateAsync({
                     employeeId,
                     weekday,
-                    replacementId: replacementId || undefined
+                    replacementId: undefined
                 });
+                
+                // Show success message if appointments were moved
+                if (result.data.moved_appointments > 0) {
+                    console.log(`${result.data.moved_appointments} Termin${result.data.moved_appointments !== 1 ? 'e' : ''} automatisch zurück zum ursprünglichen Mitarbeiter verschoben`);
+                }
             } catch (error) {
-                console.error('Error updating replacement:', error);
+                console.error('Error removing replacement:', error);
+            }
+            return;
+        } else {
+            // Setting/changing replacement
+            if (replacementEmployee) {
+                // Changing existing replacement: source is current replacement, target is new replacement
+                sourceEmployee = replacementEmployee;
+                targetEmployee = availableEmployees.find(emp => emp.id === replacementId);
+            } else {
+                // Setting new replacement: source is original employee, target is new replacement
+                sourceEmployee = availableEmployees.find(emp => emp.id === employeeId);
+                targetEmployee = availableEmployees.find(emp => emp.id === replacementId);
             }
         }
+
+        // Always show confirmation dialog when setting/changing a replacement
+        setPendingReplacement({
+            targetEmployee,
+            isRemoving,
+            replacementId,
+            originalEmployee: availableEmployees.find(emp => emp.id === employeeId), // Always the original employee
+            currentEmployee: sourceEmployee // Who currently has the appointments
+        });
+        setConfirmationDialogOpen(true);
     };
 
     const handleConfirmReplacement = async () => {
         if (!pendingReplacement) return;
 
         try {
-            // Update replacement after successful patient move
-            await updateReplacementMutation.mutateAsync({
+            // Update replacement - Backend will automatically move appointments
+            const result = await updateReplacementMutation.mutateAsync({
                 employeeId,
                 weekday,
                 replacementId: pendingReplacement.replacementId || undefined
             });
+            
+            // Show success message if appointments were moved
+            if (result.data.moved_appointments > 0) {
+                const replacementEmployee = availableEmployees.find(emp => emp.id === pendingReplacement.replacementId);
+                const employeeName = replacementEmployee ? `${replacementEmployee.first_name} ${replacementEmployee.last_name}` : 'Original';
+                console.log(`${result.data.moved_appointments} Termin${result.data.moved_appointments !== 1 ? 'e' : ''} automatisch zu ${employeeName} verschoben`);
+            }
         } catch (error) {
             console.error('Error updating replacement:', error);
         } finally {
@@ -468,10 +469,11 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                     open={confirmationDialogOpen}
                     onClose={handleCancelReplacement}
                     onConfirm={handleConfirmReplacement}
-                    sourceEmployee={pendingReplacement.isRemoving ? replacementEmployee : availableEmployees.find(emp => emp.id === employeeId)}
+                    sourceEmployee={pendingReplacement.originalEmployee}
+                    currentEmployee={pendingReplacement.currentEmployee}
                     targetEmployee={pendingReplacement.targetEmployee}
                     weekday={weekday}
-                    patientCount={getPatientCountsForAllEmployees().get(pendingReplacement.isRemoving ? replacementEmployee?.id : employeeId) || 0}
+                    patientCount={replacementCountData?.affected_appointments || 0}
                     targetPatientCount={getPatientCountsForAllEmployees().get(pendingReplacement.targetEmployee?.id) || 0}
                     isRemovingReplacement={pendingReplacement.isRemoving}
                 />

@@ -135,12 +135,66 @@ def update_employee_planning(employee_id, weekday):
         db.session.rollback()
         return jsonify({"error": f"Failed to update planning status: {str(e)}"}), 500
 
+def get_current_responsible(employee_id, weekday, calendar_week):
+    """
+    Geht die Vertretungskette durch und gibt zurück, wer aktuell zuständig ist
+    """
+    visited = set()
+    current = employee_id
+    while True:
+        if current in visited:
+            break  # Schutz gegen zirkuläre Vertretungen
+        visited.add(current)
+        
+        # Suche nach EmployeePlanning Eintrag für diesen Mitarbeiter und Wochentag
+        planning = EmployeePlanning.query.filter_by(
+            employee_id=current,
+            weekday=weekday,
+            calendar_week=calendar_week
+        ).first()
+        
+        if planning and planning.replacement_id:
+            current = planning.replacement_id
+        else:
+            break
+    return current
+
+
+@employee_planning_bp.route('/<int:employee_id>/<string:weekday>/replacement/count', methods=['GET'])
+def get_replacement_count(employee_id, weekday):
+    """Get count of appointments that would be affected by a replacement change"""
+    calendar_week = request.args.get('calendar_week', get_current_calendar_week(), type=int)
+    
+    # Map German weekday to English
+    weekday_mapping = get_weekday_mapping()
+    if weekday not in weekday_mapping:
+        return jsonify({"error": f"Invalid weekday. Must be one of: {list(weekday_mapping.keys())}"}), 400
+    
+    db_weekday = weekday_mapping[weekday]
+    
+    # Count appointments that would be affected
+    appointments = Appointment.query.filter(
+        Appointment.weekday == db_weekday,
+        Appointment.calendar_week == calendar_week,
+        Appointment.origin_employee_id == employee_id
+    ).all()
+    
+    affected_count = len(appointments)
+    
+    return jsonify({
+        "affected_appointments": affected_count,
+        "employee_id": employee_id,
+        "weekday": db_weekday,
+        "calendar_week": calendar_week
+    }), 200
+
+
 @employee_planning_bp.route('/<int:employee_id>/<string:weekday>/replacement', methods=['PUT'])
 def update_replacement(employee_id, weekday):
-    """Update replacement for specific employee and weekday"""
+    """Update replacement for specific employee and weekday and automatically move appointments"""
     data = request.get_json()
     
-    replacement_id = data.get('replacement_id')
+    replacement_id = data.get('replacement_id')  # kann None sein, um zu entfernen
     calendar_week = data.get('calendar_week', get_current_calendar_week())
 
     # Map German weekday to English
@@ -150,23 +204,59 @@ def update_replacement(employee_id, weekday):
     
     db_weekday = weekday_mapping[weekday]
     
-    # Check if planning entry exists
-    existing_entry = EmployeePlanning.query.filter_by(
-        employee_id=employee_id,
-        weekday=db_weekday,
-        calendar_week=calendar_week
-    ).first()
-    
-    if not existing_entry:
-        return jsonify({"error": "Planning entry not found"}), 404
-    
-    # Update replacement
-    existing_entry.replacement_id = replacement_id
-    existing_entry.updated_at = datetime.utcnow()
-    
     try:
+        # Update oder erstellen der Vertretung
+        existing_entry = EmployeePlanning.query.filter_by(
+            employee_id=employee_id,
+            weekday=db_weekday,
+            calendar_week=calendar_week
+        ).first()
+        
+        if not existing_entry:
+            # Erstelle neuen Eintrag mit 'available' Status
+            existing_entry = EmployeePlanning(
+                employee_id=employee_id,
+                weekday=db_weekday,
+                status='available',
+                calendar_week=calendar_week
+            )
+            db.session.add(existing_entry)
+
+        existing_entry.replacement_id = replacement_id
+        existing_entry.updated_at = datetime.utcnow()
+        db.session.flush()  # Flush um sicherzustellen, dass der Eintrag in der DB ist
+
+        # Alle betroffenen Termine aktualisieren
+        # Wir holen alle Termine, deren origin_employee_id oder employee_id betroffen sein könnten
+        affected_employee_ids = {employee_id}
+        if replacement_id:
+            affected_employee_ids.add(replacement_id)
+
+        appointments = Appointment.query.filter(
+            Appointment.weekday == db_weekday,
+            Appointment.calendar_week == calendar_week
+        ).filter(
+            (Appointment.employee_id.in_(affected_employee_ids)) |
+            (Appointment.origin_employee_id.in_(affected_employee_ids))
+        ).all()
+
+        moved_count = 0
+        for appointment in appointments:
+            # Bestimme den aktuell zuständigen Mitarbeiter basierend auf origin_employee_id
+            if appointment.origin_employee_id:
+                current_responsible = get_current_responsible(appointment.origin_employee_id, db_weekday, calendar_week)
+                if appointment.employee_id != current_responsible:
+                    appointment.employee_id = current_responsible
+                    moved_count += 1
+
         db.session.commit()
-        return jsonify({"success": True, "message": "Replacement updated successfully"}), 200
+        
+        message = f"Vertretung erfolgreich aktualisiert"
+        if moved_count > 0:
+            message += f" und {moved_count} Termin{'e' if moved_count != 1 else ''} automatisch verschoben"
+        
+        return jsonify({"success": True, "message": message, "moved_appointments": moved_count}), 200
+        
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to update replacement: {str(e)}"}), 500

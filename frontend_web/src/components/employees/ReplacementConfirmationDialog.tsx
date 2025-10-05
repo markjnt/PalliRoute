@@ -14,15 +14,15 @@ import {
 } from '@mui/material';
 import { Employee } from '../../types/models';
 import { getColorForTour } from '../../utils/colors';
-import { useMoveAllPatients } from '../../services/queries/useEmployeePlanning';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 
 interface ReplacementConfirmationDialogProps {
     open: boolean;
     onClose: () => void;
     onConfirm: () => void;
-    sourceEmployee: Employee;
-    targetEmployee: Employee | null;
+    sourceEmployee: Employee; // Original employee (whose appointments these are)
+    currentEmployee: Employee; // Who currently has the appointments
+    targetEmployee: Employee | null; // Who will get the appointments
     weekday: string;
     patientCount: number;
     targetPatientCount: number;
@@ -34,6 +34,7 @@ export const ReplacementConfirmationDialog: React.FC<ReplacementConfirmationDial
     onClose,
     onConfirm,
     sourceEmployee,
+    currentEmployee,
     targetEmployee,
     weekday,
     patientCount,
@@ -41,38 +42,18 @@ export const ReplacementConfirmationDialog: React.FC<ReplacementConfirmationDial
     isRemovingReplacement
 }) => {
     const [isMoving, setIsMoving] = useState(false);
-    const moveAllMutation = useMoveAllPatients();
     const { setNotification } = useNotificationStore();
 
     const handleConfirm = async () => {
-        if (!targetEmployee) return;
-        
         setIsMoving(true);
         try {
-            await moveAllMutation.mutateAsync({
-                sourceEmployeeId: sourceEmployee.id || 0,
-                targetEmployeeId: targetEmployee.id || 0,
-                weekday: weekday.toLowerCase()
-            });
-            
-            // Show success notification
-            if (isRemovingReplacement) {
-                setNotification(
-                    `${patientCount} ${patientCount === 1 ? 'Patient' : 'Patienten'} erfolgreich zurück zu ${targetEmployee.first_name} ${targetEmployee.last_name} verschoben`,
-                    'success'
-                );
-            } else {
-                setNotification(
-                    `${patientCount} ${patientCount === 1 ? 'Patient' : 'Patienten'} erfolgreich zu ${targetEmployee.first_name} ${targetEmployee.last_name} verschoben`,
-                    'success'
-                );
-            }
-            
+            // Just call the onConfirm callback - the parent component will handle the replacement update
+            // which will automatically move appointments in the backend
             onConfirm();
         } catch (error) {
-            console.error('Error moving patients:', error);
+            console.error('Error confirming replacement:', error);
             setNotification(
-                'Fehler beim Verschieben der Patienten. Bitte versuchen Sie es erneut.',
+                'Fehler beim Bestätigen der Vertretung. Bitte versuchen Sie es erneut.',
                 'error'
             );
         } finally {
@@ -82,9 +63,9 @@ export const ReplacementConfirmationDialog: React.FC<ReplacementConfirmationDial
 
     const getActionText = () => {
         if (isRemovingReplacement) {
-            return `Alle Patienten von ${sourceEmployee.first_name} ${sourceEmployee.last_name} zurück zu ${targetEmployee?.first_name} ${targetEmployee?.last_name} verschieben`;
+            return `Vertretung für ${sourceEmployee.first_name} ${sourceEmployee.last_name} entfernen?`;
         }
-        return `Alle Patienten von ${sourceEmployee.first_name} ${sourceEmployee.last_name} zu ${targetEmployee?.first_name} ${targetEmployee?.last_name} verschieben`;
+        return `Vertretung für ${sourceEmployee.first_name} ${sourceEmployee.last_name} einstellen?`;
     };
 
     const getWarningText = () => {
@@ -103,40 +84,56 @@ export const ReplacementConfirmationDialog: React.FC<ReplacementConfirmationDial
             maxWidth="sm"
             fullWidth
         >
-            <DialogTitle>
-                Vertretung {isRemovingReplacement ? 'entfernen' : 'einstellen'}
+            <DialogTitle sx={{ p: 0, pb: 2 }}>
+                <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 2, 
+                    p: 2,
+                    backgroundColor: getColorForTour(sourceEmployee.id) + '50'
+                }}>
+                    <Avatar
+                        sx={{
+                            width: 32,
+                            height: 32,
+                            bgcolor: getColorForTour(sourceEmployee.id),
+                            fontSize: '0.875rem'
+                        }}
+                    >
+                        {`${sourceEmployee.first_name[0]}${sourceEmployee.last_name[0]}`.toUpperCase()}
+                    </Avatar>
+                    <Box>
+                        <Typography variant="h6" fontWeight="medium">
+                            {isRemovingReplacement ? 'Vertretung entfernen' : 'Vertretung einstellen'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            für {sourceEmployee.first_name} {sourceEmployee.last_name}
+                        </Typography>
+                    </Box>
+                </Box>
             </DialogTitle>
             
             <DialogContent>
-                <Box sx={{ mb: 2 }}>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
-                        {getActionText()}
-                    </Typography>
-                    
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                        {patientCount} {patientCount === 1 ? 'Patient' : 'Patienten'} werden am {weekday} verschoben.
-                    </Typography>
-                </Box>
 
-                {/* Employee Info */}
+                {/* Employee Movement */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar
                             sx={{
                                 width: 32,
                                 height: 32,
-                                bgcolor: getColorForTour(sourceEmployee.id),
+                                bgcolor: getColorForTour(currentEmployee.id),
                                 fontSize: '0.875rem'
                             }}
                         >
-                            {`${sourceEmployee.first_name[0]}${sourceEmployee.last_name[0]}`.toUpperCase()}
+                            {`${currentEmployee.first_name[0]}${currentEmployee.last_name[0]}`.toUpperCase()}
                         </Avatar>
                         <Box>
                             <Typography variant="body2" fontWeight="medium">
-                                {sourceEmployee.first_name} {sourceEmployee.last_name}
+                                {currentEmployee.first_name} {currentEmployee.last_name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                {sourceEmployee.function}
+                                {currentEmployee.function}
                             </Typography>
                         </Box>
                     </Box>
