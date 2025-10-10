@@ -33,6 +33,14 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
   const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { data: employees = [] } = useEmployees();
   const { data: routes = [] } = useRoutes({ weekday: selectedWeekday as any });
+  
+  // State for area filter - only one can be active at a time
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState<'nord' | 'sud' | 'alle'>('alle');
+
+  // Handle area toggle clicks
+  const handleAreaToggle = (area: 'nord' | 'sud' | 'alle') => {
+    setSelectedAreaFilter(area);
+  };
 
   // Get employees that have routes for the selected weekday, excluding the logged-in user
   const employeesWithRoutes = useMemo(() => {
@@ -62,7 +70,7 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
         'Honorararzt': 4
       };
 
-      return filteredEmployees.sort((a, b) => {
+      const sortedEmployees = filteredEmployees.sort((a, b) => {
         // First sort by employee function
         const functionA = employeeFunctionOrder[a.function as keyof typeof employeeFunctionOrder] || 999;
         const functionB = employeeFunctionOrder[b.function as keyof typeof employeeFunctionOrder] || 999;
@@ -85,8 +93,23 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
         
         return lastNameA.localeCompare(lastNameB);
       });
+      
+      // Apply area filter based on selected filter
+      return sortedEmployees.filter(emp => {
+        if (!emp.area) return true; // Show employees without area
+        if (selectedAreaFilter === 'alle') return true; // Show all when 'alle' is selected
+        
+        const isNord = emp.area.includes('Nord');
+        const isSud = emp.area.includes('Süd');
+        
+        // Show if area matches selected filter
+        if (selectedAreaFilter === 'nord' && isNord) return true;
+        if (selectedAreaFilter === 'sud' && isSud) return true;
+        
+        return false;
+      });
     }
-  }, [employees, routes, selectedUserId, selectedWeekendArea]);
+  }, [employees, routes, selectedUserId, selectedWeekendArea, selectedAreaFilter]);
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -176,6 +199,82 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
             )}
           </Box>
         </Box>
+
+        {/* Area Toggle Buttons - Only show when not in weekend mode */}
+        {!selectedWeekendArea && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+            <Box
+              onClick={() => handleAreaToggle('alle')}
+              sx={{
+                py: 0.5,
+                px: 1.5,
+                borderRadius: 1.5,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                bgcolor: selectedAreaFilter === 'alle' ? '#666666' : 'rgba(0, 0, 0, 0.04)',
+                color: selectedAreaFilter === 'alle' ? 'white' : 'rgba(0, 0, 0, 0.6)',
+                border: '2px solid',
+                borderColor: selectedAreaFilter === 'alle' ? '#666666' : 'rgba(0, 0, 0, 0.12)',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                textAlign: 'center',
+                '&:hover': {
+                  bgcolor: selectedAreaFilter === 'alle' ? '#555555' : 'rgba(0, 0, 0, 0.08)',
+                },
+              }}
+            >
+              Alle
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box
+                onClick={() => handleAreaToggle('nord')}
+                sx={{
+                  flex: 1,
+                  py: 0.5,
+                  px: 1.5,
+                  borderRadius: 1.5,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  bgcolor: selectedAreaFilter === 'nord' ? '#1976d2' : 'rgba(0, 0, 0, 0.04)',
+                  color: selectedAreaFilter === 'nord' ? 'white' : 'rgba(0, 0, 0, 0.6)',
+                  border: '2px solid',
+                  borderColor: selectedAreaFilter === 'nord' ? '#1976d2' : 'rgba(0, 0, 0, 0.12)',
+                  fontWeight: 600,
+                  fontSize: '0.8125rem',
+                  textAlign: 'center',
+                  '&:hover': {
+                    bgcolor: selectedAreaFilter === 'nord' ? '#1565c0' : 'rgba(0, 0, 0, 0.08)',
+                  },
+                }}
+              >
+                Nord
+              </Box>
+              <Box
+                onClick={() => handleAreaToggle('sud')}
+                sx={{
+                  flex: 1,
+                  py: 0.5,
+                  px: 1.5,
+                  borderRadius: 1.5,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  bgcolor: selectedAreaFilter === 'sud' ? '#dc004e' : 'rgba(0, 0, 0, 0.04)',
+                  color: selectedAreaFilter === 'sud' ? 'white' : 'rgba(0, 0, 0, 0.6)',
+                  border: '2px solid',
+                  borderColor: selectedAreaFilter === 'sud' ? '#dc004e' : 'rgba(0, 0, 0, 0.12)',
+                  fontWeight: 600,
+                  fontSize: '0.8125rem',
+                  textAlign: 'center',
+                  '&:hover': {
+                    bgcolor: selectedAreaFilter === 'sud' ? '#c9004a' : 'rgba(0, 0, 0, 0.08)',
+                  },
+                }}
+              >
+                Süd
+              </Box>
+            </Box>
+          </Box>
+        )}
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {employeesWithRoutes.map((employee) => {
