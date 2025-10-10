@@ -22,11 +22,14 @@ import {
   Weekend as WeekendIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  PictureAsPdf as PictureAsPdfIcon,
 } from '@mui/icons-material';
 import { Sheet } from 'react-modal-sheet';
 import { useEmployees } from '../../services/queries/useEmployees';
+import { useDownloadRoutePdf } from '../../services/queries/useDownloadRoutePdf';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore, Weekday } from '../../stores/useWeekdayStore';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
 import { Employee } from '../../types/models';
 import { employeeTypeColors } from '../../utils/colors';
 import WeekendTourSelector from './WeekendTourSelector';
@@ -47,6 +50,8 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     setSelectedWeekendArea 
   } = useUserStore();
   const { setSelectedWeekday } = useWeekdayStore();
+  const { selectedCalendarWeek } = useCalendarWeekStore();
+  const downloadPdfMutation = useDownloadRoutePdf();
 
   const filteredEmployees = useMemo(() => {
     if (!searchTerm.trim()) return employees;
@@ -94,6 +99,20 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
   const getEmployeeColor = (employeeFunction: string) => {
     return employeeTypeColors[employeeFunction] || employeeTypeColors.default;
+  };
+
+  const handleDownloadPdf = (e: React.MouseEvent, employee: Employee) => {
+    e.stopPropagation(); // Prevent card selection
+    
+    if (!selectedCalendarWeek) {
+      console.error('No calendar week selected');
+      return;
+    }
+    
+    downloadPdfMutation.mutate({
+      employeeId: employee.id as number,
+      calendarWeek: selectedCalendarWeek,
+    });
   };
 
   return (
@@ -255,6 +274,21 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
                                 />
                               )}
                             </Box>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleDownloadPdf(e, employee)}
+                              disabled={downloadPdfMutation.isPending}
+                              sx={{
+                                color: 'rgba(0, 0, 0, 0.5)',
+                                mr: 1,
+                                '&:hover': {
+                                  color: '#d32f2f',
+                                  bgcolor: 'rgba(211, 47, 47, 0.08)',
+                                },
+                              }}
+                            >
+                              <PictureAsPdfIcon />
+                            </IconButton>
                             <IconButton
                               size="small"
                               sx={{

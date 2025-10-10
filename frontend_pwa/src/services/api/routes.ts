@@ -108,5 +108,53 @@ export const routesApi = {
             console.error(`Failed to reorder appointment in route ${routeId}:`, error);
             throw error;
         }
+    },
+
+    // Download route PDF for employee or weekend area
+    async downloadRoutePdf(params: {
+        employeeId?: number;
+        area?: string;
+        calendarWeek: number;
+    }): Promise<{ blob: Blob; filename: string }> {
+        try {
+            const queryParams: { employee_id?: number; area?: string; calendar_week: number } = {
+                calendar_week: params.calendarWeek
+            };
+
+            if (params.employeeId) {
+                queryParams.employee_id = params.employeeId;
+            } else if (params.area) {
+                queryParams.area = params.area;
+            } else {
+                throw new Error('Either employeeId or area must be provided');
+            }
+
+            const response = await api.get('/routes/download-route-pdf', {
+                params: queryParams,
+                responseType: 'blob',
+            });
+
+            // Extract filename from content-disposition header
+            const contentDisposition = response.headers['content-disposition'];
+            let filename = 'route.pdf';
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            } else {
+                // Fallback filename (should not happen as backend sets it)
+                filename = `Route_KW${params.calendarWeek}.pdf`;
+            }
+
+            return {
+                blob: response.data,
+                filename
+            };
+        } catch (error) {
+            console.error('Failed to download route PDF:', error);
+            throw error;
+        }
     }
 };

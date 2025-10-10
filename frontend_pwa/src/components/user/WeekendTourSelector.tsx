@@ -17,7 +17,10 @@ import {
   Weekend as WeekendIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  PictureAsPdf as PictureAsPdfIcon,
 } from '@mui/icons-material';
+import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
+import { useDownloadRoutePdf } from '../../services/queries/useDownloadRoutePdf';
 
 interface WeekendTourSelectorProps {
   selectedArea: string | null;
@@ -32,6 +35,9 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
   isExpanded,
   onToggleExpanded
 }) => {
+  const { selectedCalendarWeek } = useCalendarWeekStore();
+  const downloadPdfMutation = useDownloadRoutePdf();
+  
   const weekendAreas = [
     { id: 'Nord', label: 'RB/AW Nord', color: '#ff9800', chipColor: '#1976d2' },
     { id: 'Mitte', label: 'RB/AW Mitte', color: '#ff9800', chipColor: '#7b1fa2' },
@@ -50,6 +56,21 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
       case 'Süd': return 'S';
       default: return area.charAt(0).toUpperCase();
     }
+  };
+
+  const handleDownloadPdf = (e: React.MouseEvent, areaId: string) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent area selection
+    
+    if (!selectedCalendarWeek) {
+      console.error('No calendar week selected');
+      return;
+    }
+    
+    downloadPdfMutation.mutate({
+      area: areaId,
+      calendarWeek: selectedCalendarWeek,
+    });
   };
 
   return (
@@ -167,6 +188,21 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
                         }}
                       />
                     </Box>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleDownloadPdf(e, area.id)}
+                      disabled={downloadPdfMutation.isPending}
+                      sx={{
+                        color: 'rgba(0, 0, 0, 0.5)',
+                        mr: 1,
+                        '&:hover': {
+                          color: '#d32f2f',
+                          bgcolor: 'rgba(211, 47, 47, 0.08)',
+                        },
+                      }}
+                    >
+                      <PictureAsPdfIcon />
+                    </IconButton>
                     <IconButton
                       size="small"
                       sx={{

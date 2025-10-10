@@ -6,6 +6,7 @@ from ..models.appointment import Appointment
 from ..models.route import Route
 from ..services.route_planner import RoutePlanner
 from ..services.route_optimizer import RouteOptimizer
+from ..services.pdf_generator import PDFGenerator
 from .. import db
 from ..models.patient import Patient
 
@@ -233,4 +234,102 @@ def optimize_routes():
             
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@routes_bp.route('/download-route-pdf', methods=['GET'])
+def download_route_pdf():
+    """
+    Download route as PDF for employee or weekend area
+    Query parameters:
+    - employee_id: Employee ID (for weekday routes, downloads Monday-Friday)
+    - area: Area name (for weekend routes, downloads Saturday-Sunday)
+    - calendar_week: Calendar week number (required)
+    """
+    try:
+        # Get query parameters
+        employee_id = request.args.get('employee_id', type=int)
+        area = request.args.get('area')
+        calendar_week = request.args.get('calendar_week', type=int)
+        
+        # Validate required parameter
+        if not calendar_week:
+            return jsonify({'error': 'calendar_week is required'}), 400
+        
+        # Validate that either employee_id or area is provided
+        if not employee_id and not area:
+            return jsonify({'error': 'Either employee_id or area is required'}), 400
+        
+        if employee_id and area:
+            return jsonify({'error': 'Cannot provide both employee_id and area'}), 400
+        
+        # Get the routes
+        routes = []
+        filename = ""
+        employee = None
+        
+        if employee_id:
+            # Get employee info for filename
+            employee = Employee.query.get(employee_id)
+            if not employee:
+                return jsonify({'error': f'Employee with ID {employee_id} not found'}), 404
+            
+            # Get all weekday routes (Monday-Friday) for this employee
+            weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+            routes = Route.query.filter(
+                Route.employee_id == employee_id,
+                Route.weekday.in_(weekdays),
+                Route.calendar_week == calendar_week
+            ).order_by(
+                # Custom order for weekdays
+                db.case(
+                    (Route.weekday == 'monday', 1),
+                    (Route.weekday == 'tuesday', 2),
+                    (Route.weekday == 'wednesday', 3),
+                    (Route.weekday == 'thursday', 4),
+                    (Route.weekday == 'friday', 5),
+                    else_=6
+                )
+            ).all()
+            
+            filename = f"Route_Employee_{employee.first_name}_{employee.last_name}_KW{calendar_week}.pdf"
+        
+        elif area:
+            # Get weekend routes (Saturday-Sunday) for this area
+            weekends = ['saturday', 'sunday']
+            routes = Route.query.filter(
+                Route.area == area,
+                Route.weekday.in_(weekends),
+                Route.calendar_week == calendar_week
+            ).order_by(
+                # Saturday before Sunday
+                db.case(
+                    (Route.weekday == 'saturday', 1),
+                    (Route.weekday == 'sunday', 2),
+                    else_=3
+                )
+            ).all()
+            
+            filename = f"Route_Weekend_{area}_KW{calendar_week}.pdf"
+        
+        # Check if routes exist
+        if not routes:
+            return jsonify({'error': 'No routes found for the given parameters'}), 404
+        
+        # Generate PDF
+        pdf_file = PDFGenerator.generate_route_pdf(
+            routes=routes,
+            employee=employee,
+            area=area,
+            calendar_week=calendar_week
+        )
+        
+        # Send PDF file
+        return send_file(
+            pdf_file,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 
