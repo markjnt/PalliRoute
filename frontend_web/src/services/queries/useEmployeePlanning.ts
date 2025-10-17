@@ -83,17 +83,6 @@ export const useUpdateReplacement = () => {
 };
 
 // Hook to get count of appointments that would be affected by replacement
-export const useReplacementCount = (employeeId: number, weekday: string) => {
-  const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
-  
-  return useQuery({
-    queryKey: ['replacement-count', employeeId, weekday, selectedPlanningWeek],
-    queryFn: async () => {
-      const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
-      const response = await employeePlanningApi.getReplacementCount(employeeId, weekday, currentWeek);
-      return response.data;
-    },
-    enabled: !!employeeId && !!weekday,
-  });
-};
+// Deprecated: replaced by aggregated field `replacement_affected_count` in planning list
+// export const useReplacementCount = ... (removed)
 

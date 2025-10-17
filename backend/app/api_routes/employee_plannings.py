@@ -66,6 +66,14 @@ def get_employee_planning():
         entry_dict['has_conflicts'] = (not getattr(entry, 'available', True)) and len(appointments) > 0
         entry_dict['appointments_count'] = len(appointments)
         entry_dict['patient_count'] = patient_count
+
+        # Add count of appointments that would be affected by a replacement change for this entry
+        affected_appointments = Appointment.query.filter(
+            Appointment.weekday == entry.weekday,
+            Appointment.calendar_week == calendar_week,
+            Appointment.origin_employee_id == entry.employee_id
+        ).all()
+        entry_dict['replacement_affected_count'] = len(affected_appointments)
         
         entries_with_conflicts.append(entry_dict)
     
@@ -153,33 +161,7 @@ def get_current_responsible(employee_id, weekday, calendar_week):
     return current
 
 
-@employee_planning_bp.route('/<int:employee_id>/<string:weekday>/replacement/count', methods=['GET'])
-def get_replacement_count(employee_id, weekday):
-    """Get count of appointments that would be affected by a replacement change"""
-    calendar_week = request.args.get('calendar_week', get_current_calendar_week(), type=int)
-    
-    # Map German weekday to English
-    weekday_mapping = get_weekday_mapping()
-    if weekday not in weekday_mapping:
-        return jsonify({"error": f"Invalid weekday. Must be one of: {list(weekday_mapping.keys())}"}), 400
-    
-    db_weekday = weekday_mapping[weekday]
-    
-    # Count appointments that would be affected
-    appointments = Appointment.query.filter(
-        Appointment.weekday == db_weekday,
-        Appointment.calendar_week == calendar_week,
-        Appointment.origin_employee_id == employee_id
-    ).all()
-    
-    affected_count = len(appointments)
-    
-    return jsonify({
-        "affected_appointments": affected_count,
-        "employee_id": employee_id,
-        "weekday": db_weekday,
-        "calendar_week": calendar_week
-    }), 200
+# Removed: per-employee/day replacement count endpoint (now aggregated in list)
 
 
 @employee_planning_bp.route('/<int:employee_id>/<string:weekday>/replacement', methods=['PUT'])

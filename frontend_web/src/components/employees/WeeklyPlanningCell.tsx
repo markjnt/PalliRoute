@@ -19,7 +19,7 @@ import {
 import { Warning, PersonAdd } from '@mui/icons-material';
 import { ReplacementMenu } from './ReplacementMenu';
 import { ReplacementConfirmationDialog } from './ReplacementConfirmationDialog';
-import { useUpdateReplacement, useReplacementCount } from '../../services/queries/useEmployeePlanning';
+import { useUpdateReplacement } from '../../services/queries/useEmployeePlanning';
 import { getColorForTour } from '../../utils/colors';
 
 export interface PlanningData {
@@ -86,7 +86,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     } | null>(null);
     
     const updateReplacementMutation = useUpdateReplacement();
-    const { data: replacementCountData } = useReplacementCount(employeeId, weekday);
 
     // Function to get patient counts for all employees from planning data
     const getPatientCountsForAllEmployees = () => {
@@ -463,7 +462,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                     currentEmployee={pendingReplacement.currentEmployee}
                     targetEmployee={pendingReplacement.targetEmployee}
                     weekday={weekday}
-                    patientCount={replacementCountData?.affected_appointments || 0}
+                    patientCount={relevantData?.replacement_affected_count || 0}
                     targetPatientCount={getPatientCountsForAllEmployees().get(pendingReplacement.targetEmployee?.id) || 0}
                     isRemovingReplacement={pendingReplacement.isRemoving}
                 />

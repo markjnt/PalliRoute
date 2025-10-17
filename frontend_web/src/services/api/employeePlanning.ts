@@ -47,10 +47,6 @@ export const employeePlanningApi = {
         return api.put(`/employee-planning/${employeeId}/${weekday}/replacement`, data);
     },
 
-    // Get count of appointments that would be affected by replacement
-    getReplacementCount: (employeeId: number, weekday: string, calendarWeek?: number) => {
-        const params = calendarWeek ? `?calendar_week=${calendarWeek}` : '';
-        return api.get(`/employee-planning/${employeeId}/${weekday}/replacement/count${params}`);
-    },
+    // getReplacementCount removed; counts provided in list response per entry
 
 };
