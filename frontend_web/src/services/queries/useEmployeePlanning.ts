@@ -82,7 +82,5 @@ export const useUpdateReplacement = () => {
   });
 };
 
-// Hook to get count of appointments that would be affected by replacement
-// Deprecated: replaced by aggregated field `replacement_affected_count` in planning list
-// export const useReplacementCount = ... (removed)
+ 
 

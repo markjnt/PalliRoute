@@ -161,9 +161,6 @@ def get_current_responsible(employee_id, weekday, calendar_week):
     return current
 
 
-# Removed: per-employee/day replacement count endpoint (now aggregated in list)
-
-
 @employee_planning_bp.route('/<int:employee_id>/<string:weekday>/replacement', methods=['PUT'])
 def update_replacement(employee_id, weekday):
     """Update replacement for specific employee and weekday and automatically move appointments"""
