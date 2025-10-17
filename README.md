@@ -24,6 +24,7 @@ cp docker-compose.example.yml docker-compose.yml
 - `SECRET_KEY`: Ein sicherer Schlüssel für die Flask-Anwendung
 - `GOOGLE_MAPS_API_KEY`: Ihr Google Maps API-Schlüssel für Geocoding und Routenplanung
 - `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (Comma-separated)
+- `APLANO_API_KEY`: API-Schlüssel für die Aplano-Integration
 
 **Backend Scheduler (automatisch konfiguriert):**
 - `AUTO_IMPORT_ENABLED`: Automatischer Import aktiviert (Standard: true)
@@ -36,6 +37,7 @@ environment:
   - SECRET_KEY=your_secret_key_here
   - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
   - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
+  - APLANO_API_KEY=your-aplano-api-key-here
 
 # Backend Scheduler (automatisch konfiguriert)
 environment:
