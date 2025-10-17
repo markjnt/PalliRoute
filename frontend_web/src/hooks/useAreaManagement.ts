@@ -33,9 +33,7 @@ export const useAreaManagement = ({
 }: UseAreaManagementProps): AreaManagementReturn => {
   
   // Check if all areas are selected
-  const isAllAreas = useMemo(() => {
-    return currentArea === 'Nord- und Südkreis' || !currentArea;
-  }, [currentArea]);
+  const isAllAreas = currentArea === 'Nord- und Südkreis' || !currentArea;
 
   // Filter routes by area
   const getFilteredRoutes = useCallback(() => {
@@ -119,24 +117,24 @@ export const useAreaManagement = ({
   }, [routes, isAllAreas, currentArea]);
 
   // Get background color for area
-  const getAreaBackgroundColor = useCallback((area: string) => {
+  const getAreaBackgroundColor = (area: string) => {
     switch (area) {
       case 'Nord': return 'rgba(25, 118, 210, 0.08)';
       case 'Mitte': return 'rgba(123, 31, 162, 0.08)';
       case 'Süd': return 'rgba(56, 142, 60, 0.08)';
       default: return 'rgba(255, 152, 0, 0.08)';
     }
-  }, []);
+  };
 
   // Get color for area
-  const getAreaColor = useCallback((area: string) => {
+  const getAreaColor = (area: string) => {
     switch (area) {
       case 'Nord': return '#1976d2';
       case 'Mitte': return '#7b1fa2';
       case 'Süd': return '#388e3c';
       default: return '#ff9800';
     }
-  }, []);
+  };
 
   return {
     getFilteredRoutes,

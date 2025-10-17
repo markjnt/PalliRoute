@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     Box,
     Typography,
@@ -210,24 +210,19 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
 
     // Check if selected KW matches current KW
-    const isCurrentWeek = useMemo(() => {
-        const currentWeek = getCurrentCalendarWeek();
-        return selectedCalendarWeek && selectedCalendarWeek === currentWeek;
-    }, [selectedCalendarWeek, getCurrentCalendarWeek]);
+    const currentWeek = getCurrentCalendarWeek();
+    const isCurrentWeek = selectedCalendarWeek && selectedCalendarWeek === currentWeek;
 
     
-    // Memoize loading and error states
-    const isLoading = useMemo(() => 
-        loadingPatients || loadingEmployees || loadingAppointments || loadingRoutes,
-        [loadingPatients, loadingEmployees, loadingAppointments, loadingRoutes]
-    );
+    // Loading and error states
+    const isLoading = loadingPatients || loadingEmployees || loadingAppointments || loadingRoutes;
 
-    const error = useMemo(() => {
+    const error = (() => {
         if (patientsError instanceof Error) return patientsError.message;
         if (appointmentsError instanceof Error) return appointmentsError.message;
         if (routesError instanceof Error) return routesError.message;
         return null;
-    }, [patientsError, appointmentsError, routesError]);
+    })();
 
     const handleOptimizeAllRoutes = async () => {
         if (!routes.length) return;
@@ -281,7 +276,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const hasData = patients.length > 0 || dayAppointments.length > 0 || routes.length > 0;
 
     // Toggle all polylines visibility
-    const allRouteIds = useMemo(() => routes.map(r => r.id), [routes]);
+    const allRouteIds = routes.map(r => r.id);
     const allHidden = allRouteIds.length > 0 && allRouteIds.every(id => hiddenPolylines.has(id));
     const allVisible = allRouteIds.length > 0 && allRouteIds.every(id => !hiddenPolylines.has(id));
     const handleToggleAllPolylines = () => {

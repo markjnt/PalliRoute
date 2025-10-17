@@ -77,7 +77,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   );
 
   // Sichtbare Routen-IDs für den Tag
-  const visibleRouteIds = useMemo(() => dayRoutes.map(r => r.id), [dayRoutes]);
+  const visibleRouteIds = dayRoutes.map(r => r.id);
 
   // Marker-Berechnung mit useMemo
   const markers = useMemo(() => {

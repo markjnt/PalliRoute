@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Box, TextField, InputAdornment, Paper, IconButton, Typography } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 import { Patient, Appointment, Employee, Weekday } from '../../types/models';
@@ -42,31 +42,31 @@ export const SearchField: React.FC<SearchFieldProps> = ({
     const { data: appointments = [] } = useAppointmentsByWeekday(selectedDay);
     const { currentArea } = useAreaStore();
 
-    // Memoized utility functions
-    const getAreaOrder = useCallback((area?: string): number => {
+    // Utility functions
+    const getAreaOrder = (area?: string): number => {
         if (!area) return AREA_ORDER.default;
         if (area.includes('Nordkreis')) return AREA_ORDER.Nordkreis;
         if (area.includes('Südkreis')) return AREA_ORDER.Südkreis;
         return AREA_ORDER.default;
-    }, []);
+    };
 
-    const isDoctor = useCallback((employee: Employee): boolean => {
+    const isDoctor = (employee: Employee): boolean => {
         return DOCTOR_FUNCTIONS.includes(employee.function as any);
-    }, []);
+    };
 
-    const hasPatientInEmployee = useCallback((employeeId: number): boolean => {
+    const hasPatientInEmployee = (employeeId: number): boolean => {
         return appointments.some(app => 
             app.weekday === selectedDay && 
             app.employee_id === employeeId
         );
-    }, [appointments, selectedDay]);
+    };
 
-    const matchesSearchTerm = useCallback((text: string): boolean => {
+    const matchesSearchTerm = (text: string): boolean => {
         if (!searchTerm.trim()) return true;
         return text.toLowerCase().includes(searchTerm.toLowerCase());
-    }, [searchTerm]);
+    };
 
-    const searchInEmployee = useCallback((employee: Employee): boolean => {
+    const searchInEmployee = (employee: Employee): boolean => {
         const employeeName = `${employee.first_name} ${employee.last_name}`;
         const functionName = employee.function;
         
@@ -90,7 +90,7 @@ export const SearchField: React.FC<SearchFieldProps> = ({
             const patientAddress = `${patient.street} ${patient.city}`;
             return matchesSearchTerm(patientName) || matchesSearchTerm(patientAddress);
         });
-    }, [matchesSearchTerm, appointments, patients, selectedDay]);
+    };
 
     // Memoized data processing
     const filteredEmployees = useMemo(() => {
@@ -160,14 +160,14 @@ export const SearchField: React.FC<SearchFieldProps> = ({
         onFilteredResultsChange(filteredResults);
     }, [filteredResults, onFilteredResultsChange]);
 
-    // Memoized event handlers
-    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    // Event handlers
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         onSearchChange(e.target.value);
-    }, [onSearchChange]);
+    };
 
-    const handleClearClick = useCallback(() => {
+    const handleClearClick = () => {
         onClearSearch();
-    }, [onClearSearch]);
+    };
 
     return (
         <Box sx={{ px: 2, py: 2 }}>
