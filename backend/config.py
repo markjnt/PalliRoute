@@ -36,3 +36,6 @@ class Config:
     AUTO_IMPORT_INTERVAL_MINUTES = int(os.environ.get('AUTO_IMPORT_INTERVAL_MINUTES', '30'))
     BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://backend-api:9000')
 
+    # Aplano API configuration
+    APLANO_API_KEY = os.environ.get('APLANO_API_KEY')
+    APLANO_API_BASE_URL = 'https://web.aplano.de/papi/v1'
