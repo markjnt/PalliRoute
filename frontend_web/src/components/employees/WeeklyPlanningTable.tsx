@@ -99,7 +99,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                 employeeId,
                 weekday,
                 data: {
-                    status: data.status,
+                    available: data.available,
                     custom_text: data.customText,
                 }
             });

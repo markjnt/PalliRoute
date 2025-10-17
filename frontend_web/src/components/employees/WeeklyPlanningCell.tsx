@@ -22,10 +22,8 @@ import { ReplacementConfirmationDialog } from './ReplacementConfirmationDialog';
 import { useUpdateReplacement, useReplacementCount } from '../../services/queries/useEmployeePlanning';
 import { getColorForTour } from '../../utils/colors';
 
-export type PlanningStatus = 'available' | 'vacation' | 'sick' | 'custom';
-
 export interface PlanningData {
-    status: PlanningStatus;
+    available: boolean;
     customText?: string;
 }
 
@@ -38,10 +36,8 @@ interface WeeklyPlanningCellProps {
 }
 
 const statusOptions = [
-    { value: 'available' as PlanningStatus, label: 'Verfügbar', color: '#4CAF50' },
-    { value: 'sick' as PlanningStatus, label: 'Krank', color: '#F44336' },
-    { value: 'vacation' as PlanningStatus, label: 'Urlaub', color: '#FF9800' },
-    { value: 'custom' as PlanningStatus, label: 'Sonstiges', color: '#FFC107' },
+    { value: true, label: 'Verfügbar', color: '#4CAF50' },
+    { value: false, label: 'Abwesend', color: '#F44336' },
 ];
 
 export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
@@ -70,7 +66,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     );
     
     // Always use backend data - no local state management
-    const currentStatus: PlanningStatus = relevantData?.status || 'available';
+    const isAvailable: boolean = relevantData?.available ?? true;
     const currentCustomText: string = relevantData?.custom_text || '';
     const hasConflicts: boolean = relevantData?.has_conflicts || false;
     const appointmentsCount: number = relevantData?.appointments_count || 0;
@@ -121,26 +117,21 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         setAnchorEl(null);
     };
 
-    const handleStatusSelect = (status: PlanningStatus) => {
-        if (status === 'custom') {
+    const handleStatusSelect = (available: boolean) => {
+        if (available === false) {
             setTempCustomText(currentCustomText);
             setCustomDialogOpen(true);
         } else {
-            // Directly call backend update
-            onStatusChange(employeeId, weekday, {
-                status,
-                customText: undefined
-            });
+            onStatusChange(employeeId, weekday, { available: true, customText: undefined });
         }
         handleMenuClose();
     };
 
     const handleCustomSubmit = () => {
         if (tempCustomText.trim()) {
-            onStatusChange(employeeId, weekday, {
-                status: 'custom',
-                customText: tempCustomText.trim()
-            });
+            onStatusChange(employeeId, weekday, { available: false, customText: tempCustomText.trim() });
+        } else {
+            onStatusChange(employeeId, weekday, { available: false });
         }
         setCustomDialogOpen(false);
     };
@@ -237,7 +228,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     };
 
     // Get status display info
-    const statusInfo = statusOptions.find(option => option.value === currentStatus) || statusOptions[0];
+    const statusInfo = statusOptions.find(option => option.value === isAvailable) || statusOptions[0];
 
     const isWeekend = weekday === 'Samstag' || weekday === 'Sonntag';
 
@@ -295,7 +286,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                             >
                                 <Box>
                                     <Chip
-                                        label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
+                                        label={!isAvailable && currentCustomText ? currentCustomText : statusInfo.label}
                                         size="small"
                                         sx={{
                                             backgroundColor: statusInfo.color,
@@ -314,7 +305,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                             </Tooltip>
                         ) : (
                             <Chip
-                                label={currentStatus === 'custom' && currentCustomText ? currentCustomText : statusInfo.label}
+                                label={!isAvailable && currentCustomText ? currentCustomText : statusInfo.label}
                                 size="small"
                                 sx={{
                                     backgroundColor: statusInfo.color,
@@ -396,7 +387,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
             >
                 {statusOptions.map((option) => (
                     <MenuItem
-                        key={option.value}
+                        key={String(option.value)}
                         onClick={() => handleStatusSelect(option.value)}
                         sx={{
                             display: 'flex',
@@ -441,11 +432,10 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                     <Button onClick={handleCustomCancel}>
                         Abbrechen
                     </Button>
-                     <Button 
-                         onClick={handleCustomSubmit}
-                         variant="contained"
-                         disabled={!tempCustomText.trim()}
-                     >
+                    <Button 
+                        onClick={handleCustomSubmit}
+                        variant="contained"
+                    >
                         Speichern
                     </Button>
                 </DialogActions>

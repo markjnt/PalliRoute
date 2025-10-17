@@ -7,7 +7,7 @@ class EmployeePlanning(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
     weekday = db.Column(db.String(20), nullable=False)  # monday, tuesday, etc.
-    status = db.Column(db.String(20), nullable=False)  # available, vacation, sick, custom
+    available = db.Column(db.Boolean, nullable=False, default=True)
     custom_text = db.Column(db.String(200), nullable=True)  # For custom status
     replacement_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=True)  # Replacement employee
     calendar_week = db.Column(db.Integer, nullable=True)  # Denormalized for easier filtering
@@ -28,7 +28,7 @@ class EmployeePlanning(db.Model):
             'id': self.id,
             'employee_id': self.employee_id,
             'weekday': self.weekday,
-            'status': self.status,
+            'available': self.available,
             'custom_text': self.custom_text,
             'replacement_id': self.replacement_id,
             'calendar_week': self.calendar_week,
@@ -41,7 +41,7 @@ class EmployeePlanning(db.Model):
         return EmployeePlanning(
             employee_id=data.get('employee_id'),
             weekday=data.get('weekday'),
-            status=data.get('status'),
+            available=data.get('available', True),
             custom_text=data.get('custom_text'),
             replacement_id=data.get('replacement_id'),
             calendar_week=data.get('calendar_week')

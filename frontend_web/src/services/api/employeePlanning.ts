@@ -4,7 +4,7 @@ export interface EmployeePlanningData {
     id?: number;
     employee_id: number;
     weekday: string;
-    status: 'available' | 'vacation' | 'sick' | 'custom';
+    available: boolean;
     custom_text?: string;
     replacement_id?: number;
     replacement_employee?: {
@@ -29,10 +29,10 @@ export const employeePlanningApi = {
         return api.get(`/employee-planning/${params}`);
     },
 
-    // Update planning status for employee and weekday
+    // Update planning availability for employee and weekday
     update: (employeeId: number, weekday: string, data: {
-        status: 'available' | 'vacation' | 'sick' | 'custom';
-        custom_text?: string;
+        available: boolean;
+        custom_text?: string; // optional reason when unavailable
         replacement_id?: number;
         calendar_week?: number;
     }) => {

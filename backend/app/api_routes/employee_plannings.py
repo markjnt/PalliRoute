@@ -62,8 +62,8 @@ def get_employee_planning():
         unique_patients = set(app.patient_id for app in appointments)
         patient_count = len(unique_patients)
         
-        # Only show conflicts if status is not 'available' AND there are appointments
-        entry_dict['has_conflicts'] = entry.status != 'available' and len(appointments) > 0
+        # Only show conflicts if not available AND there are appointments
+        entry_dict['has_conflicts'] = (not getattr(entry, 'available', True)) and len(appointments) > 0
         entry_dict['appointments_count'] = len(appointments)
         entry_dict['patient_count'] = patient_count
         
@@ -75,26 +75,19 @@ def get_employee_planning():
 
 @employee_planning_bp.route('/<int:employee_id>/<string:weekday>', methods=['PUT'])
 def update_employee_planning(employee_id, weekday):
-    """Update planning status for specific employee and weekday"""
+    """Update planning availability for specific employee and weekday"""
     data = request.get_json()
     
     # Validate required fields
-    if 'status' not in data:
-        return jsonify({"error": "Status is required"}), 400
-    
-    status = data['status']
-    custom_text = data.get('custom_text')
+    if 'available' not in data:
+        return jsonify({"error": "Field 'available' is required and must be boolean"}), 400
+
+    available = bool(data['available'])
+    custom_text = data.get('custom_text') if not available else None
     replacement_id = data.get('replacement_id')
     calendar_week = data.get('calendar_week', get_current_calendar_week())
     
-    # Validate status
-    valid_statuses = ['available', 'vacation', 'sick', 'custom']
-    if status not in valid_statuses:
-        return jsonify({"error": f"Invalid status. Must be one of: {valid_statuses}"}), 400
-    
-    # Validate custom text for custom status
-    if status == 'custom' and not custom_text:
-        return jsonify({"error": "Custom text is required for custom status"}), 400
+    # If not available but reason text is empty, allow empty or provide default later
     
     # Map German weekday to English
     weekday_mapping = get_weekday_mapping()
@@ -112,7 +105,7 @@ def update_employee_planning(employee_id, weekday):
     
     if existing_entry:
         # Update existing entry
-        existing_entry.status = status
+        existing_entry.available = available
         existing_entry.custom_text = custom_text
         existing_entry.replacement_id = replacement_id
         existing_entry.updated_at = datetime.utcnow()
@@ -121,7 +114,7 @@ def update_employee_planning(employee_id, weekday):
         new_entry = EmployeePlanning(
             employee_id=employee_id,
             weekday=db_weekday,
-            status=status,
+            available=available,
             custom_text=custom_text,
             replacement_id=replacement_id,
             calendar_week=calendar_week
@@ -213,11 +206,11 @@ def update_replacement(employee_id, weekday):
         ).first()
         
         if not existing_entry:
-            # Erstelle neuen Eintrag mit 'available' Status
+            # Erstelle neuen Eintrag mit available=True
             existing_entry = EmployeePlanning(
                 employee_id=employee_id,
                 weekday=db_weekday,
-                status='available',
+                available=True,
                 calendar_week=calendar_week
             )
             db.session.add(existing_entry)

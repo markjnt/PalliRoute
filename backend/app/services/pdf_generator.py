@@ -167,12 +167,10 @@ class PDFGenerator:
                 ).first()
                 
                 if planning:
-                    if planning.status == 'vacation':
-                        replacement_info = " • <font color='#FF9800'><b>Urlaub</b></font>"
-                    elif planning.status == 'sick':
-                        replacement_info = " • <font color='#f44336'><b>Krank</b></font>"
-                    elif planning.status == 'custom' and planning.custom_text:
-                        replacement_info = f" • <font color='#9C27B0'><b>{planning.custom_text}</b></font>"
+                    if getattr(planning, 'available', True) is False:
+                        # Show custom reason if available, otherwise generic absent info
+                        reason = planning.custom_text.strip() if planning.custom_text else 'Abwesend'
+                        replacement_info = f" • <font color='#FF9800'><b>{reason}</b></font>"
                     
                     if planning.replacement_id:
                         replacement_employee = Employee.query.get(planning.replacement_id)

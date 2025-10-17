@@ -25,7 +25,7 @@ export const useEmployeePlanning = () => {
   });
 };
 
-// Hook to update planning status
+// Hook to update planning availability
 export const useUpdateEmployeePlanning = () => {
   const queryClient = useQueryClient();
   const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
@@ -35,7 +35,7 @@ export const useUpdateEmployeePlanning = () => {
       employeeId: number;
       weekday: string;
       data: {
-        status: 'available' | 'vacation' | 'sick' | 'custom';
+        available: boolean;
         custom_text?: string;
         replacement_id?: number;
       };
