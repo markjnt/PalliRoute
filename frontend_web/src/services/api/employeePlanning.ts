@@ -29,15 +29,6 @@ export const employeePlanningApi = {
         return api.get(`/employee-planning/${params}`);
     },
 
-    // Update planning availability for employee and weekday
-    update: (employeeId: number, weekday: string, data: {
-        available: boolean;
-        custom_text?: string; // optional reason when unavailable
-        replacement_id?: number;
-        calendar_week?: number;
-    }) => {
-        return api.put(`/employee-planning/${employeeId}/${weekday}`, data);
-    },
 
     // Update replacement for employee and weekday
     updateReplacement: (employeeId: number, weekday: string, data: {

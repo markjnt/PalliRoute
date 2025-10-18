@@ -2,16 +2,8 @@ import React, { useState } from 'react';
 import {
     Box,
     IconButton,
-    Menu,
-    MenuItem,
-    TextField,
     Typography,
     Chip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
     Tooltip,
     Alert,
     Avatar,
@@ -22,30 +14,20 @@ import { ReplacementConfirmationDialog } from './ReplacementConfirmationDialog';
 import { useUpdateReplacement } from '../../services/queries/useEmployeePlanning';
 import { getColorForTour } from '../../utils/colors';
 
-export interface PlanningData {
-    available: boolean;
-    customText?: string;
-}
 
 interface WeeklyPlanningCellProps {
     employeeId: number;
     weekday: string;
     allPlanningData?: any[]; // Alle Planning-Daten werden übergeben
     availableEmployees?: any[]; // Available employees for replacement
-    onStatusChange: (employeeId: number, weekday: string, data: PlanningData) => void;
 }
 
-const statusOptions = [
-    { value: true, label: 'Verfügbar', color: '#4CAF50' },
-    { value: false, label: 'Abwesend', color: '#F44336' },
-];
 
 export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     employeeId,
     weekday,
     allPlanningData = [],
     availableEmployees = [],
-    onStatusChange,
 }) => {
     // Map German weekday names to English database format
     const weekdayMapping: { [key: string]: string } = {
@@ -72,9 +54,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     const appointmentsCount: number = relevantData?.appointments_count || 0;
     const replacementEmployee = relevantData?.replacement_employee;
 
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [customDialogOpen, setCustomDialogOpen] = useState(false);
-    const [tempCustomText, setTempCustomText] = useState('');
     const [replacementMenuAnchor, setReplacementMenuAnchor] = useState<null | HTMLElement>(null);
     const [confirmationDialogOpen, setConfirmationDialogOpen] = useState(false);
     const [pendingReplacement, setPendingReplacement] = useState<{
@@ -108,37 +87,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         return counts;
     };
 
-    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-        setAnchorEl(event.currentTarget);
-    };
-
-    const handleMenuClose = () => {
-        setAnchorEl(null);
-    };
-
-    const handleStatusSelect = (available: boolean) => {
-        if (available === false) {
-            setTempCustomText(currentCustomText);
-            setCustomDialogOpen(true);
-        } else {
-            onStatusChange(employeeId, weekday, { available: true, customText: undefined });
-        }
-        handleMenuClose();
-    };
-
-    const handleCustomSubmit = () => {
-        if (tempCustomText.trim()) {
-            onStatusChange(employeeId, weekday, { available: false, customText: tempCustomText.trim() });
-        } else {
-            onStatusChange(employeeId, weekday, { available: false });
-        }
-        setCustomDialogOpen(false);
-    };
-
-    const handleCustomCancel = () => {
-        setCustomDialogOpen(false);
-        setTempCustomText('');
-    };
 
     const handleReplacementMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         event.stopPropagation(); // Prevent status menu from opening
@@ -227,7 +175,9 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
     };
 
     // Get status display info
-    const statusInfo = statusOptions.find(option => option.value === isAvailable) || statusOptions[0];
+    const statusInfo = isAvailable 
+        ? { value: true, label: 'Verfügbar', color: '#4CAF50' }
+        : { value: false, label: 'Abwesend', color: '#F44336' };
 
     const isWeekend = weekday === 'Samstag' || weekday === 'Sonntag';
 
@@ -245,13 +195,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                     backgroundColor: isWeekend ? 'grey.100' : 'grey.50',
                     position: 'relative',
                     px: 1,
-                    '&:hover': {
-                        backgroundColor: 'grey.200',
-                        borderColor: 'grey.400',
-                        cursor: 'pointer'
-                    }
                 }}
-                onClick={handleMenuOpen}
             >
                     {/* Conflict warning icon */}
                     {hasConflicts && (
@@ -371,74 +315,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                 )}
                 </Box>
 
-            <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'left',
-                }}
-                transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'left',
-                }}
-            >
-                {statusOptions.map((option) => (
-                    <MenuItem
-                        key={String(option.value)}
-                        onClick={() => handleStatusSelect(option.value)}
-                        sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                        }}
-                    >
-                        <Box
-                            sx={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: '50%',
-                                backgroundColor: option.color,
-                            }}
-                        />
-                        {option.label}
-                    </MenuItem>
-                ))}
-            </Menu>
-
-            <Dialog
-                open={customDialogOpen}
-                onClose={handleCustomCancel}
-                maxWidth="sm"
-                fullWidth
-            >
-                <DialogTitle>Sonstiges - Beschreibung eingeben</DialogTitle>
-                <DialogContent>
-                     <TextField
-                         autoFocus
-                         margin="dense"
-                         label="Beschreibung"
-                         placeholder="Geben Sie eine Beschreibung ein..."
-                         fullWidth
-                         multiline
-                         rows={3}
-                         value={tempCustomText}
-                         onChange={(e) => setTempCustomText(e.target.value)}
-                     />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCustomCancel}>
-                        Abbrechen
-                    </Button>
-                    <Button 
-                        onClick={handleCustomSubmit}
-                        variant="contained"
-                    >
-                        Speichern
-                    </Button>
-                </DialogActions>
-            </Dialog>
 
             {/* Replacement Menu */}
             <ReplacementMenu

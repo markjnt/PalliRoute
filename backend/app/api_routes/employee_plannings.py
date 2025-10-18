@@ -3,6 +3,7 @@ from app import db
 from app.models.employee_planning import EmployeePlanning
 from app.models.appointment import Appointment
 from app.models.route import Route
+from app.services.aplano_sync import sync_employee_planning
 from datetime import datetime
 import calendar
 
@@ -28,6 +29,14 @@ def get_weekday_mapping():
 def get_employee_planning():
     """Get all employee planning entries for current week"""
     calendar_week = request.args.get('calendar_week', get_current_calendar_week(), type=int)
+    
+    # Sync with Aplano before querying database
+    sync_warning = None
+    try:
+        sync_employee_planning(calendar_week)
+    except Exception as e:
+        # If sync fails, continue with existing data but report the error
+        sync_warning = f"Aplano sync failed: {str(e)}"
     
     planning_entries = EmployeePlanning.query.filter_by(calendar_week=calendar_week).all()
     
@@ -77,64 +86,18 @@ def get_employee_planning():
         
         entries_with_conflicts.append(entry_dict)
     
-    return jsonify(entries_with_conflicts), 200
+    # Prepare response with optional sync warning
+    response_data = entries_with_conflicts
+    if sync_warning:
+        response_data = {
+            "data": entries_with_conflicts,
+            "warning": sync_warning
+        }
+    
+    return jsonify(response_data), 200
 
 
 
-@employee_planning_bp.route('/<int:employee_id>/<string:weekday>', methods=['PUT'])
-def update_employee_planning(employee_id, weekday):
-    """Update planning availability for specific employee and weekday"""
-    data = request.get_json()
-    
-    # Validate required fields
-    if 'available' not in data:
-        return jsonify({"error": "Field 'available' is required and must be boolean"}), 400
-
-    available = bool(data['available'])
-    custom_text = data.get('custom_text') if not available else None
-    replacement_id = data.get('replacement_id')
-    calendar_week = data.get('calendar_week', get_current_calendar_week())
-    
-    # If not available but reason text is empty, allow empty or provide default later
-    
-    # Map German weekday to English
-    weekday_mapping = get_weekday_mapping()
-    if weekday not in weekday_mapping:
-        return jsonify({"error": f"Invalid weekday. Must be one of: {list(weekday_mapping.keys())}"}), 400
-    
-    db_weekday = weekday_mapping[weekday]
-    
-    # Check if planning entry already exists
-    existing_entry = EmployeePlanning.query.filter_by(
-        employee_id=employee_id,
-        weekday=db_weekday,
-        calendar_week=calendar_week
-    ).first()
-    
-    if existing_entry:
-        # Update existing entry
-        existing_entry.available = available
-        existing_entry.custom_text = custom_text
-        existing_entry.replacement_id = replacement_id
-        existing_entry.updated_at = datetime.utcnow()
-    else:
-        # Create new entry
-        new_entry = EmployeePlanning(
-            employee_id=employee_id,
-            weekday=db_weekday,
-            available=available,
-            custom_text=custom_text,
-            replacement_id=replacement_id,
-            calendar_week=calendar_week
-        )
-        db.session.add(new_entry)
-    
-    try:
-        db.session.commit()
-        return jsonify({"success": True, "message": "Planning status updated successfully"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": f"Failed to update planning status: {str(e)}"}), 500
 
 def get_current_responsible(employee_id, weekday, calendar_week):
     """

@@ -16,8 +16,7 @@ import { Employee } from '../../types/models';
 import { getColorForTour } from '../../utils/colors';
 import { getColorForEmployeeType } from '../../utils/mapUtils';
 import { WeeklyPlanningCell } from './WeeklyPlanningCell';
-import type { PlanningData } from './WeeklyPlanningCell';
-import { useEmployeePlanning, useUpdateEmployeePlanning } from '../../services/queries/useEmployeePlanning';
+import { useEmployeePlanning } from '../../services/queries/useEmployeePlanning';
 import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
 
 interface WeeklyPlanningTableProps {
@@ -60,7 +59,6 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
 }) => {
     // React Query hooks - planning week is automatically read from store
     const { data: planningEntries = [], isLoading } = useEmployeePlanning();
-    const updatePlanningMutation = useUpdateEmployeePlanning();
     const { selectedPlanningWeek } = usePlanningWeekStore();
     
     // Check if planning week is selected
@@ -93,21 +91,6 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
         });
     }, [employees]);
 
-    const handleStatusChange = async (employeeId: number, weekday: string, data: PlanningData) => {
-        try {
-            await updatePlanningMutation.mutateAsync({
-                employeeId,
-                weekday,
-                data: {
-                    available: data.available,
-                    custom_text: data.customText,
-                }
-            });
-        } catch (error) {
-            console.error('Error updating planning status:', error);
-            // TODO: Show error notification to user
-        }
-    };
 
     // Get all planning entries as array
     const getAllPlanningData = (): any[] => {
@@ -217,7 +200,6 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                                             weekday={day}
                                             allPlanningData={getAllPlanningData()}
                                             availableEmployees={employees}
-                                            onStatusChange={handleStatusChange}
                                         />
                                     </TableCell>
                                 ))}

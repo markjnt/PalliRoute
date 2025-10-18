@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { employeePlanningApi, EmployeePlanningData } from '../api/employeePlanning';
 import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 import { routeKeys } from './useRoutes';
 import { appointmentKeys } from './useAppointments';
 import { patientKeys } from './usePatients';
@@ -17,42 +18,31 @@ export const employeePlanningKeys = {
 // Hook to get all planning entries
 export const useEmployeePlanning = () => {
   const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
+  const { setNotification, setLoading, resetLoading } = useNotificationStore();
   const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
   
   return useQuery({
     queryKey: employeePlanningKeys.list(currentWeek),
-    queryFn: () => employeePlanningApi.getAll(currentWeek),
+    queryFn: async () => {
+      try {
+        setLoading('Synchronisiere mit Aplano...');
+        const response = await employeePlanningApi.getAll(currentWeek);
+        
+        // Check for Aplano sync warnings
+        if (response.data?.warning) {
+          setNotification(`Aplano Sync Warnung: ${response.data.warning}`, 'error');
+        }
+        
+        return response;
+      } finally {
+        resetLoading();
+      }
+    },
+    refetchInterval: 60000, // Refetch every 60 seconds (1 minute)
+    refetchIntervalInBackground: true, // Continue refetching even when tab is not active
   });
 };
 
-// Hook to update planning availability
-export const useUpdateEmployeePlanning = () => {
-  const queryClient = useQueryClient();
-  const { selectedPlanningWeek, getCurrentPlanningWeek } = usePlanningWeekStore();
-  
-  return useMutation({
-    mutationFn: ({ employeeId, weekday, data }: {
-      employeeId: number;
-      weekday: string;
-      data: {
-        available: boolean;
-        custom_text?: string;
-        replacement_id?: number;
-      };
-    }) => {
-      const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
-      return employeePlanningApi.update(employeeId, weekday, {
-        ...data,
-        calendar_week: currentWeek,
-      });
-    },
-    onSuccess: (_, variables) => {
-      const currentWeek = selectedPlanningWeek || getCurrentPlanningWeek();
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: employeePlanningKeys.all });
-    },
-  });
-};
 
 // Hook to update replacement
 export const useUpdateReplacement = () => {
