@@ -176,13 +176,68 @@ def update_replacement(employee_id, weekday):
         ).all()
 
         moved_count = 0
+        moved_appointments = []  # Track which appointments were moved for route updates
+        
         for appointment in appointments:
             # Bestimme den aktuell zuständigen Mitarbeiter basierend auf origin_employee_id
             if appointment.origin_employee_id:
                 current_responsible = get_current_responsible(appointment.origin_employee_id, db_weekday, calendar_week)
                 if appointment.employee_id != current_responsible:
+                    # Track the move for route updates
+                    moved_appointments.append({
+                        'appointment': appointment,
+                        'old_employee_id': appointment.employee_id,
+                        'new_employee_id': current_responsible
+                    })
                     appointment.employee_id = current_responsible
                     moved_count += 1
+
+        # Update route orders and recalculate routes for affected employees
+        if moved_appointments:
+            from app.services.route_optimizer import RouteOptimizer
+            from app.models.route import Route
+            
+            route_optimizer = RouteOptimizer()
+            affected_employees = set()
+            
+            # Collect all affected employees
+            for move in moved_appointments:
+                affected_employees.add(move['old_employee_id'])
+                affected_employees.add(move['new_employee_id'])
+            
+            # Update routes for each affected employee
+            for emp_id in affected_employees:
+                # Get route for this employee and weekday
+                route = Route.query.filter_by(
+                    employee_id=emp_id,
+                    weekday=db_weekday,
+                    calendar_week=calendar_week
+                ).first()
+                
+                if route:
+                    # Get current route order
+                    route_order = route.get_route_order()
+                    
+                    # Remove appointments that moved away from this employee
+                    for move in moved_appointments:
+                        if move['old_employee_id'] == emp_id and move['appointment'].id in route_order:
+                            route_order.remove(move['appointment'].id)
+                    
+                    # Add appointments that moved to this employee
+                    for move in moved_appointments:
+                        if (move['new_employee_id'] == emp_id and 
+                            move['appointment'].visit_type in ('HB', 'NA') and 
+                            move['appointment'].id not in route_order):
+                            route_order.append(move['appointment'].id)
+                    
+                    # Update route order
+                    route.set_route_order(route_order)
+                    
+                    # Optimize route (intelligent positioning + polyline recalculation)
+                    try:
+                        route_optimizer.optimize_route(db_weekday, emp_id, calendar_week=calendar_week)
+                    except Exception as e:
+                        print(f"Warning: Failed to optimize route for employee {emp_id}: {str(e)}")
 
         db.session.commit()
         
