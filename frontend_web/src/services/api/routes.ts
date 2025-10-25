@@ -94,5 +94,28 @@ export const routesApi = {
             console.error(`Failed to reorder appointment in route ${routeId}:`, error);
             throw error;
         }
+    },
+
+    // Download route PDF for a calendar week
+    async downloadRoutePdf(calendarWeek: number): Promise<void> {
+        try {
+            const response = await api.get('/routes/download-pdf', {
+                params: { calendar_week: calendarWeek },
+                responseType: 'blob',
+            });
+
+            // Create download link
+            const url = window.URL.createObjectURL(response.data);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Routen_KW${calendarWeek}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error(`Failed to download route PDF for calendar week ${calendarWeek}:`, error);
+            throw error;
+        }
     }
 };

@@ -14,7 +14,9 @@ import {
     List,
     ListItem,
     ListItemButton,
-    ListItemText
+    ListItemText,
+    IconButton,
+    Tooltip
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -25,7 +27,8 @@ import {
     VisibilityOff as VisibilityOffIcon,
     Schedule as ScheduleIcon,
     ExpandMore as ExpandMoreIcon,
-    RadioButtonChecked as RadioButtonCheckedIcon
+    RadioButtonChecked as RadioButtonCheckedIcon,
+    PictureAsPdf as PictureAsPdfIcon
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { Weekday } from '../../stores/useWeekdayStore';
@@ -36,7 +39,7 @@ import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport, useCalendarWeeks } from '../../services/queries/usePatients';
 import { useLastPatientImportTime } from '../../services/queries/useConfig';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
-import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes, useDownloadRoutePdf } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -115,6 +118,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
     const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
+    const downloadPdfMutation = useDownloadRoutePdf();
     const { data: lastImportTimeData } = useLastPatientImportTime();
 
     // Update local store when API data changes
@@ -153,6 +157,21 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
     const handleKwPopoverClose = () => {
         setKwAnchorEl(null);
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!selectedCalendarWeek) {
+            setNotification('Bitte wählen Sie eine Kalenderwoche aus', 'error');
+            return;
+        }
+
+        try {
+            await downloadPdfMutation.mutateAsync(selectedCalendarWeek);
+            setNotification(`PDF für KW ${selectedCalendarWeek} erfolgreich heruntergeladen`, 'success');
+        } catch (error: any) {
+            console.error('Error downloading PDF:', error);
+            setNotification('Fehler beim Herunterladen des PDFs', 'error');
+        }
     };
 
     const handleImport = async () => {
@@ -317,7 +336,25 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     Tourenplanung
                 </Typography>
                 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {/* PDF Download Button */}
+                    {selectedCalendarWeek && (
+                        <Tooltip title={`PDF für KW ${selectedCalendarWeek} herunterladen`}>
+                            <IconButton
+                                onClick={handleDownloadPdf}
+                                disabled={downloadPdfMutation.isPending}
+                                sx={{
+                                    color: 'error.main',
+                                    '&:hover': {
+                                        backgroundColor: 'error.50',
+                                    }
+                                }}
+                            >
+                                <PictureAsPdfIcon />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+                    
                     {/* Calendar Week Selector Button */}
                     {selectedCalendarWeek && (
                         <Button

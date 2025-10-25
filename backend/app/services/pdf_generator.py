@@ -16,14 +16,13 @@ class PDFGenerator:
     """Service for generating route PDFs"""
     
     @staticmethod
-    def generate_route_pdf(routes, employee=None, area=None, calendar_week=None):
+    def generate_calendar_week_pdf(employee_routes_data, calendar_week):
         """
-        Generate a PDF for routes
+        Generate a PDF for all employees in a calendar week
+        Sorted by area (Nord/Süd), with each employee getting their own section
         
         Args:
-            routes: List of Route objects
-            employee: Employee object (for employee routes)
-            area: Area string (for weekend routes)
+            employee_routes_data: List of dicts with 'employee' and 'routes' keys
             calendar_week: Calendar week number
             
         Returns:
@@ -64,9 +63,21 @@ class PDFGenerator:
             alignment=TA_CENTER,
         )
         
-        heading_style = ParagraphStyle(
-            'CustomHeading',
+        employee_heading_style = ParagraphStyle(
+            'EmployeeHeading',
             parent=styles['Heading2'],
+            fontSize=16,
+            textColor=colors.HexColor('#007AFF'),
+            spaceAfter=15,
+            spaceBefore=20,
+            borderWidth=2,
+            borderColor=colors.HexColor('#007AFF'),
+            borderPadding=10,
+        )
+        
+        day_heading_style = ParagraphStyle(
+            'DayHeading',
+            parent=styles['Heading3'],
             fontSize=14,
             textColor=colors.white,
             backColor=colors.HexColor('#007AFF'),
@@ -77,29 +88,26 @@ class PDFGenerator:
         )
         
         # Title
-        if employee:
-            title = f"Route: {employee.first_name} {employee.last_name}"
-        elif area:
-            title = f"Wochenend-Tour: {area}"
-        else:
-            title = "Route"
+        elements.append(Paragraph("Wochenübersicht Routen", title_style))
+        elements.append(Paragraph(f"Kalenderwoche {calendar_week}", subtitle_style))
+        elements.append(Spacer(1, 0.5*cm))
         
-        elements.append(Paragraph(title, title_style))
-        
-        if calendar_week:
-            elements.append(Paragraph(f"Kalenderwoche {calendar_week}", subtitle_style))
-        
-        # Employee Info Box (if employee route)
-        if employee:
-            info_style = ParagraphStyle(
-                'EmployeeInfo',
-                parent=styles['Normal'],
-                fontSize=10,
-                textColor=colors.HexColor('#333333'),
-                spaceAfter=10,
-                leftIndent=10,
-            )
+        # Process each employee
+        for emp_data in employee_routes_data:
+            employee = emp_data['employee']
+            routes = emp_data['routes']
             
+            # Employee section heading with info
+            employee_name = f"{employee.first_name} {employee.last_name}"
+            area_label = f" ({employee.area})" if employee.area else ""
+            
+            # Get total appointments across all days
+            total_appointments = sum(len(route.get_route_order()) for route in routes)
+            
+            heading_text = f"{employee_name}{area_label} • {len(routes)} Tage • {total_appointments} Termine"
+            elements.append(Paragraph(heading_text, employee_heading_style))
+            
+            # Employee info box
             info_data = [
                 ['<b>Funktion:</b>', employee.function or '-'],
                 ['<b>Stadt:</b>', employee.city or '-'],
@@ -119,47 +127,17 @@ class PDFGenerator:
             ]))
             
             elements.append(info_table)
-        elif area:
-            # Area Info Box (for weekend routes)
-            info_style = ParagraphStyle(
-                'AreaInfo',
-                parent=styles['Normal'],
-                fontSize=10,
-                textColor=colors.HexColor('#333333'),
-                spaceAfter=10,
-                leftIndent=10,
-            )
+            elements.append(Spacer(1, 0.5*cm))
             
-            info_data = [
-                ['<b>Gebiet:</b>', area],
-                ['<b>Typ:</b>', 'Wochenend-Tour'],
-            ]
-            
-            info_table = Table(info_data, colWidths=[4*cm, 10*cm])
-            info_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fff3e0')),
-                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ffb74d')),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('PADDING', (0, 0), (-1, -1), 8),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]))
-            
-            elements.append(info_table)
-        
-        elements.append(Spacer(1, 0.5*cm))
-        
-        # Process each route (day)
-        for route in routes:
-            appointment_ids = route.get_route_order()
-            
-            if not appointment_ids:
-                continue
-            
-            # Check for replacement/planning info for this day
-            replacement_info = ""
-            if employee and calendar_week:
+            # Process each route (day) for this employee
+            for route in routes:
+                appointment_ids = route.get_route_order()
+                
+                if not appointment_ids:
+                    continue
+                
+                # Check for replacement/planning info for this day
+                replacement_info = ""
                 planning = EmployeePlanning.query.filter_by(
                     employee_id=employee.id,
                     weekday=route.weekday,
@@ -168,117 +146,113 @@ class PDFGenerator:
                 
                 if planning:
                     if getattr(planning, 'available', True) is False:
-                        # Show custom reason if available, otherwise generic absent info
                         reason = planning.custom_text.strip() if planning.custom_text else 'Abwesend'
                         replacement_info = f" • <font color='#FF9800'><b>{reason}</b></font>"
                     
                     if planning.replacement_id:
                         replacement_employee = Employee.query.get(planning.replacement_id)
                         if replacement_employee:
-                            replacement_info += f" • Vertretung: <b>{replacement_employee.first_name} {replacement_employee.last_name}</b>"
-            
-            # Day heading with summary
-            weekday_de = PDFGenerator._translate_weekday(route.weekday)
-            summary = f"{len(appointment_ids)} Termine • Dauer: {route.total_duration} min"
-            if route.total_distance:
-                summary += f" • Strecke: {round(route.total_distance, 1)} km"
-            summary += replacement_info
-            
-            day_heading = f"<b>{weekday_de}</b><br/><font size=10>{summary}</font>"
-            elements.append(Paragraph(day_heading, heading_style))
-            elements.append(Spacer(1, 0.3*cm))
-            
-            # Table data
-            table_data = [
-                ['#', 'Patient', 'Adresse', 'Telefon', 'Zeit', 'Typ', 'Dauer', 'Info']
-            ]
-            
-            for idx, appointment_id in enumerate(appointment_ids, 1):
-                appointment = Appointment.query.get(appointment_id)
-                if not appointment:
-                    continue
-                    
-                patient = Patient.query.get(appointment.patient_id)
-                if not patient:
-                    continue
+                            replacement_info += f" • <b>Vertretung: {replacement_employee.first_name} {replacement_employee.last_name}</b>"
                 
-                # Check if this appointment is being done as replacement
-                patient_name = f"{patient.first_name} {patient.last_name}"
-                if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id:
-                    origin_employee = Employee.query.get(appointment.origin_employee_id)
-                    if origin_employee:
-                        patient_name += f'<br/><font size=7 color="#666">(urspr. {origin_employee.first_name} {origin_employee.last_name})</font>'
+                # Day heading
+                weekday_de = PDFGenerator._translate_weekday(route.weekday)
+                summary = f"{len(appointment_ids)} Termine • Dauer: {route.total_duration} min"
+                if route.total_distance:
+                    summary += f" • Strecke: {round(route.total_distance, 1)} km"
+                summary += replacement_info
                 
-                # Format address for Google Maps
-                address = f"{patient.street}, {patient.zip_code} {patient.city}"
-                maps_url = f"https://www.google.com/maps/search/?api=1&query={address.replace(' ', '+')}"
+                day_heading = f"<b>{weekday_de}</b><br/><font size=10>{summary}</font>"
+                elements.append(Paragraph(day_heading, day_heading_style))
+                elements.append(Spacer(1, 0.3*cm))
                 
-                # Create clickable address link
-                address_link = f'<a href="{maps_url}" color="blue">{address}</a>'
-                
-                # Format phone numbers with tel: links
-                phone_text = ""
-                if patient.phone1:
-                    phone1_clean = patient.phone1.replace(' ', '').replace('-', '')
-                    phone_text = f'<a href="tel:{phone1_clean}" color="blue">{patient.phone1}</a>'
-                if patient.phone2:
-                    phone2_clean = patient.phone2.replace(' ', '').replace('-', '')
-                    if phone_text:
-                        phone_text += f'<br/><a href="tel:{phone2_clean}" color="blue">{patient.phone2}</a>'
-                    else:
-                        phone_text = f'<a href="tel:{phone2_clean}" color="blue">{patient.phone2}</a>'
-                
-                time_str = appointment.time.strftime('%H:%M') if appointment.time else '-'
-                
-                row = [
-                    str(idx),
-                    Paragraph(patient_name, styles['Normal']),
-                    Paragraph(address_link, styles['Normal']),
-                    Paragraph(phone_text, styles['Normal']) if phone_text else '',
-                    time_str,
-                    appointment.visit_type,
-                    f"{appointment.duration} min",
-                    appointment.info or ''
+                # Table data
+                table_data = [
+                    ['#', 'Patient', 'Adresse', 'Telefon', 'Zeit', 'Typ', 'Dauer', 'Info']
                 ]
                 
-                table_data.append(row)
-            
-            # Create table with adjusted column widths for replacement info
-            col_widths = [0.7*cm, 3.8*cm, 4.2*cm, 2.3*cm, 1.1*cm, 0.9*cm, 1.1*cm, 2.6*cm]
-            
-            table = Table(table_data, colWidths=col_widths)
-            table.setStyle(TableStyle([
-                # Header styling
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f5f5f5')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#333333')),
-                ('ALIGN', (0, 0), (-1, 0), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('TOPPADDING', (0, 0), (-1, 0), 8),
+                for idx, appointment_id in enumerate(appointment_ids, 1):
+                    appointment = Appointment.query.get(appointment_id)
+                    if not appointment:
+                        continue
+                        
+                    patient = Patient.query.get(appointment.patient_id)
+                    if not patient:
+                        continue
+                    
+                    # Check if this appointment is being done as replacement
+                    patient_name = f"{patient.first_name} {patient.last_name}"
+                    if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id:
+                        origin_employee = Employee.query.get(appointment.origin_employee_id)
+                        if origin_employee:
+                            patient_name += f'<br/><font size=7 color="#666">(urspr. {origin_employee.first_name} {origin_employee.last_name})</font>'
+                    
+                    # Format address
+                    address = f"{patient.street}, {patient.zip_code} {patient.city}"
+                    
+                    # Format phone numbers
+                    phone_text = ""
+                    if patient.phone1:
+                        phone_text = patient.phone1
+                    if patient.phone2:
+                        if phone_text:
+                            phone_text += f'<br/>{patient.phone2}'
+                        else:
+                            phone_text = patient.phone2
+                    
+                    time_str = appointment.time.strftime('%H:%M') if appointment.time else '-'
+                    
+                    row = [
+                        str(idx),
+                        Paragraph(patient_name, styles['Normal']),
+                        address,
+                        Paragraph(phone_text, styles['Normal']) if phone_text else '',
+                        time_str,
+                        appointment.visit_type,
+                        f"{appointment.duration} min",
+                        appointment.info or ''
+                    ]
+                    
+                    table_data.append(row)
                 
-                # Data cells styling
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Position column centered
-                ('ALIGN', (4, 1), (4, -1), 'CENTER'),  # Time column centered
-                ('ALIGN', (5, 1), (5, -1), 'CENTER'),  # Type column centered
-                ('ALIGN', (6, 1), (6, -1), 'CENTER'),  # Duration column centered
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('TOPPADDING', (0, 1), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                # Create table
+                col_widths = [0.7*cm, 3.8*cm, 4.2*cm, 2.3*cm, 1.1*cm, 0.9*cm, 1.1*cm, 2.6*cm]
                 
-                # Grid
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+                table = Table(table_data, colWidths=col_widths)
+                table.setStyle(TableStyle([
+                    # Header styling
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f5f5f5')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#333333')),
+                    ('ALIGN', (0, 0), (-1, 0), 'LEFT'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    
+                    # Data cells styling
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Position column
+                    ('ALIGN', (4, 1), (4, -1), 'CENTER'),  # Time column
+                    ('ALIGN', (5, 1), (5, -1), 'CENTER'),  # Type column
+                    ('ALIGN', (6, 1), (6, -1), 'CENTER'),  # Duration column
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('TOPPADDING', (0, 1), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                    
+                    # Grid
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#dddddd')),
+                    
+                    # Alternating row colors
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fafafa')]),
+                ]))
                 
-                # Alternating row colors
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fafafa')]),
-            ]))
+                elements.append(table)
+                elements.append(Spacer(1, 0.8*cm))
             
-            elements.append(table)
-            elements.append(Spacer(1, 0.8*cm))
+            # Add page break between employees
+            elements.append(PageBreak())
         
         # Footer
         footer_style = ParagraphStyle(

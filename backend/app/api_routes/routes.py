@@ -236,47 +236,43 @@ def optimize_routes():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@routes_bp.route('/download-route-pdf', methods=['GET'])
+@routes_bp.route('/download-pdf', methods=['GET'])
 def download_route_pdf():
     """
-    Download route as PDF for employee or weekend area
+    Download complete route PDF for a calendar week, sorted by Nord/Süd
+    Only includes weekday routes (Monday-Friday), sorted by employee area (Nord/Süd)
     Query parameters:
-    - employee_id: Employee ID (for weekday routes, downloads Monday-Friday)
-    - area: Area name (for weekend routes, downloads Saturday-Sunday)
     - calendar_week: Calendar week number (required)
     """
     try:
         # Get query parameters
-        employee_id = request.args.get('employee_id', type=int)
-        area = request.args.get('area')
         calendar_week = request.args.get('calendar_week', type=int)
         
         # Validate required parameter
         if not calendar_week:
             return jsonify({'error': 'calendar_week is required'}), 400
         
-        # Validate that either employee_id or area is provided
-        if not employee_id and not area:
-            return jsonify({'error': 'Either employee_id or area is required'}), 400
+        # Get all employees with their weekday routes for this calendar week
+        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
         
-        if employee_id and area:
-            return jsonify({'error': 'Cannot provide both employee_id and area'}), 400
+        # Get all employees, ordered by area (Nordkreis first, then Südkreis)
+        employees = Employee.query.filter(
+            Employee.area.in_(['Nordkreis', 'Südkreis'])
+        ).order_by(
+            db.case(
+                (Employee.area == 'Nordkreis', 1),
+                (Employee.area == 'Südkreis', 2),
+                else_=99
+            )
+        ).all()
         
-        # Get the routes
-        routes = []
-        filename = ""
-        employee = None
+        # Build employee routes data structure
+        employee_routes_data = []
         
-        if employee_id:
-            # Get employee info for filename
-            employee = Employee.query.get(employee_id)
-            if not employee:
-                return jsonify({'error': f'Employee with ID {employee_id} not found'}), 404
-            
-            # Get all weekday routes (Monday-Friday) for this employee
-            weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        for employee in employees:
+            # Get all weekday routes for this employee in this calendar week
             routes = Route.query.filter(
-                Route.employee_id == employee_id,
+                Route.employee_id == employee.id,
                 Route.weekday.in_(weekdays),
                 Route.calendar_week == calendar_week
             ).order_by(
@@ -291,35 +287,22 @@ def download_route_pdf():
                 )
             ).all()
             
-            filename = f"Route_Employee_{employee.first_name}_{employee.last_name}_KW{calendar_week}.pdf"
+            # Only add employees who have routes
+            if routes:
+                employee_routes_data.append({
+                    'employee': employee,
+                    'routes': routes
+                })
+                
+        # Check if any routes exist
+        if not employee_routes_data:
+            return jsonify({'error': f'No routes found for calendar week {calendar_week}'}), 404
         
-        elif area:
-            # Get weekend routes (Saturday-Sunday) for this area
-            weekends = ['saturday', 'sunday']
-            routes = Route.query.filter(
-                Route.area == area,
-                Route.weekday.in_(weekends),
-                Route.calendar_week == calendar_week
-            ).order_by(
-                # Saturday before Sunday
-                db.case(
-                    (Route.weekday == 'saturday', 1),
-                    (Route.weekday == 'sunday', 2),
-                    else_=3
-                )
-            ).all()
-            
-            filename = f"Route_Weekend_{area}_KW{calendar_week}.pdf"
+        filename = f"Routen_KW{calendar_week}.pdf"
         
-        # Check if routes exist
-        if not routes:
-            return jsonify({'error': 'No routes found for the given parameters'}), 404
-        
-        # Generate PDF
-        pdf_file = PDFGenerator.generate_route_pdf(
-            routes=routes,
-            employee=employee,
-            area=area,
+        # Generate PDF with all employee routes
+        pdf_file = PDFGenerator.generate_calendar_week_pdf(
+            employee_routes_data=employee_routes_data,
             calendar_week=calendar_week
         )
         
