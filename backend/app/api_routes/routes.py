@@ -255,10 +255,18 @@ def download_route_pdf():
         # Get all employees with their weekday routes for this calendar week
         weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
         
-        # Get all employees, ordered by area (Nordkreis first, then Südkreis)
+        # Get all employees, ordered by function and area (Nordkreis first, then Südkreis)
         employees = Employee.query.filter(
             Employee.area.in_(['Nordkreis', 'Südkreis'])
         ).order_by(
+            db.case(
+                (Employee.function == 'Pflegekraft', 1),
+                (Employee.function == 'PDL', 2),
+                (Employee.function == 'Arzt', 3),
+                (Employee.function == 'Honorararzt', 4),
+                (Employee.function == 'Physiotherapie', 5),
+                else_=99
+            ),
             db.case(
                 (Employee.area == 'Nordkreis', 1),
                 (Employee.area == 'Südkreis', 2),
@@ -287,31 +295,45 @@ def download_route_pdf():
                 )
             ).all()
             
-            # Only add employees who have routes
-            if routes:
+            # Get all appointments for this employee in this calendar week
+            from app.models.appointment import Appointment
+            appointments = Appointment.query.filter(
+                Appointment.employee_id == employee.id,
+                Appointment.calendar_week == calendar_week
+            ).all()
+            
+            # Only add employees who have routes OR appointments
+            if routes or appointments:
                 employee_routes_data.append({
                     'employee': employee,
-                    'routes': routes
+                    'routes': routes,
+                    'appointments': appointments
                 })
                 
-        # Check if any routes exist
+        # Check if any routes or appointments exist
         if not employee_routes_data:
-            return jsonify({'error': f'No routes found for calendar week {calendar_week}'}), 404
+            return jsonify({'error': f'No routes or appointments found for calendar week {calendar_week}'}), 404
         
-        filename = f"Routen_KW{calendar_week}.pdf"
+        filename = f"PalliRoute_Routenplanung_KW{calendar_week}.pdf"
         
         # Generate PDF with all employee routes
-        pdf_file = PDFGenerator.generate_calendar_week_pdf(
+        pdf_buffer = PDFGenerator.generate_calendar_week_pdf(
             employee_routes_data=employee_routes_data,
             calendar_week=calendar_week
         )
         
-        # Send PDF file
-        return send_file(
-            pdf_file,
+        # Get PDF bytes
+        pdf_bytes = pdf_buffer.getvalue()
+        
+        # Send PDF as response
+        from flask import Response
+        return Response(
+            pdf_bytes,
             mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Length': str(len(pdf_bytes))
+            }
         )
         
     except Exception as e:

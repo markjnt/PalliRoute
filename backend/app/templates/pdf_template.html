@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Routenplanung KW {{ calendar_week }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007AFF;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .employee-section {
+            margin-bottom: 40px;
+            page-break-before: always;
+        }
+        
+        .employee-section:first-child {
+            page-break-before: auto;
+        }
+        
+        .employee-header {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            position: relative;
+        }
+        
+        .employee-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 6px;
+            letter-spacing: -0.02em;
+            padding-right: 80px;
+        }
+        
+        .function-badge {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+            letter-spacing: 0.01em;
+        }
+        
+        .function-badge.pflegekraft { background-color: #9c27b0; }
+        .function-badge.pdl { background-color: #9c27b0; }
+        .function-badge.physiotherapie { background-color: #9c27b0; }
+        .function-badge.arzt { background-color: #FFC107; }
+        .function-badge.honorararzt { background-color: #795548; }
+        
+        .employee-info {
+            font-size: 12px;
+            color: #86868b;
+            margin-bottom: 0;
+            line-height: 1.3;
+        }
+        
+        .info-item {
+            display: inline-block;
+            margin-right: 12px;
+            margin-bottom: 2px;
+        }
+        
+        .day-section {
+            margin-bottom: 20px;
+        }
+        
+        .day-header {
+            background-color: #007AFF;
+            color: white;
+            padding: 12px 10px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        
+        .day-summary {
+            font-size: 10px;
+            margin-top: 5px;
+        }
+        
+        .appointments-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0;
+        }
+        
+        .appointments-table th {
+            background-color: #f5f5f5;
+            color: #333;
+            font-weight: bold;
+            font-size: 9px;
+            padding: 8px 5px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .appointments-table td {
+            font-size: 8px;
+            padding: 6px 5px;
+            border-bottom: 0.5px solid #ddd;
+            vertical-align: top;
+        }
+        
+        .appointments-table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        
+        .appointments-table tr:nth-child(odd) {
+            background-color: white;
+        }
+        
+        .position-col { width: 5%; text-align: center; }
+        .patient-col { width: 22%; }
+        .address-col { width: 25%; }
+        .phone-col { width: 15%; }
+        .type-col { width: 8%; text-align: center; }
+        .duration-col { width: 7%; text-align: center; }
+        .info-col { width: 10%; }
+        .replacement-col { width: 8%; }
+        
+        .replacement-info {
+            color: #FF9500;
+            font-weight: 600;
+            font-size: 8px;
+            background-color: #FFF4E6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .replacement-info:hover {
+            background-color: #FFE0B2;
+        }
+        
+        .replacement-link {
+            color: #FF9500;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 8px;
+            background-color: #FFF4E6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        .replacement-link:hover {
+            background-color: #FFE0B2;
+        }
+        
+        .replacement-col {
+            font-size: 8px;
+            line-height: 1.3;
+        }
+        
+        
+        .absence-info {
+            color: #FF3B30;
+            font-weight: 600;
+            font-size: 10px;
+            background-color: #FFEBEE;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        .replacement-info-header {
+            color: #FF9500;
+            font-weight: 600;
+            font-size: 10px;
+            background-color: #FFF4E6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            text-decoration: none;
+        }
+        
+        .replacement-info-header:hover {
+            background-color: #FFE0B2;
+        }
+        
+        .utilization-info {
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .utilization-over {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .utilization-high {
+            color: #fd7e14;
+            font-weight: 600;
+        }
+        
+        .utilization-good {
+            color: #28a745;
+            font-weight: 500;
+        }
+        
+        .utilization-low {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .no-appointments {
+            text-align: center;
+            padding: 20px;
+            color: #86868b;
+            font-style: italic;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        .phone-contacts-section {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #d4edda;
+            border-radius: 6px;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .phone-contacts-section h4 {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            color: #1d1d1f;
+            font-weight: 600;
+        }
+        
+        .phone-contacts-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            background-color: white;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .phone-contacts-table th {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 9px;
+        }
+        
+        .phone-contacts-table td {
+            padding: 6px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .phone-contacts-table .patient-col {
+            width: 20%;
+        }
+        
+        .phone-contacts-table .address-col {
+            width: 30%;
+        }
+        
+        .phone-contacts-table .phone-col {
+            width: 20%;
+        }
+        
+        .phone-contacts-table .info-col {
+            width: 15%;
+        }
+        
+        .phone-contacts-table .replacement-col {
+            width: 15%;
+        }
+        
+        .phone-contacts-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .no-appointments p {
+            margin: 0;
+            font-size: 12px;
+        }
+        
+        .footer {
+            text-align: center;
+            font-size: 8px;
+            color: #999;
+            margin-top: 30px;
+        }
+        
+        .address-link {
+            color: #007AFF;
+            text-decoration: none;
+        }
+        
+        .address-link:hover {
+            text-decoration: underline;
+        }
+        
+        .phone-link {
+            color: #007AFF;
+            text-decoration: none;
+        }
+        
+        .phone-link:hover {
+            text-decoration: underline;
+        }
+        
+        .static-map {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .map-image {
+            width: 100%;
+            height: 800px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .map-legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .map-legend h4 {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: #1d1d1f;
+        }
+        
+        .legend-compact {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .legend-item-compact {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            font-size: 9px;
+            white-space: nowrap;
+        }
+        
+        .legend-marker-color {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .legend-color-red { background-color: #dc3545; }
+        .legend-color-blue { background-color: #007bff; }
+        .legend-color-green { background-color: #28a745; }
+        .legend-color-orange { background-color: #fd7e14; }
+        .legend-color-purple { background-color: #6f42c1; }
+        .legend-color-yellow { background-color: #ffc107; }
+        .legend-color-pink { background-color: #e83e8c; }
+        .legend-color-brown { background-color: #795548; }
+        .legend-color-gray { background-color: #6c757d; }
+        .legend-color-black { background-color: #212529; }
+        
+        .legend-employee {
+            background-color: #e3f2fd !important;
+            border: 1px solid #2196f3;
+        }
+        
+        .legend-marker-employee {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-color: #2196f3;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 16px;
+            font-size: 10px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .legend-name-compact {
+            color: #1d1d1f;
+            font-size: 9px;
+            font-weight: 500;
+        }
+        
+        .map-placeholder {
+            width: 100%;
+            height: 400px;
+            background-color: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: #6c757d;
+        }
+        
+        .map-placeholder p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">Routenplanung Wochenübersicht</div>
+        <div class="subtitle">Kalenderwoche {{ calendar_week }}</div>
+    </div>
+    
+    {% for emp_data in employee_routes_data %}
+    <div class="employee-section" id="employee-{{ emp_data.employee.id }}">
+        <div class="employee-header">
+            <div class="employee-name">{{ emp_data.employee.first_name }} {{ emp_data.employee.last_name }}</div>
+            <div class="function-badge {{ emp_data.employee.function|lower }}">{{ emp_data.employee.function or 'Unbekannt' }}</div>
+            <div class="employee-info">
+                {% if emp_data.employee.city %}<span class="info-item">{{ emp_data.employee.city }}</span>{% endif %}
+                {% if emp_data.employee.work_hours %}<span class="info-item">{{ emp_data.employee.work_hours }}%</span>{% endif %}
+                {% if emp_data.employee.area %}<span class="info-item">{{ emp_data.employee.area }}</span>{% endif %}
+            </div>
+        </div>
+        
+        {% set weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] %}
+        {% for weekday in weekdays %}
+        {% set planning_key = emp_data.employee.id|string + "_" + weekday %}
+        {% set planning = employee_planning[planning_key] %}
+        {% set route = emp_data.routes | selectattr('weekday', 'equalto', weekday) | first %}
+        {% set appointment_ids = route.get_route_order() if route else [] %}
+        <div class="day-section" id="employee-{{ emp_data.employee.id }}-{{ weekday }}">
+            <div class="day-header">
+                <strong>{{ translate_weekday(weekday) }}</strong>
+                <div class="day-summary">
+                    {% if appointment_ids %}
+                    {{ appointment_ids|length }} Termine • Dauer: {{ route.total_duration }} min
+                    {% if route.total_distance %}• Strecke: {{ "%.1f"|format(route.total_distance) }} km{% endif %}
+                    
+                    <!-- Auslastung berechnen -->
+                    {% set target_minutes = (emp_data.employee.work_hours or 0) * 4.2 %}
+                    {% if target_minutes > 0 %}
+                    {% set utilization = (route.total_duration / target_minutes) * 100 %}
+                    {% set utilization_rounded = utilization|round %}
+                    • Auslastung: {{ utilization_rounded }}%
+                    {% endif %}
+                    {% else %}
+                    Keine Termine
+                    {% endif %}
+                    {% if planning and not planning.available %}
+                    <br><span class="absence-info">Abwesend{% if planning.custom_text %}: {{ planning.custom_text }}{% endif %}</span>
+                    {% endif %}
+                    {% if planning and planning.replacement_id %}
+                    {% set replacement_employee = employees[planning.replacement_id] %}
+                    {% if replacement_employee %}
+                    <br><a href="#employee-{{ replacement_employee.id }}-{{ weekday }}" class="replacement-info-header">Vertretung: {{ replacement_employee.first_name }} {{ replacement_employee.last_name }}</a>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            {% if appointment_ids %}
+            <table class="appointments-table">
+                <thead>
+                    <tr>
+                        <th class="position-col">#</th>
+                        <th class="patient-col">Patient</th>
+                        <th class="address-col">Adresse</th>
+                        <th class="phone-col">Telefon</th>
+                        <th class="type-col">Typ</th>
+                        <th class="duration-col">Dauer</th>
+                        <th class="info-col">Info</th>
+                        <th class="replacement-col">Ursprünglicher Mitarbeiter</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appointment_id in appointment_ids %}
+                    {% set idx = loop.index %}
+                    {% set appointment = appointments[appointment_id] %}
+                    {% if appointment %}
+                    {% set patient = patients[appointment.patient_id] %}
+                    {% if patient %}
+                    <tr>
+                        <td class="position-col">{{ idx }}</td>
+                        <td class="patient-col">
+                            {{ patient.first_name }} {{ patient.last_name }}
+                        </td>
+                        <td class="address-col">
+                            <a href="https://maps.google.com/maps?q={{ patient.street }}, {{ patient.zip_code }} {{ patient.city }}" target="_blank" class="address-link">
+                                {{ patient.street }}, {{ patient.zip_code }} {{ patient.city }}
+                            </a>
+                        </td>
+                        <td class="phone-col">
+                            {% if patient.phone1 %}<a href="tel:{{ patient.phone1 }}" class="phone-link">{{ patient.phone1 }}</a>{% endif %}
+                            {% if patient.phone2 %}<br><a href="tel:{{ patient.phone2 }}" class="phone-link">{{ patient.phone2 }}</a>{% endif %}
+                        </td>
+                        <td class="type-col">{{ appointment.visit_type }}</td>
+                        <td class="duration-col">{{ appointment.duration }} min</td>
+                        <td class="info-col">{{ appointment.info or '' }}</td>
+                        <td class="replacement-col">
+                            {% if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id %}
+                            {% set origin_employee = employees[appointment.origin_employee_id] %}
+                            {% if origin_employee %}
+                            <a href="#employee-{{ origin_employee.id }}-{{ route.weekday }}" class="replacement-link">{{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-appointments">
+                <p>Keine Termine für diesen Tag</p>
+            </div>
+            {% endif %}
+            
+            <!-- Telefonkontakte (TK-Termine) separat anzeigen -->
+            {% set tk_appointments = [] %}
+            {% for appointment_id in appointment_ids %}
+                {% set appointment = appointments[appointment_id] %}
+                {% if appointment and appointment.visit_type == "TK" %}
+                    {% set _ = tk_appointments.append(appointment) %}
+                {% endif %}
+            {% endfor %}
+            
+            <!-- Auch alle direkten Appointments für diesen Mitarbeiter und Tag prüfen -->
+            {% for appointment_id, appointment in appointments.items() %}
+                {% if appointment and appointment.employee_id == emp_data.employee.id and appointment.weekday == weekday and appointment.visit_type == "TK" %}
+                    {% if appointment not in tk_appointments %}
+                        {% set _ = tk_appointments.append(appointment) %}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+            
+            
+            {% if tk_appointments %}
+            <div class="phone-contacts-section">
+                <h4>Telefonkontakte</h4>
+                <table class="phone-contacts-table">
+                    <thead>
+                        <tr>
+                            <th class="patient-col">Patient</th>
+                            <th class="address-col">Adresse</th>
+                            <th class="phone-col">Telefon</th>
+                            <th class="info-col">Info</th>
+                            <th class="replacement-col">Ursprünglicher Mitarbeiter</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for appointment in tk_appointments %}
+                            {% set patient = patients[appointment.patient_id] %}
+                            {% if patient %}
+                                <tr>
+                                    <td class="patient-col">{{ patient.first_name }} {{ patient.last_name }}</td>
+                                    <td class="address-col">
+                                        <a href="https://maps.google.com/maps?q={{ patient.street }}, {{ patient.zip_code }} {{ patient.city }}" target="_blank" class="address-link">
+                                            {{ patient.street }}, {{ patient.zip_code }} {{ patient.city }}
+                                        </a>
+                                    </td>
+                                    <td class="phone-col">
+                                        {% if patient.phone1 %}<a href="tel:{{ patient.phone1 }}" class="phone-link">{{ patient.phone1 }}</a>{% endif %}
+                                        {% if patient.phone2 %}<br><a href="tel:{{ patient.phone2 }}" class="phone-link">{{ patient.phone2 }}</a>{% endif %}
+                                    </td>
+                                    <td class="info-col">{{ appointment.info or '' }}</td>
+                                    <td class="replacement-col">
+                                        {% if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id %}
+                                        {% set origin_employee = employees[appointment.origin_employee_id] %}
+                                        {% if origin_employee %}
+                                        <a href="#employee-{{ origin_employee.id }}-{{ weekday }}" class="replacement-link">{{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
+                                        {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        
+        <!-- Google Maps Static API Karte -->
+        <div class="maps-section">
+            
+            {% set unique_patients = {} %}
+            {% for route in emp_data.routes %}
+                {% for appointment_id in route.get_route_order() %}
+                    {% set appointment = appointments[appointment_id] %}
+                    {% if appointment %}
+                        {% set patient = patients[appointment.patient_id] %}
+                        {% if patient and patient.id not in unique_patients %}
+                            {% set _ = unique_patients.update({patient.id: patient}) %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            
+            {% if unique_patients and unique_patients|length > 0 %}
+            <div class="static-map">
+                {% if google_maps_api_key and google_maps_api_key != '' %}
+                {% set markers = [] %}
+                {% set colors = ['red', 'blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'brown', 'gray', 'black'] %}
+                
+                <!-- Mitarbeiter-Adresse als Startpunkt -->
+                {% if emp_data.employee.street and emp_data.employee.zip_code and emp_data.employee.city %}
+                {% set employee_address = emp_data.employee.street + ", " + emp_data.employee.zip_code + " " + emp_data.employee.city %}
+                {% set employee_marker = "markers=color:blue|size:large|label:S|" + employee_address %}
+                {% set _ = markers.append(employee_marker) %}
+                {% endif %}
+                
+                <!-- Patienten-Marker -->
+                {% for patient in unique_patients.values() %}
+                    {% set address = patient.street + ", " + patient.zip_code + " " + patient.city %}
+                    {% set color = colors[loop.index0 % colors|length] %}
+                    {% set marker = "markers=color:" + color + "|" + address %}
+                    {% set _ = markers.append(marker) %}
+                {% endfor %}
+                
+                {% set map_url = "https://maps.googleapis.com/maps/api/staticmap?size=1600x800&maptype=roadmap&style=feature:poi|visibility:off&" + markers|join('&') + "&key=" + google_maps_api_key %}
+                {% set map_image_base64 = download_map_image(map_url) %}
+                
+                {% if map_image_base64 %}
+                <img src="{{ map_image_base64 }}" 
+                     alt="Patienten-Standorte" 
+                     class="map-image">
+                
+                <div class="map-legend">
+                    <div class="legend-compact">
+                        <!-- Mitarbeiter als Startpunkt -->
+                        {% if emp_data.employee.street and emp_data.employee.zip_code and emp_data.employee.city %}
+                        <div class="legend-item-compact legend-employee">
+                            <span class="legend-marker-employee">S</span>
+                            <span class="legend-name-compact">{{ emp_data.employee.first_name }} {{ emp_data.employee.last_name }} (Start)</span>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Patienten -->
+                        {% set colors = ['red', 'blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'brown', 'gray', 'black'] %}
+                        {% for patient in unique_patients.values() %}
+                        {% set color = colors[loop.index0 % colors|length] %}
+                        <div class="legend-item-compact">
+                            <span class="legend-marker-color legend-color-{{ color }}"></span>
+                            <span class="legend-name-compact">{{ patient.first_name }} {{ patient.last_name }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="map-placeholder">
+                    <p>❌ Fehler beim Laden der Karte</p>
+                    <p>URL konnte nicht geladen werden</p>
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="map-placeholder">
+                    <p>🗺️ Google Maps API Key nicht konfiguriert</p>
+                    <p>Bitte GOOGLE_MAPS_API_KEY in der .env Datei setzen</p>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="no-patients">
+                <p>Keine Patienten für diesen Mitarbeiter gefunden.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% endfor %}
+    
+    <div class="footer">
+        Erstellt am {{ current_time }} • PalliRoute
+    </div>
+</body>
+</html>

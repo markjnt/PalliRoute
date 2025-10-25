@@ -16,7 +16,8 @@ import {
     ListItemButton,
     ListItemText,
     IconButton,
-    Tooltip
+    Tooltip,
+    CircularProgress
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -339,7 +340,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {/* PDF Download Button */}
                     {selectedCalendarWeek && (
-                        <Tooltip title={`PDF für KW ${selectedCalendarWeek} herunterladen`}>
+                        <Tooltip title={downloadPdfMutation.isPending ? 'PDF wird erstellt...' : `PDF für KW ${selectedCalendarWeek} herunterladen`}>
                             <IconButton
                                 onClick={handleDownloadPdf}
                                 disabled={downloadPdfMutation.isPending}
@@ -350,7 +351,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                                     }
                                 }}
                             >
-                                <PictureAsPdfIcon />
+                                {downloadPdfMutation.isPending ? (
+                                    <CircularProgress size={20} color="inherit" />
+                                ) : (
+                                    <PictureAsPdfIcon />
+                                )}
                             </IconButton>
                         </Tooltip>
                     )}

@@ -108,7 +108,7 @@ export const routesApi = {
             const url = window.URL.createObjectURL(response.data);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Routen_KW${calendarWeek}.pdf`;
+            link.download = `PalliRoute_Routenplanung_KW${calendarWeek}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
