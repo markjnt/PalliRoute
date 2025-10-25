@@ -30,20 +30,8 @@ WORKDIR /backend
 # Create data directory with appropriate permissions
 RUN mkdir -p /backend/data && chmod 775 /backend/data
 
-# Install system dependencies for WeasyPrint
-RUN apt-get update && apt-get install -y \
-    libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libharfbuzz0b \
-    libfontconfig1 \
-    libcairo2 \
-    libgdk-pixbuf2.0-0 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libpangocairo-1.0-0 \
-    libatk1.0-0 \
-    libcairo-gobject2 \
-    && rm -rf /var/lib/apt/lists/*
+# Install WeasyPrint system package (includes all dependencies)
+RUN apt-get update && apt-get install -y weasyprint && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better layer caching
 COPY backend/requirements.txt .
