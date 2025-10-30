@@ -261,7 +261,17 @@ def sync_employee_planning(calendar_week: int) -> bool:
                     if shift_info:
                         # Employee has shift - available if not absent (no RB in workSpace)
                         available = not shift_info['is_absent']
-                        custom_text = None
+                        # If available and workSpace contains a tour name, set it as custom text
+                        if available:
+                            work_space_value = shift_info.get('work_space', '')
+                            if 'Tour Nord' in work_space_value:
+                                custom_text = 'Tour Nord'
+                            elif 'Tour Süd' in work_space_value:
+                                custom_text = 'Tour Süd'
+                            else:
+                                custom_text = None
+                        else:
+                            custom_text = None
                     else:
                         # No shift - employee is absent
                         available = False

@@ -247,6 +247,10 @@ def download_route_pdf():
     try:
         # Get query parameters
         calendar_week = request.args.get('calendar_week', type=int)
+        selected_weekday = (request.args.get('selected_weekday') or 'monday').lower()
+        valid_weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        if selected_weekday not in valid_weekdays:
+            selected_weekday = 'monday'
         
         # Validate required parameter
         if not calendar_week:
@@ -314,19 +318,91 @@ def download_route_pdf():
         if not employee_routes_data:
             return jsonify({'error': f'No routes or appointments found for calendar week {calendar_week}'}), 404
         
-        filename = f"PalliRoute_Routenplanung_KW{calendar_week}.pdf"
-        
-        # Generate PDF with all employee routes
-        pdf_buffer = PDFGenerator.generate_calendar_week_pdf(
-            employee_routes_data=employee_routes_data,
-            calendar_week=calendar_week
-        )
-        
-        # Get PDF bytes
-        pdf_bytes = pdf_buffer.getvalue()
-        
-        # Send PDF as response
+        # Split employees into regular and doctors groups
+        regular_data = []
+        doctors_data = []
+        for emp_block in employee_routes_data:
+            func = (emp_block['employee'].function or '').strip()
+            if func in ['Arzt', 'Honorararzt']:
+                doctors_data.append(emp_block)
+            else:
+                regular_data.append(emp_block)
+
+        # Build weekend data (Saturday/Sunday routes only)
+        weekend_days = ['saturday', 'sunday']
+        weekend_employee_data = []
+        # Fetch all weekend routes regardless of employee (area-based)
+        weekend_routes = Route.query.filter(
+            Route.weekday.in_(weekend_days),
+            Route.calendar_week == calendar_week
+        ).order_by(
+            db.case(
+                (Route.weekday == 'saturday', 1),
+                (Route.weekday == 'sunday', 2),
+                else_=3
+            )
+        ).all()
+        # Group by area
+        area_to_routes = {}
+        for r in weekend_routes:
+            key = r.area or 'Unbekannt'
+            area_to_routes.setdefault(key, []).append(r)
+        for area, routes_in_area in area_to_routes.items():
+            weekend_employee_data.append({
+                'group_id': f"area-{area}",
+                'area': area,
+                'area_label': f"RB/AW {area}",
+                'routes': routes_in_area,
+                'appointments': []
+            })
+
+        # Generate all available PDFs and zip them
+        from io import BytesIO
+        import zipfile
         from flask import Response
+        files_to_return = []
+
+        if regular_data:
+            pdf_buffer_regular = PDFGenerator.generate_calendar_week_pdf(
+                employee_routes_data=regular_data,
+                calendar_week=calendar_week,
+                selected_weekday=selected_weekday
+            )
+            files_to_return.append((f"PalliRoute_Routenplanung_Pflege_KW{calendar_week}.pdf", pdf_buffer_regular.getvalue()))
+
+        if doctors_data:
+            pdf_buffer_doctors = PDFGenerator.generate_calendar_week_pdf(
+                employee_routes_data=doctors_data,
+                calendar_week=calendar_week,
+                selected_weekday=selected_weekday
+            )
+            files_to_return.append((f"PalliRoute_Routenplanung_Aerzte_KW{calendar_week}.pdf", pdf_buffer_doctors.getvalue()))
+
+        if weekend_employee_data:
+            pdf_buffer_weekend = PDFGenerator.generate_weekend_pdf(
+                employee_routes_data=weekend_employee_data,
+                calendar_week=calendar_week
+            )
+            files_to_return.append((f"PalliRoute_Routenplanung_Wochenende_KW{calendar_week}.pdf", pdf_buffer_weekend.getvalue()))
+
+        if not files_to_return:
+            return jsonify({'error': f'No routes or appointments found for calendar week {calendar_week}'}), 404
+
+        if len(files_to_return) == 1:
+            filename, pdf_bytes = files_to_return[0]
+            return Response(pdf_bytes, mimetype='application/pdf', headers={
+                'Content-Disposition': f'attachment; filename="{filename}"'
+            })
+
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for fname, fbytes in files_to_return:
+                zipf.writestr(fname, fbytes)
+        zip_buffer.seek(0)
+        zip_filename = f"PalliRoute_Routenplanung_KW{calendar_week}.zip"
+        return Response(zip_buffer.getvalue(), mimetype='application/zip', headers={
+            'Content-Disposition': f'attachment; filename="{zip_filename}"'
+        })
         return Response(
             pdf_bytes,
             mimetype='application/pdf',

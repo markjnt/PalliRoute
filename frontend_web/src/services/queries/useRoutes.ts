@@ -126,6 +126,7 @@ export const useReorderAppointment = () => {
 // Hook to download route PDF for a calendar week
 export const useDownloadRoutePdf = () => {
   return useMutation({
-    mutationFn: (calendarWeek: number) => routesApi.downloadRoutePdf(calendarWeek),
+    mutationFn: (args: { calendarWeek: number; selectedWeekday: Weekday }) =>
+      routesApi.downloadRoutePdf(args.calendarWeek, args.selectedWeekday),
   });
-}; 
+};

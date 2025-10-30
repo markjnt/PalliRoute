@@ -663,10 +663,12 @@ class ExcelImportService:
                     visit_type_value = visit_type if visit_type is not None else ""
                     
                     if visit_type is not None:
-                        # Prüfe ob weekend_area gesetzt ist, wenn Weekend-Termine vorhanden sind
+                        # Wenn Weekend-Termin vorhanden ist, aber keine Touren-Wochenende-Angabe,
+                        # überspringen wir diesen Eintrag ohne Fehler (analog zum anderen Fall)
                         if weekend_area is None:
-                            raise ValueError(f"Die Touren-Wochenende Spalte fehlt für {patient.first_name} {patient.last_name}")
-                        
+                            print(f"      Warning: Weekend visit present but 'Touren-Wochenende' missing for {patient.first_name} {patient.last_name}; skipping weekend appointment.")
+                            continue
+
                         appointment = Appointment(
                             patient_id=patient.id,
                             employee_id=None,  # No employee assignment for weekend appointments

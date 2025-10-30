@@ -167,8 +167,11 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         }
 
         try {
-            await downloadPdfMutation.mutateAsync(selectedCalendarWeek);
-            setNotification(`PDF für KW ${selectedCalendarWeek} erfolgreich heruntergeladen`, 'success');
+            await downloadPdfMutation.mutateAsync({
+                calendarWeek: selectedCalendarWeek,
+                selectedWeekday: selectedWeekday,
+            });
+            setNotification(`ZIP für KW ${selectedCalendarWeek} erfolgreich heruntergeladen`, 'success');
         } catch (error: any) {
             console.error('Error downloading PDF:', error);
             setNotification('Fehler beim Herunterladen des PDFs', 'error');
@@ -340,7 +343,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {/* PDF Download Button */}
                     {selectedCalendarWeek && (
-                        <Tooltip title={downloadPdfMutation.isPending ? 'PDF wird erstellt...' : `PDF für KW ${selectedCalendarWeek} herunterladen`}>
+                        <Tooltip title={downloadPdfMutation.isPending ? 'PDFs werden erstellt...' : `PDFs für KW ${selectedCalendarWeek} herunterladen`}>
                             <IconButton
                                 onClick={handleDownloadPdf}
                                 disabled={downloadPdfMutation.isPending}

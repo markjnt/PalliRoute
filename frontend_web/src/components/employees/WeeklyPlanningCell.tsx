@@ -248,7 +248,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                             </Tooltip>
                         ) : (
                             <Chip
-                                label={!isAvailable && currentCustomText ? currentCustomText : statusInfo.label}
+                                label={currentCustomText ? currentCustomText : statusInfo.label}
                                 size="small"
                                 sx={{
                                     backgroundColor: statusInfo.color,

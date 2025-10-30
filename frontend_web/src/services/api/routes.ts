@@ -97,18 +97,27 @@ export const routesApi = {
     },
 
     // Download route PDF for a calendar week
-    async downloadRoutePdf(calendarWeek: number): Promise<void> {
+    async downloadRoutePdf(calendarWeek: number, selectedWeekday: Weekday): Promise<void> {
         try {
             const response = await api.get('/routes/download-pdf', {
-                params: { calendar_week: calendarWeek },
+                params: { calendar_week: calendarWeek, selected_weekday: selectedWeekday },
                 responseType: 'blob',
             });
+
+            const contentType = response.headers['content-type'] || '';
+            const disposition = response.headers['content-disposition'] as string | undefined;
+            let filename = disposition?.match(/filename="?([^";]+)"?/i)?.[1];
+            if (!filename) {
+                filename = contentType.includes('application/zip')
+                  ? `PalliRoute_Routenplanung_KW${calendarWeek}.zip`
+                  : `PalliRoute_Routenplanung_Pflege_KW${calendarWeek}.pdf`;
+            }
 
             // Create download link
             const url = window.URL.createObjectURL(response.data);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `PalliRoute_Routenplanung_KW${calendarWeek}.pdf`;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
