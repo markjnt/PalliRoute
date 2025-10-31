@@ -89,7 +89,7 @@ export const WeekendTourHeader: React.FC<WeekendTourHeaderProps> = ({ area }) =>
                     })()
                 }}
             >
-                RB/AW {area}
+                AW {area}
             </Typography>
         </Box>
     );

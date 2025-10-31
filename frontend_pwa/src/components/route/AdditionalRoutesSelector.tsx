@@ -51,9 +51,9 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
         .filter(area => area !== selectedWeekendArea)
         .map(area => ({
           id: area as any,
-          first_name: `RB/AW ${area}`,
+          first_name: `AW ${area}`,
           last_name: 'Bereich',
-          function: 'RB/AW Tour'
+          function: 'AW Tour'
         }));
     } else {
       // For employees, show other employees with routes

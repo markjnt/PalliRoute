@@ -146,7 +146,7 @@ export const createWeekendAreaMarkerData = (area: string): MarkerData | null => 
   
   return {
     position,
-    title: `RB/AW Tour: ${area}-Bereich`,
+    title: `AW Tour: ${area}-Bereich`,
     type: 'weekend_area',
     area: area,
     employeeId: null,

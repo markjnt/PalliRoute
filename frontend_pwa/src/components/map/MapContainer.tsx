@@ -180,7 +180,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           polyline: route.polyline,
           totalDistance: route.total_distance || 0,
           totalDuration: route.total_duration || 0,
-          employeeName: `RB/AW ${route.area}`
+          employeeName: `AW ${route.area}`
         };
       } else {
         // Für Mitarbeiter-Routen: Bestehende Logik

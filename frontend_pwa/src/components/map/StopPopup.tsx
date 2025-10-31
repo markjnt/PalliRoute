@@ -264,7 +264,7 @@ export const StopPopup: React.FC<StopPopupProps> = ({
           {isAdditionalRoute && (
             <Box sx={{ mt: 2 }}>
               <Chip
-                label={employee ? `${employee.first_name} ${employee.last_name}` : `RB/AW ${marker.area || 'Bereich'}`}
+                label={employee ? `${employee.first_name} ${employee.last_name}` : `AW ${marker.area || 'Bereich'}`}
                 size="small"
                 sx={{
                   bgcolor: employee ? getColorForTour(employee.id) : (marker.area ? 

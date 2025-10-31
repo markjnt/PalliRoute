@@ -2,41 +2,107 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Wochenendtouren KW {{ calendar_week }}</title>
+    <title>Routenplanung Wochenendtouren</title>
     <style>
         @page { size: A4; margin: 2cm; }
         body { font-family: 'Helvetica','Arial',sans-serif; font-size: 12px; color:#333; }
-        .header { text-align:center; margin-bottom: 24px; }
-        .title { font-size: 22px; font-weight: 700; color: #007AFF; }
+        .header { text-align:center; margin-bottom: 30px; }
+        .title { font-size: 24px; font-weight: bold; color: #007AFF; margin-bottom: 10px; }
+        .subtitle { font-size: 14px; color: #666; }
         .employee-section { page-break-before: always; }
         .employee-section:first-child { page-break-before: auto; }
         .employee-header { margin-bottom: 12px; padding: 10px 12px; background:#f8f9fa; border:1px solid #e9ecef; border-radius:8px; }
         .employee-name { font-size: 16px; font-weight: 600; color:#1d1d1f; }
         .appointments-table { width:100%; border-collapse: collapse; }
-        .appointments-table th { background:#f5f5f5; font-weight:700; font-size: 10px; padding:6px; text-align:left; }
-        .appointments-table td { font-size: 9px; padding:6px; border-bottom: 0.5px solid #ddd; vertical-align: top; }
-        .patient-col { width: 35%; }
-        .weekday-col { width: 32.5%; }
+        .appointments-table th { background:#f5f5f5; font-weight:700; font-size: 10px; padding:6px; text-align:left; border-bottom:1px solid #ddd; border-right:1px solid #e0e0e0; }
+        .appointments-table td { font-size: 9px; padding:6px; border-bottom: 0.5px solid #ddd; vertical-align: top; border-right:1px solid #eee; }
+        .appointments-table th:last-child, .appointments-table td:last-child { border-right: none; }
+        .num-col { width: 6%; text-align: right; }
+        .patient-col { width: 28%; }
+        .address-col { width: 22%; }
+        .phone-col { width: 14%; }
+        .phone-col, .appointments-table th.phone-col, .appointments-table td.phone-col { border-right: 2px solid #d0d0d0; }
+        .weekday-col { width: 15%; }
         .address-link, .phone-link { color:#007AFF; text-decoration: none; }
+        .weekday-counts { margin-top: 2px; line-height: 1.2; }
+        .count-hb { color: #2196F3; font-weight: 600; }
+        .count-tk { color: #4CAF50; font-weight: 600; }
+        .count-na { color: #d32f2f; font-weight: 600; }
+        
+        /* Colored cell backgrounds based on visit type */
+        .cell-hb { background-color: #E3F2FD !important; }
+        .cell-tk { background-color: #E8F5E9 !important; }
+        .cell-na { background-color: #FFEBEE !important; }
+        
+        /* Zebra striping only for info columns (num, patient, address, phone) */
+        .appointments-table tr:nth-child(even) .num-col,
+        .appointments-table tr:nth-child(even) .patient-col,
+        .appointments-table tr:nth-child(even) .address-col,
+        .appointments-table tr:nth-child(even) .phone-col {
+            background-color: #fafafa;
+        }
+        
+        .appointments-table tr:nth-child(odd) .num-col,
+        .appointments-table tr:nth-child(odd) .patient-col,
+        .appointments-table tr:nth-child(odd) .address-col,
+        .appointments-table tr:nth-child(odd) .phone-col {
+            background-color: white;
+        }
+        
+        /* Weekday columns always gray by default (unless colored by visit type) */
+        .appointments-table td.weekday-col {
+            background-color: #f5f5f5;
+        }
     </style>
     </head>
     <body>
         <div class="header">
-            <div class="title">Wochenendtouren KW {{ calendar_week }}</div>
+            <div class="title">Routenplanung Wochenendtouren</div>
+            <div class="subtitle">Kalenderwoche {{ calendar_week }}</div>
         </div>
+
+        <!-- Overview Table -->
+        {% if overview_data %}
+        <div class="overview-section" style="page-break-after: always; margin-bottom: 30px;">
+            <table class="overview-table" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <thead>
+                    <tr>
+                        <th style="background-color: #f5f5f5; padding: 8px; text-align: left; border: 1px solid #ddd; font-size: 10px; font-weight: 600;">Area</th>
+                        <th style="background-color: #f5f5f5; padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 10px; font-weight: 600;">Samstag</th>
+                        <th style="background-color: #f5f5f5; padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 10px; font-weight: 600;">Sonntag</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in overview_data %}
+                    <tr>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; {% if loop.index % 2 == 0 %}background-color: #fafafa;{% else %}background-color: white;{% endif %}">{{ item.name }}</td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; {% if loop.index % 2 == 0 %}background-color: #fafafa;{% else %}background-color: white;{% endif %}"><div class="weekday-counts"><div class="count-hb">HB {{ item.counts['saturday'].HB }}</div><div class="count-tk">TK {{ item.counts['saturday'].TK }}</div><div class="count-na">NA {{ item.counts['saturday'].NA }}</div></div></td>
+                        <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; {% if loop.index % 2 == 0 %}background-color: #fafafa;{% else %}background-color: white;{% endif %}"><div class="weekday-counts"><div class="count-hb">HB {{ item.counts['sunday'].HB }}</div><div class="count-tk">TK {{ item.counts['sunday'].TK }}</div><div class="count-na">NA {{ item.counts['sunday'].NA }}</div></div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
 
         {% for emp_data in employee_routes_data %}
         <div class="employee-section" id="area-{{ emp_data.group_id }}-weekend">
-            <div class="employee-header">
-                <div class="employee-name">{{ emp_data.area_label }}</div>
-            </div>
-
             <table class="appointments-table">
                 <thead>
                     <tr>
+                        <th class="employee-info-col" colspan="4" style="text-align:left; font-weight:600; background:#f8f9fa; border-bottom:1px solid #e0e0e0; padding:8px 10px; border-right:2px solid #d0d0d0;">
+                            <div style="font-size:16px;">{{ emp_data.area_label }}</div>
+                        </th>
+                        <th class="period-col" colspan="2" style="text-align:center; font-weight:600; background:#f0f4ff; border-bottom:1px solid #cfd8ff; padding:8px 10px;">{{ period_label_weekend }}</th>
+                    </tr>
+                    <tr>
+                        <th class="num-col">#</th>
                         <th class="patient-col">Patient</th>
-                        <th class="weekday-col">Samstag</th>
-                        <th class="weekday-col">Sonntag</th>
+                        <th class="address-col">Adresse</th>
+                        <th class="phone-col">Telefon</th>
+                        {% set wc = weekend_counts_by_group[emp_data.group_id] %}
+                        <th class="weekday-col"><div style="font-size:9px; color:#555; font-weight:600;">{{ weekend_date_labels['saturday'] }}</div>Samstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['saturday'].HB }}</div><div class="count-tk">TK {{ wc['saturday'].TK }}</div><div class="count-na">NA {{ wc['saturday'].NA }}</div></div>{% endif %}</th>
+                        <th class="weekday-col"><div style="font-size:9px; color:#555; font-weight:600;">{{ weekend_date_labels['sunday'] }}</div>Sonntag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['sunday'].HB }}</div><div class="count-tk">TK {{ wc['sunday'].TK }}</div><div class="count-na">NA {{ wc['sunday'].NA }}</div></div>{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,23 +110,28 @@
                     {% for row in rows %}
                     {% set patient = row.patient %}
                     <tr>
+                        <td class="num-col">{{ loop.index }}</td>
                         <td class="patient-col">
-                            <strong>{{ patient.first_name }} {{ patient.last_name }}</strong><br>
+                            <strong>{{ patient.first_name }} {{ patient.last_name }}</strong>
+                        </td>
+                        <td class="address-col">
                             <a href="https://maps.google.com/maps?q={{ patient.street }}, {{ patient.zip_code }} {{ patient.city }}" target="_blank" class="address-link">
                                 {{ patient.street }}, {{ patient.zip_code }} {{ patient.city }}
                             </a>
-                            {% if patient.phone1 or patient.phone2 %}<br>
-                                {% if patient.phone1 %}<a href="tel:{{ patient.phone1 }}" class="phone-link">{{ patient.phone1 }}</a>{% endif %}
-                                {% if patient.phone2 %}{% if patient.phone1 %} • {% endif %}<a href="tel:{{ patient.phone2 }}" class="phone-link">{{ patient.phone2 }}</a>{% endif %}
-                            {% endif %}
+                        </td>
+                        <td class="phone-col">
+                            {% if patient.phone1 %}<a href="tel:{{ patient.phone1 }}" class="phone-link">{{ patient.phone1 }}</a>{% endif %}
+                            {% if patient.phone2 %}{% if patient.phone1 %}<br>{% endif %}<a href="tel:{{ patient.phone2 }}" class="phone-link">{{ patient.phone2 }}</a>{% endif %}
                         </td>
                         {% set cell = row.cells['saturday'] %}
-                        <td class="weekday-col">
+                        {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
+                        <td class="weekday-col {{ vt_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
                         </td>
                         {% set cell = row.cells['sunday'] %}
-                        <td class="weekday-col">
+                        {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
+                        <td class="weekday-col {{ vt_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
                         </td>

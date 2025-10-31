@@ -66,6 +66,26 @@ class PDFGenerator:
         # Rendering order is always Monday..Friday; only sorting uses selected day
         weekday_order = weekdays[:]
 
+        # Compute dates for the given ISO calendar week (current year)
+        from datetime import date
+        current_year = datetime.now().year
+        def fmt(d: date) -> str:
+            return d.strftime('%d.%m.%Y')
+        iso_mon = date.fromisocalendar(current_year, calendar_week, 1)
+        iso_tue = date.fromisocalendar(current_year, calendar_week, 2)
+        iso_wed = date.fromisocalendar(current_year, calendar_week, 3)
+        iso_thu = date.fromisocalendar(current_year, calendar_week, 4)
+        iso_fri = date.fromisocalendar(current_year, calendar_week, 5)
+        iso_sun = date.fromisocalendar(current_year, calendar_week, 7)
+        weekday_date_labels = {
+            'monday': fmt(iso_mon),
+            'tuesday': fmt(iso_tue),
+            'wednesday': fmt(iso_wed),
+            'thursday': fmt(iso_thu),
+            'friday': fmt(iso_fri),
+        }
+        period_label_weekdays = f"Zeitraum: {fmt(iso_mon)} - {fmt(iso_sun)} (KW: {calendar_week})"
+
         template_data = {
             'calendar_week': calendar_week,
             'employee_routes_data': employee_routes_data,
@@ -80,8 +100,31 @@ class PDFGenerator:
             'selected_weekday': selected_weekday_norm,
             'weekday_order': weekday_order,
             'weekday_labels': [PDFGenerator._translate_weekday(w) for w in weekday_order],
-            'weekday_counts_by_employee': {}
+            'weekday_counts_by_employee': {},
+            'weekday_date_labels': weekday_date_labels,
+            'period_label_weekdays': period_label_weekdays,
+            'overview_data': [],
         }
+        
+        # Prepare overview data (summary table with HB/TK/NA per day)
+        for emp_data in employee_routes_data:
+            employee = emp_data['employee']
+            overview_counts = { day: {'HB': 0, 'TK': 0, 'NA': 0} for day in weekdays }
+            for weekday in weekdays:
+                for vt in ('HB', 'TK', 'NA'):
+                    cnt = Appointment.query.filter(
+                        Appointment.employee_id == employee.id,
+                        Appointment.weekday == weekday,
+                        Appointment.calendar_week == calendar_week,
+                        Appointment.visit_type == vt
+                    ).count()
+                    overview_counts[weekday][vt] = cnt
+            template_data['overview_data'].append({
+                'name': f"{employee.first_name} {employee.last_name}",
+                'area': employee.area or '',
+                'function': employee.function or '',
+                'counts': overview_counts
+            })
         
         # Collect all appointments, patients, employees, and planning data for template
         consolidated_by_employee = {}
@@ -109,6 +152,20 @@ class PDFGenerator:
             patient_rows = {}
             selected_day_order_ids = []
             weekday_counts = { day: {'HB': 0, 'TK': 0, 'NA': 0} for day in weekdays }
+            
+            # Count all appointments for this employee by weekday and visit_type
+            # This ensures accurate counts regardless of whether appointments are in routes
+            for weekday in weekdays:
+                appointments_for_day = Appointment.query.filter(
+                    Appointment.employee_id == employee.id,
+                    Appointment.weekday == weekday,
+                    Appointment.calendar_week == calendar_week
+                ).all()
+                
+                for appointment in appointments_for_day:
+                    vt = (appointment.visit_type or '').upper()
+                    if vt in ('HB', 'TK', 'NA'):
+                        weekday_counts[weekday][vt] += 1
 
             # Collect appointments from routes
             for route in emp_data['routes']:
@@ -131,16 +188,13 @@ class PDFGenerator:
                                     'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None} for day in weekdays }
                                 }
                                 patient_rows[patient.id] = row
-                            # Fill cell for this weekday
-                            if appointment.weekday in weekdays:
+                            # Fill cell for this weekday (only for this employee)
+                            if appointment.weekday in weekdays and appointment.employee_id == employee.id:
                                 row['cells'][appointment.weekday] = {
                                     'visit_type': appointment.visit_type or '',
                                     'info': appointment.info or '',
                                     'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None
                                 }
-                                vt = (appointment.visit_type or '').upper()
-                                if vt in ('HB', 'TK', 'NA'):
-                                    weekday_counts[appointment.weekday][vt] += 1
                             
                             # Also collect origin employee if it's a replacement
                             if appointment.origin_employee_id:
@@ -171,9 +225,6 @@ class PDFGenerator:
                                 'info': appointment.info or '',
                                 'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None
                             }
-                            vt = (appointment.visit_type or '').upper()
-                            if vt in ('HB', 'TK', 'NA'):
-                                weekday_counts[appointment.weekday][vt] += 1
                         
                         # Also collect origin employee if it's a replacement
                         if appointment.origin_employee_id:
@@ -239,6 +290,20 @@ class PDFGenerator:
         from jinja2 import Environment, FileSystemLoader
         weekdays = ['saturday', 'sunday']
 
+        # Compute weekend dates for the given ISO calendar week (current year)
+        from datetime import date
+        current_year = datetime.now().year
+        def fmt(d: date) -> str:
+            return d.strftime('%d.%m.%Y')
+        iso_mon = date.fromisocalendar(current_year, calendar_week, 1)
+        iso_sat = date.fromisocalendar(current_year, calendar_week, 6)
+        iso_sun = date.fromisocalendar(current_year, calendar_week, 7)
+        weekend_date_labels = {
+            'saturday': fmt(iso_sat),
+            'sunday': fmt(iso_sun),
+        }
+        period_label_weekend = f"Zeitraum: {fmt(iso_mon)} - {fmt(iso_sun)} (KW: {calendar_week})"
+
         template_data = {
             'calendar_week': calendar_week,
             'employee_routes_data': employee_routes_data,
@@ -247,11 +312,47 @@ class PDFGenerator:
             'patients': {},
             'employees': {},
             'translate_weekday': PDFGenerator._translate_weekday,
+            'weekend_date_labels': weekend_date_labels,
+            'period_label_weekend': period_label_weekend,
+            'weekend_counts_by_group': {},
+            'overview_data': [],
         }
+        
+        # Prepare overview data for weekend (by area) with HB/TK/NA per day (Sat-Sun)
+        weekdays_overview = ['saturday', 'sunday']
+        area_overview = {}
+        for emp_data in employee_routes_data:
+            area_label = emp_data.get('area_label', 'Unbekannt')
+            area_key = emp_data.get('area', '')
+            if area_label not in area_overview:
+                area_overview[area_label] = { day: {'HB': 0, 'TK': 0, 'NA': 0} for day in weekdays_overview }
+            for weekday in weekdays_overview:
+                for vt in ('HB', 'TK', 'NA'):
+                    cnt = Appointment.query.join(
+                        Patient, Appointment.patient_id == Patient.id
+                    ).filter(
+                        Patient.area == area_key,
+                        Appointment.weekday == weekday,
+                        Appointment.calendar_week == calendar_week,
+                        Appointment.visit_type == vt
+                    ).count()
+                    area_overview[area_label][weekday][vt] += cnt
+        for area_label, counts in area_overview.items():
+            template_data['overview_data'].append({
+                'name': area_label,
+                'area': '',
+                'function': '',
+                'counts': counts
+            })
 
         consolidated_by_employee = {}
         for emp_data in employee_routes_data:
             group_id = emp_data.get('group_id') or 'group-unknown'
+            # Initialize counts for this group
+            weekend_counts = {
+                'saturday': {'HB': 0, 'TK': 0, 'NA': 0},
+                'sunday': {'HB': 0, 'TK': 0, 'NA': 0}
+            }
 
             patient_rows = {}
             saturday_order_ids = []
@@ -281,6 +382,23 @@ class PDFGenerator:
                             'visit_type': appointment.visit_type or '',
                             'info': appointment.info or ''
                         }
+                        vt = (appointment.visit_type or '').upper()
+                        if vt in ('HB', 'TK', 'NA'):
+                            weekend_counts[appointment.weekday][vt] += 1
+
+            # Override weekend_counts to count by AREA + WEEKDAY + CALENDAR_WEEK (not only routed)
+            area_key = emp_data.get('area', '')
+            for wd in ['saturday', 'sunday']:
+                for vt in ('HB', 'TK', 'NA'):
+                    cnt = Appointment.query.join(
+                        Patient, Appointment.patient_id == Patient.id
+                    ).filter(
+                        Patient.area == area_key,
+                        Appointment.weekday == wd,
+                        Appointment.calendar_week == calendar_week,
+                        Appointment.visit_type == vt
+                    ).count()
+                    weekend_counts[wd][vt] = cnt
 
             # Sorting: first by presence/order on Saturday, then alphabetically
             saturday_positions = {}
@@ -302,6 +420,7 @@ class PDFGenerator:
 
             sorted_rows = [r for _, r in sorted(patient_rows.items(), key=sort_key)]
             consolidated_by_employee[group_id] = sorted_rows
+            template_data['weekend_counts_by_group'][group_id] = weekend_counts
 
         template_data['consolidated_by_employee'] = consolidated_by_employee
 

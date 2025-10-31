@@ -351,7 +351,7 @@ def download_route_pdf():
             weekend_employee_data.append({
                 'group_id': f"area-{area}",
                 'area': area,
-                'area_label': f"RB/AW {area}",
+                'area_label': f"AW {area}",
                 'routes': routes_in_area,
                 'appointments': []
             })

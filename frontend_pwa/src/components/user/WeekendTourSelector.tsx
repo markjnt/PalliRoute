@@ -33,9 +33,9 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
   onToggleExpanded
 }) => {
   const weekendAreas = [
-    { id: 'Nord', label: 'RB/AW Nord', color: '#ff9800', chipColor: '#1976d2' },
-    { id: 'Mitte', label: 'RB/AW Mitte', color: '#ff9800', chipColor: '#7b1fa2' },
-    { id: 'Süd', label: 'RB/AW Süd', color: '#ff9800', chipColor: '#388e3c' },
+    { id: 'Nord', label: 'AW Nord', color: '#ff9800', chipColor: '#1976d2' },
+    { id: 'Mitte', label: 'AW Mitte', color: '#ff9800', chipColor: '#7b1fa2' },
+    { id: 'Süd', label: 'AW Süd', color: '#ff9800', chipColor: '#388e3c' },
   ];
 
   const getAreaColor = (area: string) => {

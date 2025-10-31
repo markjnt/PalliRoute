@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 interface CalendarWeekState {
   selectedCalendarWeek: number | null;
@@ -7,15 +6,8 @@ interface CalendarWeekState {
   clearSelectedCalendarWeek: () => void;
 }
 
-export const useCalendarWeekStore = create<CalendarWeekState>()(
-  persist(
-    (set) => ({
-      selectedCalendarWeek: null,
-      setSelectedCalendarWeek: (week: number) => set({ selectedCalendarWeek: week }),
-      clearSelectedCalendarWeek: () => set({ selectedCalendarWeek: null }),
-    }),
-    {
-      name: 'pwa-calendar-week-storage',
-    }
-  )
-);
+export const useCalendarWeekStore = create<CalendarWeekState>()((set) => ({
+  selectedCalendarWeek: null,
+  setSelectedCalendarWeek: (week: number) => set({ selectedCalendarWeek: week }),
+  clearSelectedCalendarWeek: () => set({ selectedCalendarWeek: null }),
+}));
