@@ -188,6 +188,26 @@
         .function-chip.arzt { background-color: #FFC107; }
         .function-chip.honorar { background-color: #795548; }
         .function-chip.default { background-color: #6c757d; }
+
+        /* Status chips (overview) */
+        .status-chip {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 9px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .status-chip.available {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .status-chip.absent {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
         
         .num-col { width: 4%; text-align: right; }
         .patient-col { width: 20%; }
@@ -549,20 +569,56 @@
                             <span class="function-chip {{ fn_class }}" style="margin-left: 8px; padding:2px 6px; border-radius:10px; font-size:9px;">{{ item.function }}</span>
                         {% endif %}
                     </td>
-                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px;">
-                        <div class="weekday-counts"><div class="count-hb">HB {{ item.counts['monday'].HB }}</div><div class="count-tk">TK {{ item.counts['monday'].TK }}</div><div class="count-na">NA {{ item.counts['monday'].NA }}</div></div>
+                    {% set op = overview_planning.get(item.id) %}
+                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
+                        {% set pl = op['monday'] if op else None %}
+                        {% if pl and not pl.available %}
+                            <span class="status-chip absent">Abwesend</span>
+                        {% elif pl and pl.custom_text %}
+                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                        {% elif pl and pl.available %}
+                            <span class="status-chip available">Verfügbar</span>
+                        {% endif %}
                     </td>
-                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px;">
-                        <div class="weekday-counts"><div class="count-hb">HB {{ item.counts['tuesday'].HB }}</div><div class="count-tk">TK {{ item.counts['tuesday'].TK }}</div><div class="count-na">NA {{ item.counts['tuesday'].NA }}</div></div>
+                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
+                        {% set pl = op['tuesday'] if op else None %}
+                        {% if pl and not pl.available %}
+                            <span class="status-chip absent">Abwesend</span>
+                        {% elif pl and pl.custom_text %}
+                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                        {% elif pl and pl.available %}
+                            <span class="status-chip available">Verfügbar</span>
+                        {% endif %}
                     </td>
-                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px;">
-                        <div class="weekday-counts"><div class="count-hb">HB {{ item.counts['wednesday'].HB }}</div><div class="count-tk">TK {{ item.counts['wednesday'].TK }}</div><div class="count-na">NA {{ item.counts['wednesday'].NA }}</div></div>
+                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
+                        {% set pl = op['wednesday'] if op else None %}
+                        {% if pl and not pl.available %}
+                            <span class="status-chip absent">Abwesend</span>
+                        {% elif pl and pl.custom_text %}
+                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                        {% elif pl and pl.available %}
+                            <span class="status-chip available">Verfügbar</span>
+                        {% endif %}
                     </td>
-                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px;">
-                        <div class="weekday-counts"><div class="count-hb">HB {{ item.counts['thursday'].HB }}</div><div class="count-tk">TK {{ item.counts['thursday'].TK }}</div><div class="count-na">NA {{ item.counts['thursday'].NA }}</div></div>
+                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
+                        {% set pl = op['thursday'] if op else None %}
+                        {% if pl and not pl.available %}
+                            <span class="status-chip absent">Abwesend</span>
+                        {% elif pl and pl.custom_text %}
+                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                        {% elif pl and pl.available %}
+                            <span class="status-chip available">Verfügbar</span>
+                        {% endif %}
                     </td>
-                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px;">
-                        <div class="weekday-counts"><div class="count-hb">HB {{ item.counts['friday'].HB }}</div><div class="count-tk">TK {{ item.counts['friday'].TK }}</div><div class="count-na">NA {{ item.counts['friday'].NA }}</div></div>
+                    <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
+                        {% set pl = op['friday'] if op else None %}
+                        {% if pl and not pl.available %}
+                            <span class="status-chip absent">Abwesend</span>
+                        {% elif pl and pl.custom_text %}
+                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                        {% elif pl and pl.available %}
+                            <span class="status-chip available">Verfügbar</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -627,11 +683,11 @@
                         {% set pl_we = employee_planning[pk_we] %}
                         {% set pl_th = employee_planning[pk_th] %}
                         {% set pl_fr = employee_planning[pk_fr] %}
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['monday'] }}</div>Montag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['monday'].HB }}</div><div class="count-tk">TK {{ wc['monday'].TK }}</div><div class="count-na">NA {{ wc['monday'].NA }}</div></div>{% endif %}{% if pl_mo and not pl_mo.available %}<br><span class="absence-info">Abwesend{% if pl_mo.custom_text %}: {{ pl_mo.custom_text }}{% endif %}</span>{% if pl_mo.replacement_id %}{% set repl = employees[pl_mo.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-monday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['tuesday'] }}</div>Dienstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['tuesday'].HB }}</div><div class="count-tk">TK {{ wc['tuesday'].TK }}</div><div class="count-na">NA {{ wc['tuesday'].NA }}</div></div>{% endif %}{% if pl_tu and not pl_tu.available %}<br><span class="absence-info">Abwesend{% if pl_tu.custom_text %}: {{ pl_tu.custom_text }}{% endif %}</span>{% if pl_tu.replacement_id %}{% set repl = employees[pl_tu.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-tuesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['wednesday'] }}</div>Mittwoch{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['wednesday'].HB }}</div><div class="count-tk">TK {{ wc['wednesday'].TK }}</div><div class="count-na">NA {{ wc['wednesday'].NA }}</div></div>{% endif %}{% if pl_we and not pl_we.available %}<br><span class="absence-info">Abwesend{% if pl_we.custom_text %}: {{ pl_we.custom_text }}{% endif %}</span>{% if pl_we.replacement_id %}{% set repl = employees[pl_we.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-wednesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['thursday'] }}</div>Donnerstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['thursday'].HB }}</div><div class="count-tk">TK {{ wc['thursday'].TK }}</div><div class="count-na">NA {{ wc['thursday'].NA }}</div></div>{% endif %}{% if pl_th and not pl_th.available %}<br><span class="absence-info">Abwesend{% if pl_th.custom_text %}: {{ pl_th.custom_text }}{% endif %}</span>{% if pl_th.replacement_id %}{% set repl = employees[pl_th.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-thursday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['friday'] }}</div>Freitag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['friday'].HB }}</div><div class="count-tk">TK {{ wc['friday'].TK }}</div><div class="count-na">NA {{ wc['friday'].NA }}</div></div>{% endif %}{% if pl_fr and not pl_fr.available %}<br><span class="absence-info">Abwesend{% if pl_fr.custom_text %}: {{ pl_fr.custom_text }}{% endif %}</span>{% if pl_fr.replacement_id %}{% set repl = employees[pl_fr.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-friday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
+                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['monday'] }}</div>Montag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['monday'].HB }}</div><div class="count-tk">TK {{ wc['monday'].TK }}</div><div class="count-na">NA {{ wc['monday'].NA }}</div></div>{% endif %}{% if pl_mo and not pl_mo.available %}<br><span class="absence-info">Abwesend</span>{% if pl_mo.replacement_id %}{% set repl = employees[pl_mo.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-monday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
+                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['tuesday'] }}</div>Dienstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['tuesday'].HB }}</div><div class="count-tk">TK {{ wc['tuesday'].TK }}</div><div class="count-na">NA {{ wc['tuesday'].NA }}</div></div>{% endif %}{% if pl_tu and not pl_tu.available %}<br><span class="absence-info">Abwesend</span>{% if pl_tu.replacement_id %}{% set repl = employees[pl_tu.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-tuesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
+                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['wednesday'] }}</div>Mittwoch{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['wednesday'].HB }}</div><div class="count-tk">TK {{ wc['wednesday'].TK }}</div><div class="count-na">NA {{ wc['wednesday'].NA }}</div></div>{% endif %}{% if pl_we and not pl_we.available %}<br><span class="absence-info">Abwesend</span>{% if pl_we.replacement_id %}{% set repl = employees[pl_we.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-wednesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
+                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['thursday'] }}</div>Donnerstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['thursday'].HB }}</div><div class="count-tk">TK {{ wc['thursday'].TK }}</div><div class="count-na">NA {{ wc['thursday'].NA }}</div></div>{% endif %}{% if pl_th and not pl_th.available %}<br><span class="absence-info">Abwesend</span>{% if pl_th.replacement_id %}{% set repl = employees[pl_th.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-thursday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
+                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['friday'] }}</div>Freitag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['friday'].HB }}</div><div class="count-tk">TK {{ wc['friday'].TK }}</div><div class="count-na">NA {{ wc['friday'].NA }}</div></div>{% endif %}{% if pl_fr and not pl_fr.available %}<br><span class="absence-info">Abwesend</span>{% if pl_fr.replacement_id %}{% set repl = employees[pl_fr.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-friday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -749,6 +805,7 @@
             <div class="static-map">
                 {% if google_maps_api_key and google_maps_api_key != '' %}
                 {% set markers = [] %}
+                {% set address_list = [] %}
                 {% set colors = ['red', 'blue', 'green', 'orange', 'purple', 'yellow', 'pink', 'brown', 'gray', 'black'] %}
                 
                 <!-- Mitarbeiter-Adresse als Startpunkt -->
@@ -756,6 +813,7 @@
                 {% set employee_address = emp_data.employee.street + ", " + emp_data.employee.zip_code + " " + emp_data.employee.city %}
                 {% set employee_marker = "markers=color:blue|size:large|label:S|" + employee_address %}
                 {% set _ = markers.append(employee_marker) %}
+                {% set _ = address_list.append(employee_address) %}
                 {% endif %}
                 
                 <!-- Patienten-Marker -->
@@ -764,14 +822,20 @@
                     {% set color = colors[loop.index0 % colors|length] %}
                     {% set marker = "markers=color:" + color + "|" + address %}
                     {% set _ = markers.append(marker) %}
+                    {% set _ = address_list.append(address) %}
                 {% endfor %}
                 
                 {# Slightly zoomed out using center on employee and fixed zoom #}
                 {% set base_url = "https://maps.googleapis.com/maps/api/staticmap?size=1600x800&maptype=roadmap&style=feature:poi|visibility:off" %}
-                {% if emp_data.employee.street and emp_data.employee.zip_code and emp_data.employee.city %}
-                    {% set map_url = base_url + "&center=" + (employee_address | urlencode) + "&zoom=10&" + markers|join('&') + "&key=" + google_maps_api_key %}
+                {# Choose a smart center: median patient address if available, else employee address #}
+                {% if address_list and address_list|length > 0 %}
+                    {% set mid_idx = (address_list|length // 2) %}
+                    {% set center_address = address_list[mid_idx] %}
+                    {% set map_url = base_url + "&center=" + (center_address | urlencode) + "&zoom=11&" + markers|join('&') + "&key=" + google_maps_api_key %}
+                {% elif emp_data.employee.street and emp_data.employee.zip_code and emp_data.employee.city %}
+                    {% set map_url = base_url + "&center=" + (employee_address | urlencode) + "&zoom=11&" + markers|join('&') + "&key=" + google_maps_api_key %}
                 {% else %}
-                    {% set map_url = base_url + "&" + markers|join('&') + "&key=" + google_maps_api_key %}
+                    {% set map_url = base_url + "&zoom=11&" + markers|join('&') + "&key=" + google_maps_api_key %}
                 {% endif %}
                 {% set map_image_base64 = download_map_image(map_url) %}
                 

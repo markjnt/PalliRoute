@@ -104,12 +104,22 @@ class PDFGenerator:
             'weekday_date_labels': weekday_date_labels,
             'period_label_weekdays': period_label_weekdays,
             'overview_data': [],
+            'overview_planning': {},
         }
         
-        # Prepare overview data (summary table with HB/TK/NA per day)
+        # Prepare overview data (summary table)
         for emp_data in employee_routes_data:
             employee = emp_data['employee']
             overview_counts = { day: {'HB': 0, 'TK': 0, 'NA': 0} for day in weekdays }
+            # Collect planning for overview (per weekday for this employee/week)
+            planning_map = { day: None for day in weekdays }
+            planning_entries_overview = EmployeePlanning.query.filter_by(
+                employee_id=employee.id,
+                calendar_week=calendar_week
+            ).all()
+            for planning in planning_entries_overview:
+                if planning.weekday in weekdays:
+                    planning_map[planning.weekday] = planning
             for weekday in weekdays:
                 for vt in ('HB', 'TK', 'NA'):
                     cnt = Appointment.query.filter(
@@ -120,11 +130,13 @@ class PDFGenerator:
                     ).count()
                     overview_counts[weekday][vt] = cnt
             template_data['overview_data'].append({
+                'id': employee.id,
                 'name': f"{employee.first_name} {employee.last_name}",
                 'area': employee.area or '',
                 'function': employee.function or '',
                 'counts': overview_counts
             })
+            template_data['overview_planning'][employee.id] = planning_map
         
         # Collect all appointments, patients, employees, and planning data for template
         consolidated_by_employee = {}

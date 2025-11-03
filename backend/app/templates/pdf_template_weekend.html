@@ -61,29 +61,7 @@
             <div class="subtitle">Kalenderwoche {{ calendar_week }}</div>
         </div>
 
-        <!-- Overview Table -->
-        {% if overview_data %}
-        <div class="overview-section" style="page-break-after: always; margin-bottom: 30px;">
-            <table class="overview-table" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <thead>
-                    <tr>
-                        <th style="background-color: #f5f5f5; padding: 8px; text-align: left; border: 1px solid #ddd; font-size: 10px; font-weight: 600;">Area</th>
-                        <th style="background-color: #f5f5f5; padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 10px; font-weight: 600;">Samstag</th>
-                        <th style="background-color: #f5f5f5; padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 10px; font-weight: 600;">Sonntag</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in overview_data %}
-                    <tr>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; {% if loop.index % 2 == 0 %}background-color: #fafafa;{% else %}background-color: white;{% endif %}">{{ item.name }}</td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; {% if loop.index % 2 == 0 %}background-color: #fafafa;{% else %}background-color: white;{% endif %}"><div class="weekday-counts"><div class="count-hb">HB {{ item.counts['saturday'].HB }}</div><div class="count-tk">TK {{ item.counts['saturday'].TK }}</div><div class="count-na">NA {{ item.counts['saturday'].NA }}</div></div></td>
-                        <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; {% if loop.index % 2 == 0 %}background-color: #fafafa;{% else %}background-color: white;{% endif %}"><div class="weekday-counts"><div class="count-hb">HB {{ item.counts['sunday'].HB }}</div><div class="count-tk">TK {{ item.counts['sunday'].TK }}</div><div class="count-na">NA {{ item.counts['sunday'].NA }}</div></div></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
+        {# Weekend overview removed per request; first tour now starts on first page #}
 
         {% for emp_data in employee_routes_data %}
         <div class="employee-section" id="area-{{ emp_data.group_id }}-weekend">
