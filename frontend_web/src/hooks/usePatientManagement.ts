@@ -17,11 +17,23 @@ interface PatientManagementReturn {
   naPatients: Patient[];
   emptyTypePatients: Patient[];
   
+  // Tour employee patients (shown but not in route) - HB and NA only
+  tourEmployeePatients: Patient[];
+  
+  // Normal TK patients (not tour_employee appointments)
+  normalTkPatients: Patient[];
+  
+  // Tour employee TK patients (shown but not in normal TK section)
+  tourEmployeeTkPatients: Patient[];
+  
   // Patient sorting by route order
   getSortedRoutePatients: (route: Route | undefined) => Patient[];
   
   // Patient appointments
   getPatientAppointments: (patientId: number) => Appointment[];
+  
+  // Check if appointment is tour employee appointment
+  isTourEmployeeAppointment: (appointment: Appointment, employeeId?: number) => boolean;
   
   // Patient counts
   getPatientCountByEmployee: (employees: any[]) => Map<number, number>;
@@ -39,10 +51,15 @@ export const usePatientManagement = ({
 }: UsePatientManagementProps): PatientManagementReturn => {
   
   // Filter appointments for current context (employee or area)
+  // Include both appointments assigned to employee (employee_id) and tour employee appointments (tour_employee_id)
   const filteredAppointments = useMemo(() => {
     return appointments.filter(app => {
       if (employeeId) {
-        return app.employee_id === employeeId && app.weekday === selectedDay;
+        // Include appointments assigned to this employee OR tour employee appointments
+        return app.weekday === selectedDay && (
+          app.employee_id === employeeId || 
+          app.tour_employee_id === employeeId
+        );
       }
       if (area) {
         return (app.area as string) === area && app.weekday === selectedDay && !app.employee_id;
@@ -50,6 +67,12 @@ export const usePatientManagement = ({
       return app.weekday === selectedDay;
     });
   }, [appointments, selectedDay, employeeId, area]);
+  
+  // Check if an appointment is a tour employee appointment (shown but not in route)
+  const isTourEmployeeAppointment = useCallback((appointment: Appointment, employeeId?: number): boolean => {
+    if (!employeeId) return false;
+    return appointment.tour_employee_id === employeeId && appointment.employee_id !== employeeId;
+  }, []);
 
   // Get patients by visit type
   const getPatientsByVisitType = useCallback((visitType: 'HB' | 'NA' | 'TK' | '') => {
@@ -72,16 +95,30 @@ export const usePatientManagement = ({
   }, [filteredAppointments]);
 
   // Sort route patients (HB + NA) by route order
+  // Only include patients with normal appointments (not tour_employee appointments)
   const getSortedRoutePatients = useCallback((route: Route | undefined) => {
-    if (!route) return [...hbPatients, ...naPatients];
+    if (!route) {
+      // Filter out tour employee patients
+      const normalPatients = [...hbPatients, ...naPatients].filter(patient => {
+        const patientAppts = getPatientAppointments(patient.id || 0)
+          .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
+        // Only include if patient has at least one normal appointment (not tour_employee)
+        return patientAppts.some(app => !isTourEmployeeAppointment(app, employeeId));
+      });
+      return normalPatients;
+    }
 
-    // Create appointment ID to patient mapping
+    // Create appointment ID to patient mapping (only for normal appointments)
     const appointmentToPatient = new Map<number, Patient>();
     const allRoutePatients = [...hbPatients, ...naPatients];
     
     allRoutePatients.forEach(patient => {
       const patientAppts = getPatientAppointments(patient.id || 0)
-        .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
+        .filter(app => {
+          const isHBorNA = app.visit_type === 'HB' || app.visit_type === 'NA';
+          const isNormalAppointment = !isTourEmployeeAppointment(app, employeeId);
+          return isHBorNA && isNormalAppointment;
+        });
       
       patientAppts.forEach(app => {
         if (app.id !== undefined) {
@@ -117,18 +154,65 @@ export const usePatientManagement = ({
         }
       }
       
-      // Add any remaining HB/NA patients not in the route_order
+      // Add any remaining HB/NA patients not in the route_order (but not tour_employee patients)
       allRoutePatients.forEach(patient => {
-        if (!orderedPatients.includes(patient)) {
+        const patientAppts = getPatientAppointments(patient.id || 0)
+          .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
+        const hasNormalAppointment = patientAppts.some(app => !isTourEmployeeAppointment(app, employeeId));
+        if (hasNormalAppointment && !orderedPatients.includes(patient)) {
           orderedPatients.push(patient);
         }
       });
     } else {
-      orderedPatients.push(...allRoutePatients);
+      // Filter out tour employee patients
+      const normalPatients = allRoutePatients.filter(patient => {
+        const patientAppts = getPatientAppointments(patient.id || 0)
+          .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
+        return patientAppts.some(app => !isTourEmployeeAppointment(app, employeeId));
+      });
+      orderedPatients.push(...normalPatients);
     }
     
     return orderedPatients;
-  }, [hbPatients, naPatients, getPatientAppointments]);
+  }, [hbPatients, naPatients, getPatientAppointments, isTourEmployeeAppointment, employeeId]);
+  
+  // Get tour employee patients (shown but not in route)
+  // Only includes HB and NA patients (TK patients are handled separately)
+  const tourEmployeePatients = useMemo(() => {
+    const tourPatients: Patient[] = [];
+    const allPatients = [...hbPatients, ...naPatients];
+    
+    allPatients.forEach(patient => {
+      const patientAppts = getPatientAppointments(patient.id || 0)
+        .filter(app => app.visit_type === 'HB' || app.visit_type === 'NA');
+      const isTourPatient = patientAppts.some(app => isTourEmployeeAppointment(app, employeeId));
+      if (isTourPatient) {
+        tourPatients.push(patient);
+      }
+    });
+    
+    return tourPatients;
+  }, [hbPatients, naPatients, getPatientAppointments, isTourEmployeeAppointment, employeeId]);
+  
+  // Get normal TK patients (not tour_employee appointments)
+  const normalTkPatients = useMemo(() => {
+    return tkPatients.filter(patient => {
+      const patientAppts = getPatientAppointments(patient.id || 0)
+        .filter(app => app.visit_type === 'TK');
+      // Only include if patient has at least one normal TK appointment (not tour_employee)
+      return patientAppts.some(app => !isTourEmployeeAppointment(app, employeeId));
+    });
+  }, [tkPatients, getPatientAppointments, isTourEmployeeAppointment, employeeId]);
+  
+  // Get tour employee TK patients (shown but not in normal TK section)
+  const tourEmployeeTkPatients = useMemo(() => {
+    return tkPatients.filter(patient => {
+      const patientAppts = getPatientAppointments(patient.id || 0)
+        .filter(app => app.visit_type === 'TK');
+      const isTourPatient = patientAppts.some(app => isTourEmployeeAppointment(app, employeeId));
+      return isTourPatient;
+    });
+  }, [tkPatients, getPatientAppointments, isTourEmployeeAppointment, employeeId]);
 
   // Get patient count by employee
   const getPatientCountByEmployee = useCallback((employees: any[]) => {
@@ -166,8 +250,12 @@ export const usePatientManagement = ({
     tkPatients,
     naPatients,
     emptyTypePatients,
+    tourEmployeePatients,
+    normalTkPatients,
+    tourEmployeeTkPatients,
     getSortedRoutePatients,
     getPatientAppointments,
+    isTourEmployeeAppointment,
     getPatientCountByEmployee,
     hasAppointmentsForDay
   };

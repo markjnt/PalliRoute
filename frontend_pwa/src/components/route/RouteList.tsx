@@ -39,6 +39,9 @@ interface RouteStop {
   phone2?: string;
   info?: string;
   isCompleted: boolean;
+  responsibleEmployeeName?: string;  // For tour_employee appointments: shows "Zuständig: [Name]"
+  tourEmployeeName?: string;  // For responsible employee: shows "Ursprungstour: [Name]"
+  isTourEmployeeAppointment?: boolean;  // Mark tour_employee appointments for styling
 }
 
 
@@ -124,7 +127,22 @@ export const RouteList: React.FC = () => {
         if (appointment) {
           const patient = patients.find(p => p.id === appointment.patient_id);
           if (patient) {
-                                     stops.push({
+            // Determine if this is a tour_employee appointment (current user is tour_employee_id but not employee_id)
+            const isTourEmployeeAppointment = selectedUserId && 
+              appointment.tour_employee_id === selectedUserId && 
+              appointment.employee_id !== selectedUserId;
+            
+            // Get responsible employee name (for tour_employee appointments)
+            const responsibleEmployee = isTourEmployeeAppointment && appointment.employee_id
+              ? employees.find(e => e.id === appointment.employee_id)
+              : null;
+            
+            // Get tour employee name (for responsible employee appointments)
+            const tourEmployee = !isTourEmployeeAppointment && appointment.tour_employee_id
+              ? employees.find(e => e.id === appointment.tour_employee_id)
+              : null;
+            
+            stops.push({
               id: appointmentId,
               position: index + 1,
               patientName: `${patient.first_name} ${patient.last_name}`,
@@ -135,6 +153,12 @@ export const RouteList: React.FC = () => {
               phone2: patient.phone2,
               info: appointment.info,
               isCompleted: isStopCompleted(appointmentId),
+              responsibleEmployeeName: responsibleEmployee 
+                ? `${responsibleEmployee.first_name} ${responsibleEmployee.last_name}`
+                : undefined,
+              tourEmployeeName: tourEmployee 
+                ? `${tourEmployee.first_name} ${tourEmployee.last_name}`
+                : undefined,
             });
           }
         }
@@ -143,6 +167,60 @@ export const RouteList: React.FC = () => {
     
     return stops;
   }, [visibleRoutes, employees, patients, appointments, selectedUserId, selectedWeekendArea, isStopCompleted]);
+
+  // Get tour employee stops (appointments where tour_employee_id matches but not in route)
+  const tourEmployeeStops = useMemo(() => {
+    const stops: RouteStop[] = [];
+    
+    if (!selectedUserId || selectedWeekendArea) return stops; // Only for employee routes
+    
+    // Get all appointment IDs that are in routes
+    const routeAppointmentIds = new Set<number>();
+    visibleRoutes.forEach(route => {
+      const routeOrder = parseRouteOrder(route.route_order);
+      routeOrder.forEach(appointmentId => {
+        routeAppointmentIds.add(appointmentId);
+      });
+    });
+    
+    // Find appointments where tour_employee_id matches but appointment is not in route
+    const tourEmployeeApps = appointments.filter(a => 
+      a.tour_employee_id === selectedUserId &&
+      a.employee_id !== selectedUserId &&
+      (a.visit_type === 'HB' || a.visit_type === 'NA') &&
+      a.weekday === selectedWeekday &&
+      a.id !== undefined &&
+      !routeAppointmentIds.has(a.id)
+    );
+    
+    tourEmployeeApps.forEach(appointment => {
+      const patient = patients.find(p => p.id === appointment.patient_id);
+      if (patient && appointment.id) {
+        const responsibleEmployee = appointment.employee_id
+          ? employees.find(e => e.id === appointment.employee_id)
+          : null;
+        
+        stops.push({
+          id: appointment.id,
+          position: 0, // No position for tour employee stops
+          patientName: `${patient.first_name} ${patient.last_name}`,
+          address: `${patient.street}, ${patient.zip_code} ${patient.city}`,
+          visitType: appointment.visit_type,
+          time: appointment.time,
+          phone1: patient.phone1,
+          phone2: patient.phone2,
+          info: appointment.info,
+          isCompleted: isStopCompleted(appointment.id),
+          responsibleEmployeeName: responsibleEmployee 
+            ? `${responsibleEmployee.first_name} ${responsibleEmployee.last_name}`
+            : undefined,
+          isTourEmployeeAppointment: true, // Mark as tour employee appointment
+        });
+      }
+    });
+    
+    return stops;
+  }, [appointments, patients, employees, selectedUserId, selectedWeekday, visibleRoutes, isStopCompleted]);
 
   // Get TK appointments (phone calls) for the selected employee/area and day
   const tkAppointments = useMemo(() => {
@@ -155,26 +233,54 @@ export const RouteList: React.FC = () => {
                a.area === selectedWeekendArea && 
                a.visit_type === 'TK';
       } else {
-        // Für Mitarbeiter: TK-Termine des ausgewählten Mitarbeiters
-        return a.employee_id === selectedUserId && 
-               a.weekday === selectedWeekday && 
-               a.visit_type === 'TK';
+        // Für Mitarbeiter: TK-Termine des ausgewählten Mitarbeiters (employee_id ODER tour_employee_id)
+        return a.weekday === selectedWeekday && 
+               a.visit_type === 'TK' &&
+               (a.employee_id === selectedUserId || a.tour_employee_id === selectedUserId);
       }
     });
     
     return tkApps.map(appointment => {
       const patient = patients.find(p => p.id === appointment.patient_id);
-          return {
-      id: appointment.id || 0,
-      patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unbekannter Patient',
-      phone1: patient?.phone1,
-      phone2: patient?.phone2,
-      time: appointment.time,
-      info: appointment.info,
-      isCompleted: isStopCompleted(appointment.id || 0),
-    };
+      
+      // Determine if this is a tour_employee appointment
+      const isTourEmployeeAppointment = selectedUserId && 
+        appointment.tour_employee_id === selectedUserId && 
+        appointment.employee_id !== selectedUserId;
+      
+      // Get responsible employee name (for tour_employee appointments)
+      const responsibleEmployee = isTourEmployeeAppointment && appointment.employee_id
+        ? employees.find(e => e.id === appointment.employee_id)
+        : null;
+      
+      // Get tour employee name (for responsible employee appointments)
+      const tourEmployee = !isTourEmployeeAppointment && appointment.tour_employee_id
+        ? employees.find(e => e.id === appointment.tour_employee_id)
+        : null;
+      
+      return {
+        id: appointment.id || 0,
+        patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unbekannter Patient',
+        phone1: patient?.phone1,
+        phone2: patient?.phone2,
+        time: appointment.time,
+        info: appointment.info,
+        isCompleted: isStopCompleted(appointment.id || 0),
+        responsibleEmployeeName: responsibleEmployee 
+          ? `${responsibleEmployee.first_name} ${responsibleEmployee.last_name}`
+          : undefined,
+        tourEmployeeName: tourEmployee 
+          ? `${tourEmployee.first_name} ${tourEmployee.last_name}`
+          : undefined,
+        isTourEmployeeAppointment: isTourEmployeeAppointment, // Mark tour_employee TK appointments
+      };
+    }).sort((a, b) => {
+      // Sortiere: tour_employee Termine ans Ende
+      if (a.isTourEmployeeAppointment && !b.isTourEmployeeAppointment) return 1;
+      if (!a.isTourEmployeeAppointment && b.isTourEmployeeAppointment) return -1;
+      return 0;
     });
-  }, [appointments, selectedUserId, selectedWeekendArea, selectedWeekday, patients, isStopCompleted]);
+  }, [appointments, selectedUserId, selectedWeekendArea, selectedWeekday, patients, employees, isStopCompleted]);
 
   // Calculate completion percentage - now using store state directly
   const completionPercentage = useMemo(() => {
@@ -283,13 +389,32 @@ export const RouteList: React.FC = () => {
               index={index}
               moveStop={moveStop}
               onToggle={handleStopToggle}
-              isCompleted={isStopCompleted}
             />
             {index < routeStops.length - 1 && (
               <Divider sx={{ mx: 1.5 }} />
             )}
           </React.Fragment>
         ))}
+        
+        {/* Tour Employee Stops (shown but not in route) */}
+        {tourEmployeeStops.length > 0 && (
+          <>
+            {routeStops.length > 0 && <Divider sx={{ mx: 1.5, my: 1 }} />}
+            {tourEmployeeStops.map((stop, index) => (
+              <React.Fragment key={`tour-${stop.id}`}>
+                <RouteStopItem
+                  stop={stop}
+                  index={routeStops.length + index}
+                  moveStop={() => {}} // Disable drag & drop for tour employee stops
+                  onToggle={handleStopToggle}
+                />
+                {index < tourEmployeeStops.length - 1 && (
+                  <Divider sx={{ mx: 1.5 }} />
+                )}
+              </React.Fragment>
+            ))}
+          </>
+        )}
       </Box>
 
       {/* TK Appointments (Phone Calls) */}
@@ -303,8 +428,16 @@ export const RouteList: React.FC = () => {
               overflow: 'hidden',
             }}
           >
-            {tkAppointments.map((tkApp, index) => (
-              <Box key={tkApp.id}>
+            {tkAppointments.map((tkApp, index) => {
+              const tkAppCompleted = completedStops.has(tkApp.id);
+              return (
+              <Box 
+                key={tkApp.id}
+                sx={{
+                  opacity: tkApp.isTourEmployeeAppointment ? 0.5 : 1,
+                  filter: tkApp.isTourEmployeeAppointment ? 'grayscale(0.3)' : 'none',
+                }}
+              >
                 <Box
                   sx={{
                     display: 'flex',
@@ -322,7 +455,7 @@ export const RouteList: React.FC = () => {
                       width: { xs: 32, sm: 36 },
                       height: { xs: 32, sm: 36 },
                       borderRadius: '50%',
-                      bgcolor: isStopCompleted(tkApp.id) ? '#34C759' : '#4CAF50',
+                      bgcolor: tkAppCompleted ? '#34C759' : '#4CAF50',
                       color: 'white',
                       display: 'flex',
                       alignItems: 'center',
@@ -344,8 +477,8 @@ export const RouteList: React.FC = () => {
                         variant="body2"
                         sx={{
                           fontWeight: 600,
-                          color: isStopCompleted(tkApp.id) ? '#8E8E93' : '#1d1d1f',
-                          textDecoration: isStopCompleted(tkApp.id) ? 'line-through' : 'none',
+                          color: tkAppCompleted ? '#8E8E93' : '#1d1d1f',
+                          textDecoration: tkAppCompleted ? 'line-through' : 'none',
                           flex: 1,
                           fontSize: { xs: '0.875rem', sm: '1rem' },
                           lineHeight: 1.3,
@@ -367,6 +500,57 @@ export const RouteList: React.FC = () => {
                         }}
                       />
                     </Box>
+                    
+                    {/* Zuständig anzeigen (nur beim tour_employee) */}
+                    {tkApp.responsibleEmployeeName && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#007AFF',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Zuständig: {tkApp.responsibleEmployeeName}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {/* Ursprungstour anzeigen (nur beim zuständigen Mitarbeiter) */}
+                    {tkApp.tourEmployeeName && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#007AFF',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Ursprungstour: {tkApp.tourEmployeeName}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {tkApp.info && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                        <InfoIcon sx={{ fontSize: 14, color: '#007AFF', mr: 0.5 }} />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#007AFF',
+                            fontSize: '0.75rem',
+                            bgcolor: 'rgba(0, 122, 255, 0.1)',
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 1,
+                          }}
+                        >
+                          {tkApp.info}
+                        </Typography>
+                      </Box>
+                    )}
                     
                     {(tkApp.phone1 || tkApp.phone2) && (
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -465,26 +649,29 @@ export const RouteList: React.FC = () => {
                   </Box>
 
                   {/* Checkbox */}
-                  <Checkbox
-                    checked={isStopCompleted(tkApp.id)}
-                    icon={<UncheckedIcon sx={{ color: '#C7C7CC' }} />}
-                    checkedIcon={<CheckCircleIcon sx={{ color: '#34C759' }} />}
-                    sx={{
-                      ml: 1,
-                      '&:hover': {
-                        bgcolor: 'transparent',
-                      },
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={() => handleTKToggle(tkApp.id)}
-                  />
+                  {!tkApp.isTourEmployeeAppointment && (
+                    <Checkbox
+                      checked={tkAppCompleted}
+                      icon={<UncheckedIcon sx={{ color: '#C7C7CC' }} />}
+                      checkedIcon={<CheckCircleIcon sx={{ color: '#34C759' }} />}
+                      sx={{
+                        ml: 1,
+                        '&:hover': {
+                          bgcolor: 'transparent',
+                        },
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => handleTKToggle(tkApp.id)}
+                    />
+                  )}
                 </Box>
                 
                 {index < tkAppointments.length - 1 && (
                   <Divider sx={{ mx: 2 }} />
                 )}
               </Box>
-            ))}
+            );
+            })}
           </Box>
         </Box>
       )}

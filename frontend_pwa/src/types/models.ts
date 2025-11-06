@@ -46,6 +46,8 @@ export interface Appointment {
     id?: number;
     patient_id: number;
     employee_id?: number;
+    origin_employee_id?: number;  // Original employee before replacement
+    tour_employee_id?: number;  // Original employee from "Touren" column
     weekday: Weekday;
     time?: string; // Format: "HH:MM"
     visit_type: VisitType;

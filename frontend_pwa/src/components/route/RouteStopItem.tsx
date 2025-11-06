@@ -17,6 +17,7 @@ import {
 import { useDrag, useDrop } from 'react-dnd';
 import { getColorForVisitType } from '../../utils/mapUtils';
 import { useDragStore } from '../../stores/useDragStore';
+import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
 
 // Drag and drop types
 const ItemTypes = {
@@ -41,6 +42,9 @@ interface RouteStop {
   phone2?: string;
   info?: string;
   isCompleted: boolean;
+  responsibleEmployeeName?: string;  // For tour_employee appointments: shows "Zuständig: [Name]"
+  tourEmployeeName?: string;  // For responsible employee: shows "Ursprungstour: [Name]"
+  isTourEmployeeAppointment?: boolean;  // Mark tour_employee appointments for styling
 }
 
 interface RouteStopItemProps {
@@ -48,17 +52,18 @@ interface RouteStopItemProps {
   index: number;
   moveStop: (dragIndex: number, hoverIndex: number) => void;
   onToggle: (stopId: number) => void;
-  isCompleted: (stopId: number) => boolean;
 }
 
 export const RouteStopItem: React.FC<RouteStopItemProps> = ({ 
   stop, 
   index, 
   moveStop, 
-  onToggle, 
-  isCompleted 
+  onToggle
 }) => {
   const { setIsDragging } = useDragStore();
+  const { completedStops } = useRouteCompletionStore();
+  
+  const isCompleted = completedStops.has(stop.id);
   
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.ROUTE_STOP,
@@ -66,6 +71,7 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
+    canDrag: !stop.isTourEmployeeAppointment, // Disable drag for tour employee appointments
   });
 
   // Update global drag state
@@ -111,7 +117,7 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
         }
       }}
       sx={{
-        opacity: isDragging ? 0.6 : 1,
+        opacity: isDragging ? 0.6 : (stop.isTourEmployeeAppointment ? 0.5 : 1),
         transform: isDragging ? 'rotate(1deg) scale(1.02)' : 'none',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         bgcolor: isOver ? 'rgba(0, 122, 255, 0.08)' : 'transparent',
@@ -119,6 +125,7 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
         borderRadius: 1,
         mx: 0.5,
         my: 0.25,
+        filter: stop.isTourEmployeeAppointment ? 'grayscale(0.3)' : 'none',
       }}
     >
       <Box
@@ -130,57 +137,59 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
         }}
       >
         {/* Position Number with Drag Handle */}
-        <Box
-          ref={(node: HTMLElement | null) => {
-            if (node) {
-              drag(node);
-            }
-          }}
-          sx={{
-            width: { xs: 32, sm: 36 },
-            height: { xs: 32, sm: 36 },
-            borderRadius: '50%',
-            bgcolor: isCompleted(stop.id) ? '#34C759' : '#007AFF',
-            color: 'white',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: { xs: '0.875rem', sm: '1rem' },
-            fontWeight: 700,
-            mr: { xs: 1.5, sm: 2 },
-            flexShrink: 0,
-            position: 'relative',
-            boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)',
-            transition: 'all 0.2s ease',
-            cursor: 'grab',
-            '&:active': {
-              cursor: 'grabbing',
-            },
-
-          }}
-        >
-          {stop.position}
-          <DragIcon 
-            sx={{ 
-              position: 'absolute',
-              top: { xs: -6, sm: -8 },
-              right: { xs: -6, sm: -8 },
-              fontSize: { xs: 14, sm: 16 },
-              color: '#8E8E93',
-              bgcolor: 'white',
+        {!stop.isTourEmployeeAppointment && (
+          <Box
+            ref={(node: HTMLElement | null) => {
+              if (node) {
+                drag(node);
+              }
+            }}
+            sx={{
+              width: { xs: 32, sm: 36 },
+              height: { xs: 32, sm: 36 },
               borderRadius: '50%',
-              p: { xs: 0.2, sm: 0.25 },
-              cursor: 'grab',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              bgcolor: isCompleted ? '#34C759' : '#007AFF',
+              color: 'white',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              fontWeight: 700,
+              mr: { xs: 1.5, sm: 2 },
+              flexShrink: 0,
+              position: 'relative',
+              boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)',
               transition: 'all 0.2s ease',
+              cursor: 'grab',
               '&:active': {
                 cursor: 'grabbing',
-                transform: 'scale(1.1)',
               },
 
-            }} 
-          />
-        </Box>
+            }}
+          >
+            {stop.position}
+            <DragIcon 
+              sx={{ 
+                position: 'absolute',
+                top: { xs: -6, sm: -8 },
+                right: { xs: -6, sm: -8 },
+                fontSize: { xs: 14, sm: 16 },
+                color: '#8E8E93',
+                bgcolor: 'white',
+                borderRadius: '50%',
+                p: { xs: 0.2, sm: 0.25 },
+                cursor: 'grab',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.2s ease',
+                '&:active': {
+                  cursor: 'grabbing',
+                  transform: 'scale(1.1)',
+                },
+
+              }} 
+            />
+          </Box>
+        )}
 
                   {/* Stop Info */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -189,8 +198,8 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
                 variant="body2"
                 sx={{
                   fontWeight: 600,
-                  color: isCompleted(stop.id) ? '#8E8E93' : '#1d1d1f',
-                  textDecoration: isCompleted(stop.id) ? 'line-through' : 'none',
+                  color: isCompleted ? '#8E8E93' : '#1d1d1f',
+                  textDecoration: isCompleted ? 'line-through' : 'none',
                   flex: 1,
                   fontSize: { xs: '0.875rem', sm: '1rem' },
                   lineHeight: 1.3,
@@ -212,6 +221,38 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
                 }}
               />
             </Box>
+            
+            {/* Zuständig anzeigen (nur beim tour_employee) */}
+            {stop.responsibleEmployeeName && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#007AFF',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Zuständig: {stop.responsibleEmployeeName}
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Ursprungstour anzeigen (nur beim zuständigen Mitarbeiter) */}
+            {stop.tourEmployeeName && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#007AFF',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Ursprungstour: {stop.tourEmployeeName}
+                </Typography>
+              </Box>
+            )}
           
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <LocationIcon sx={{ 
@@ -315,19 +356,21 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
         </Box>
 
         {/* Checkbox */}
-        <Checkbox
-          checked={isCompleted(stop.id)}
-          icon={<UncheckedIcon sx={{ color: '#C7C7CC' }} />}
-          checkedIcon={<CheckCircleIcon sx={{ color: '#34C759' }} />}
-          sx={{
-            ml: 1,
-            '&:hover': {
-              bgcolor: 'transparent',
-            },
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onChange={() => onToggle(stop.id)}
-        />
+        {!stop.isTourEmployeeAppointment && (
+          <Checkbox
+            checked={isCompleted}
+            icon={<UncheckedIcon sx={{ color: '#C7C7CC' }} />}
+            checkedIcon={<CheckCircleIcon sx={{ color: '#34C759' }} />}
+            sx={{
+              ml: 1,
+              '&:hover': {
+                bgcolor: 'transparent',
+              },
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onChange={() => onToggle(stop.id)}
+          />
+        )}
       </Box>
     </Box>
   );

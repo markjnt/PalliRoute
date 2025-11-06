@@ -45,6 +45,8 @@ interface PatientCardProps {
     onMoveDown?: (patientId: number) => void; // New prop for moving patient down
     isFirst?: boolean; // New prop to indicate if this is the first patient in the list
     isLast?: boolean; // New prop to indicate if this is the last patient in the list
+    isTourEmployeeAppointment?: boolean; // Indicates if this is a tour employee appointment (shown but not in route)
+    currentEmployeeId?: number; // ID of the employee currently viewing this card (for WeekdayOverview)
 }
 
 export const PatientCard: React.FC<PatientCardProps> = ({ 
@@ -57,7 +59,9 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     onMoveUp,
     onMoveDown,
     isFirst = false,
-    isLast = false
+    isLast = false,
+    isTourEmployeeAppointment = false,
+    currentEmployeeId
 }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -78,7 +82,18 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     
     // Get current employee ID from the selected day appointment
     const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
-    const currentEmployeeId = selectedDayAppointment?.employee_id;
+    const selectedDayEmployeeId = selectedDayAppointment?.employee_id;
+    
+    // Get tour employee info if this appointment has a tour_employee_id (for responsible employee view)
+    const tourEmployeeId = selectedDayAppointment?.tour_employee_id;
+    const tourEmployee = tourEmployeeId && !isTourEmployeeAppointment 
+        ? employees.find(e => e.id === tourEmployeeId) 
+        : null;
+    
+    // Get responsible employee info if this is a tour_employee appointment (for tour employee view)
+    const responsibleEmployee = isTourEmployeeAppointment && selectedDayEmployeeId
+        ? employees.find(e => e.id === selectedDayEmployeeId)
+        : null;
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -86,6 +101,25 @@ export const PatientCard: React.FC<PatientCardProps> = ({
 
     const handleMenuClose = () => {
         setAnchorEl(null);
+    };
+
+    // Function to scroll to employee tour container
+    const scrollToEmployee = (employeeId: number | undefined) => {
+        if (!employeeId) return;
+        
+        const element = document.getElementById(`tour-container-${employeeId}`);
+        if (element) {
+            element.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+            // Highlight the element briefly
+            element.style.transition = 'box-shadow 0.3s ease';
+            element.style.boxShadow = '0 0 20px rgba(25, 118, 210, 0.5)';
+            setTimeout(() => {
+                element.style.boxShadow = '';
+            }, 2000);
+        }
     };
     
     // Configure drag and drop
@@ -107,7 +141,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         collect: (monitor) => ({
             isDragging: !!monitor.isDragging()
         }),
-        canDrag: () => !!patient.id // Only allow dragging if patient has an ID
+        canDrag: () => !!patient.id && !isTourEmployeeAppointment // Disable dragging for tour employee appointments
     });
     
     // Connect the drag ref to our cardRef
@@ -129,18 +163,18 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         }
 
         // Find the appointment for the selected day
-        const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
-        if (!selectedDayAppointment) {
+        const appointmentForSelectedDay = patientAppointments.find(app => app.weekday === selectedDay);
+        if (!appointmentForSelectedDay) {
             return;
         }
 
         // Get current employee ID from the selected day appointment
-        const currentEmployeeId = selectedDayAppointment.employee_id;
-        if (!currentEmployeeId) {
+        const selectedDayEmployeeId = appointmentForSelectedDay.employee_id;
+        if (!selectedDayEmployeeId) {
             return;
         }
 
-        const appointmentId = selectedDayAppointment.id;
+        const appointmentId = appointmentForSelectedDay.id;
         if (typeof appointmentId !== 'number') {
             return;
         }
@@ -157,7 +191,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 setReplacementDialog({
                     open: true,
                     appointmentId,
-                    sourceEmployeeId: currentEmployeeId,
+                    sourceEmployeeId: selectedDayEmployeeId,
                     targetEmployeeId: employeeId,
                     replacementEmployee: replacementInfo.replacement_employee
                 });
@@ -165,7 +199,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 // No replacement, move directly
                 await appointmentManagement.moveAppointment({
                     appointmentId,
-                    sourceEmployeeId: currentEmployeeId,
+                    sourceEmployeeId: selectedDayEmployeeId,
                     targetEmployeeId: employeeId,
                     respectReplacement: false
                 });
@@ -175,7 +209,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             // Fallback: move directly without checking replacement
             await appointmentManagement.moveAppointment({
                 appointmentId,
-                sourceEmployeeId: currentEmployeeId,
+                sourceEmployeeId: selectedDayEmployeeId,
                 targetEmployeeId: employeeId,
                 respectReplacement: false
             });
@@ -223,7 +257,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         };
 
         return employees
-            .filter(emp => emp.id !== currentEmployeeId) // Filter out current employee
+            .filter(emp => emp.id !== selectedDayEmployeeId) // Filter out current employee
             .sort((a, b) => {
                 // First sort by function priority
                 const aPriority = functionPriority[a.function] || 999;
@@ -239,7 +273,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 
                 return aName.localeCompare(bName);
             });
-    }, [employees, currentEmployeeId]);
+    }, [employees, selectedDayEmployeeId]);
 
     return (
         <Card 
@@ -250,17 +284,19 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 backgroundColor: getBgColor(),
                 position: 'relative',
                 width: '100%',
-                opacity: isDragging ? 0.5 : 1,
-                cursor: 'grab',
+                opacity: isDragging ? 0.5 : (isTourEmployeeAppointment ? 0.5 : 1),
+                cursor: isTourEmployeeAppointment ? 'default' : 'grab',
                 transition: 'all 0.2s ease',
+                filter: isTourEmployeeAppointment ? 'grayscale(0.3)' : 'none',
                 '&:hover': {
-                    boxShadow: 2,
-                    transform: 'translateY(-2px)'
+                    boxShadow: isTourEmployeeAppointment ? 1 : 2,
+                    transform: isTourEmployeeAppointment ? 'none' : 'translateY(-2px)'
                 }
             }}
         >
-            {/* Reordering arrows */}
-            <Box sx={{ 
+            {/* Reordering arrows - hidden for tour employee appointments */}
+            {!isTourEmployeeAppointment && (
+                <Box sx={{ 
                 position: 'absolute', 
                 top: '10px', 
                 right: '10px', 
@@ -343,6 +379,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                     </IconButton>
                 </Tooltip>
             </Box>
+            )}
             
             {/* Tour assignment menu */}
             <Menu
@@ -408,15 +445,15 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                 })}
             </Menu>
             
-            <CardContent sx={{ py: 2, px: 2, '&:last-child': { pb: 2 } }}>
+            <CardContent sx={{ py: 2, px: 2, '&:last-child': { pb: 2 }, position: 'relative' }}>
                 <Box sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'flex-start'
                 }}>
                     <Box sx={{ width: '100%' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                            {index !== undefined && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5, position: 'relative' }}>
+                            {index !== undefined && !isTourEmployeeAppointment && (
                                 <Box sx={{ 
                                     display: 'flex',
                                     alignItems: 'center',
@@ -441,7 +478,8 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                 sx={{ 
                                     lineHeight: 1.2,
                                     display: 'flex',
-                                    alignItems: 'center'
+                                    alignItems: 'center',
+                                    flex: 1
                                 }}
                             >
                                 {patient.last_name}, {patient.first_name}
@@ -500,7 +538,70 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             appointments={patientAppointments}
                             selectedDay={selectedDay}
                             employees={employees}
+                            currentEmployeeId={currentEmployeeId}
                         />
+                        
+                        {/* Zuständig anzeigen unten rechts (nur beim tour_employee) */}
+                        {responsibleEmployee && (
+                            <Box sx={{ 
+                                mt: 1,
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                alignItems: 'center'
+                            }}>
+                                <Typography 
+                                    variant="body1" 
+                                    color="primary.main"
+                                    onClick={() => scrollToEmployee(responsibleEmployee.id)}
+                                    sx={{ 
+                                        fontSize: '0.875rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        px: 1.5,
+                                        py: 0.5,
+                                        borderRadius: 1,
+                                        transition: 'background-color 0.2s ease',
+                                        '&:hover': {
+                                            backgroundColor: 'primary.light',
+                                            color: 'primary.contrastText'
+                                        }
+                                    }}
+                                >
+                                    Zuständig: {responsibleEmployee.first_name} {responsibleEmployee.last_name}
+                                </Typography>
+                            </Box>
+                        )}
+                        
+                        {/* Ursprungstour anzeigen unten rechts (nur beim zuständigen Mitarbeiter) */}
+                        {tourEmployee && (
+                            <Box sx={{ 
+                                mt: 1,
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                alignItems: 'center'
+                            }}>
+                                <Typography 
+                                    variant="body1" 
+                                    color="primary.main"
+                                    onClick={() => scrollToEmployee(tourEmployee.id)}
+                                    sx={{ 
+                                        fontSize: '0.875rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        px: 1.5,
+                                        py: 0.5,
+                                        borderRadius: 1,
+                                        transition: 'background-color 0.2s ease',
+                                        '&:hover': {
+                                            backgroundColor: 'primary.light',
+                                            color: 'primary.contrastText'
+                                        }
+                                    }}
+                                >
+                                    Ursprungstour: {tourEmployee.first_name} {tourEmployee.last_name}
+                                </Typography>
+                            </Box>
+                        )}
                     </Box>
                 </Box>
             </CardContent>

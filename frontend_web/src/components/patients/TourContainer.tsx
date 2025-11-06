@@ -107,8 +107,12 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         tkPatients,
         naPatients,
         emptyTypePatients,
+        tourEmployeePatients,
+        normalTkPatients,
+        tourEmployeeTkPatients,
         getSortedRoutePatients,
         getPatientAppointments,
+        isTourEmployeeAppointment,
         hasAppointmentsForDay
     } = patientManagement;
 
@@ -253,6 +257,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
 
     return (
         <Paper 
+            id={`tour-container-${employee.id}`}
             ref={node => {
                 drop(node);
                 dropRef.current = node;
@@ -306,9 +311,8 @@ export const TourContainer: React.FC<TourContainerProps> = ({
             
             {!expanded && (
                 <TourSummary
-                    hbPatients={hbPatients}
-                    tkPatients={tkPatients}
-                    naPatients={naPatients}
+                    sortedRoutePatients={sortedRoutePatients}
+                    normalTkPatients={normalTkPatients}
                     emptyTypePatients={emptyTypePatients}
                 />
             )}
@@ -320,10 +324,14 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     <>
                         <TourSections
                             sortedRoutePatients={sortedRoutePatients}
-                            tkPatients={tkPatients}
+                            tourEmployeePatients={tourEmployeePatients}
+                            normalTkPatients={normalTkPatients}
+                            tourEmployeeTkPatients={tourEmployeeTkPatients}
                             emptyTypePatients={emptyTypePatients}
                             getPatientAppointments={getPatientAppointments}
+                            isTourEmployeeAppointment={isTourEmployeeAppointment}
                             selectedDay={selectedDay}
+                            employeeId={employee.id}
                             onMoveUp={handleMoveUp}
                             onMoveDown={handleMoveDown}
                         />

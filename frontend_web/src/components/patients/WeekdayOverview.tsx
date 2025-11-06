@@ -8,6 +8,7 @@ interface WeekdayOverviewProps {
     allWeekdays?: Weekday[];
     weekdayLabels?: string[];
     employees?: Employee[];
+    currentEmployeeId?: number;  // ID of the employee currently viewing this card
 }
 
 const defaultAllWeekdays: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -18,7 +19,8 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
     selectedDay,
     allWeekdays = defaultAllWeekdays,
     weekdayLabels = defaultWeekdayLabels,
-    employees = []
+    employees = [],
+    currentEmployeeId
 }) => {
     // Funktion zum Abrufen des Besuchstyps für einen bestimmten Wochentag
     const getVisitTypeForWeekday = (weekday: Weekday): string | null => {
@@ -33,15 +35,9 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
     };
 
     // Funktion zum Abrufen des Mitarbeiters für einen bestimmten Wochentag
+    // Immer die employee_id verwenden (nicht tour_employee_id)
     const getEmployeeForWeekday = (weekday: Weekday): Employee | null => {
         const appt = appointments.find(a => a.weekday === weekday);
-        if (!appt?.employee_id) return null;
-        return employees.find(emp => emp.id === appt.employee_id) || null;
-    };
-
-    // Funktion zum Abrufen des Mitarbeiters für den ausgewählten Tag
-    const getSelectedDayEmployee = (): Employee | null => {
-        const appt = appointments.find(a => a.weekday === selectedDay);
         if (!appt?.employee_id) return null;
         return employees.find(emp => emp.id === appt.employee_id) || null;
     };
@@ -85,8 +81,10 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                     const visit = getVisitTypeForWeekday(weekday);
                     const info = getInfoForWeekday(weekday);
                     const employee = getEmployeeForWeekday(weekday);
-                    const selectedDayEmployee = getSelectedDayEmployee();
                     const isSelectedDay = weekday === selectedDay;
+                    // Zeige Mitarbeitername nur an, wenn employee_id vorhanden ist UND nicht gleich currentEmployeeId
+                    const shouldShowEmployeeName = employee && employee.id !== currentEmployeeId;
+                    
                     return (
                         <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
                             <Tooltip 
@@ -137,7 +135,7 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                     >
                                         {visit || '–'}
                                     </Typography>
-                                    {employee && employee.id !== selectedDayEmployee?.id ? (
+                                    {shouldShowEmployeeName && (
                                         <Typography 
                                             variant="caption" 
                                             color="text.secondary"
@@ -154,7 +152,8 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                         >
                                             {employee.first_name.charAt(0)}. {employee.last_name}
                                         </Typography>
-                                    ) : (
+                                    )}
+                                    {!shouldShowEmployeeName && (
                                         <Box sx={{ height: '16px' }} /> // Platzhalter für leere Boxen
                                     )}
                                 </Box>

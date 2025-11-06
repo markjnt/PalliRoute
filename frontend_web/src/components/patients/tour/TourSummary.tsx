@@ -9,45 +9,37 @@ import {
 import { Patient } from '../../../types/models';
 
 interface TourSummaryProps {
-    hbPatients: Patient[];
-    tkPatients: Patient[];
-    naPatients: Patient[];
+    sortedRoutePatients: Patient[];  // Only normal HB/NA patients (not tour_employee)
+    normalTkPatients: Patient[];  // Only normal TK patients (not tour_employee)
     emptyTypePatients: Patient[];
 }
 
 export const TourSummary: React.FC<TourSummaryProps> = ({
-    hbPatients,
-    tkPatients,
-    naPatients,
+    sortedRoutePatients,
+    normalTkPatients,
     emptyTypePatients
 }) => {
+    // sortedRoutePatients already contains only normal HB/NA patients (tour_employee patients are filtered out)
+    const routeCount = sortedRoutePatients.length;
+    
     return (
         <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
-                {hbPatients.length > 0 && (
+                {routeCount > 0 && (
                     <Chip 
                         size="small" 
                         icon={<HomeIcon fontSize="small" />} 
-                        label={hbPatients.length} 
+                        label={routeCount} 
                         color="primary" 
                         variant="outlined" 
                     />
                 )}
-                {tkPatients.length > 0 && (
+                {normalTkPatients.length > 0 && (
                     <Chip 
                         size="small" 
                         icon={<PhoneIcon fontSize="small" />} 
-                        label={tkPatients.length} 
+                        label={normalTkPatients.length} 
                         color="success" 
-                        variant="outlined" 
-                    />
-                )}
-                {naPatients.length > 0 && (
-                    <Chip 
-                        size="small" 
-                        icon={<AddCircleIcon fontSize="small" />} 
-                        label={naPatients.length} 
-                        color="secondary" 
                         variant="outlined" 
                     />
                 )}

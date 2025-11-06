@@ -593,18 +593,29 @@ class ExcelImportService:
                         print(f"      Warning: Replacement employee with ID {replacement_id} not found, using original employee")
                 
                 # Create appointment
+                # employee_id = zuständiger Mitarbeiter (oder ursprünglicher wenn kein zuständiger vorhanden)
+                # tour_employee_id = ursprünglicher Mitarbeiter aus "Touren"-Spalte (nur wenn zuständiger != ursprünglicher)
                 visit_type_value = visit_type if visit_type is not None else ""
+                
+                # Set tour_employee_id if there's a responsible employee different from default
+                # This allows filtering by tour_employee_id to show appointments to the original employee
+                tour_employee_id_value = None
+                if assigned_employee.id != default_employee.id:
+                    # There's a different responsible employee, so store the tour employee
+                    tour_employee_id_value = default_employee.id
+                
                 appointment = Appointment(
                     patient_id=patient.id,
-                    employee_id=assigned_employee.id,
+                    employee_id=assigned_employee.id,  # Zuständiger Mitarbeiter (oder ursprünglicher)
                     origin_employee_id=original_employee_id,
+                    tour_employee_id=tour_employee_id_value,  # Ursprünglicher Mitarbeiter aus "Touren"
                     weekday=english_weekday,
                     time=appointment_time,
                     visit_type=visit_type_value,
                     duration=duration,
                     info=time_info,
                     area=patient.area,
-                    calendar_week=patient.calendar_week  # Set calendar_week from patient
+                    calendar_week=patient.calendar_week
                 )
                 appointments.append(appointment)
             
@@ -702,6 +713,7 @@ class ExcelImportService:
         employee_id_to_area = {emp.id: emp.area for emp in employees}
         
         # Group appointments by employee and weekday (weekdays only)
+        # Use employee_id (zuständiger Mitarbeiter) for route grouping
         employee_weekday_appointments = {}
         for app in appointments:
             if app.visit_type in ('HB', 'NA') and app.employee_id is not None:
