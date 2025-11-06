@@ -322,7 +322,10 @@ export const RouteList: React.FC = () => {
     });
   };
 
-  if (routeStops.length === 0) {
+  // Check if there's anything to display
+  const hasContent = routeStops.length > 0 || tourEmployeeStops.length > 0 || tkAppointments.length > 0;
+
+  if (!hasContent) {
     return (
       <Box sx={{ px: 2, pb: 2 }}>
         <Box
@@ -345,77 +348,81 @@ export const RouteList: React.FC = () => {
   return (
     <Box sx={{ px: 2, pb: 2 }}>
       {/* Route Stops with Progress Header */}
-      <Box
-        sx={{
-          bgcolor: 'rgba(0, 0, 0, 0.02)',
-          borderRadius: 2,
-          border: '1px solid rgba(0, 0, 0, 0.08)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Route Progress Header */}
+      {(routeStops.length > 0 || tourEmployeeStops.length > 0) && (
         <Box
           sx={{
-            p: 1.5,
-            borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+            bgcolor: 'rgba(0, 0, 0, 0.02)',
+            borderRadius: 2,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            overflow: 'hidden',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 500, color: '#1d1d1f' }}>
-              Fortschritt
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 600, color: '#007AFF' }}>
-              {Math.round(completionPercentage)}%
-            </Typography>
-          </Box>
-          <LinearProgress
-            variant="determinate"
-            value={completionPercentage}
-            sx={{
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: 'rgba(0, 122, 255, 0.1)',
-              '& .MuiLinearProgress-bar': {
-                backgroundColor: '#007AFF',
-                borderRadius: 3,
-              },
-            }}
-          />
+          {/* Route Progress Header - only show if there are route stops */}
+          {routeStops.length > 0 && (
+            <Box
+              sx={{
+                p: 1.5,
+                borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#1d1d1f' }}>
+                  Fortschritt
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: '#007AFF' }}>
+                  {Math.round(completionPercentage)}%
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={completionPercentage}
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: 'rgba(0, 122, 255, 0.1)',
+                  '& .MuiLinearProgress-bar': {
+                    backgroundColor: '#007AFF',
+                    borderRadius: 3,
+                  },
+                }}
+              />
+            </Box>
+          )}
+          {routeStops.map((stop, index) => (
+            <React.Fragment key={stop.id}>
+              <RouteStopItem
+                stop={stop}
+                index={index}
+                moveStop={moveStop}
+                onToggle={handleStopToggle}
+              />
+              {index < routeStops.length - 1 && (
+                <Divider sx={{ mx: 1.5 }} />
+              )}
+            </React.Fragment>
+          ))}
+          
+          {/* Tour Employee Stops (shown but not in route) */}
+          {tourEmployeeStops.length > 0 && (
+            <>
+              {routeStops.length > 0 && <Divider sx={{ mx: 1.5, my: 1 }} />}
+              {tourEmployeeStops.map((stop, index) => (
+                <React.Fragment key={`tour-${stop.id}`}>
+                  <RouteStopItem
+                    stop={stop}
+                    index={routeStops.length + index}
+                    moveStop={() => {}} // Disable drag & drop for tour employee stops
+                    onToggle={handleStopToggle}
+                  />
+                  {index < tourEmployeeStops.length - 1 && (
+                    <Divider sx={{ mx: 1.5 }} />
+                  )}
+                </React.Fragment>
+              ))}
+            </>
+          )}
         </Box>
-        {routeStops.map((stop, index) => (
-          <React.Fragment key={stop.id}>
-            <RouteStopItem
-              stop={stop}
-              index={index}
-              moveStop={moveStop}
-              onToggle={handleStopToggle}
-            />
-            {index < routeStops.length - 1 && (
-              <Divider sx={{ mx: 1.5 }} />
-            )}
-          </React.Fragment>
-        ))}
-        
-        {/* Tour Employee Stops (shown but not in route) */}
-        {tourEmployeeStops.length > 0 && (
-          <>
-            {routeStops.length > 0 && <Divider sx={{ mx: 1.5, my: 1 }} />}
-            {tourEmployeeStops.map((stop, index) => (
-              <React.Fragment key={`tour-${stop.id}`}>
-                <RouteStopItem
-                  stop={stop}
-                  index={routeStops.length + index}
-                  moveStop={() => {}} // Disable drag & drop for tour employee stops
-                  onToggle={handleStopToggle}
-                />
-                {index < tourEmployeeStops.length - 1 && (
-                  <Divider sx={{ mx: 1.5 }} />
-                )}
-              </React.Fragment>
-            ))}
-          </>
-        )}
-      </Box>
+      )}
 
       {/* TK Appointments (Phone Calls) */}
       {tkAppointments.length > 0 && (
