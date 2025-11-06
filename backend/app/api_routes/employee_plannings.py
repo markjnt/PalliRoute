@@ -1,11 +1,10 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from app import db
 from app.models.employee_planning import EmployeePlanning
 from app.models.appointment import Appointment
 from app.models.route import Route
 from app.services.aplano_sync import sync_employee_planning
 from datetime import datetime
-import calendar
 
 employee_planning_bp = Blueprint('employee_planning', __name__)
 
@@ -161,12 +160,45 @@ def update_replacement(employee_id, weekday):
         existing_entry.updated_at = datetime.utcnow()
         db.session.flush()  # Flush um sicherzustellen, dass der Eintrag in der DB ist
 
-        # Alle betroffenen Termine aktualisieren
-        # Wir holen alle Termine, deren origin_employee_id oder employee_id betroffen sein könnten
-        affected_employee_ids = {employee_id}
+        # Finde alle Mitarbeiter, die von dieser Änderung betroffen sein könnten
+        def find_all_affected_employees(start_employee_id):
+            """Findet alle Mitarbeiter, die durch Änderungen in der Vertretungskette betroffen sein könnten"""
+            affected = {start_employee_id}
+            to_check = [start_employee_id]
+            
+            while to_check:
+                current_emp = to_check.pop()
+                
+                # Finde alle Mitarbeiter, die diesen als Vertretung haben
+                for entry in EmployeePlanning.query.filter_by(
+                    replacement_id=current_emp,
+                    weekday=db_weekday,
+                    calendar_week=calendar_week
+                ).all():
+                    if entry.employee_id not in affected:
+                        affected.add(entry.employee_id)
+                        to_check.append(entry.employee_id)
+                
+                # Finde auch die Vertretungskette von diesem Mitarbeiter
+                planning = EmployeePlanning.query.filter_by(
+                    employee_id=current_emp,
+                    weekday=db_weekday,
+                    calendar_week=calendar_week
+                ).first()
+                
+                if planning and planning.replacement_id and planning.replacement_id not in affected:
+                    affected.add(planning.replacement_id)
+                    to_check.append(planning.replacement_id)
+            
+            return affected
+        
+        # Sammle alle betroffenen Mitarbeiter
+        affected_employee_ids = find_all_affected_employees(employee_id)
         if replacement_id:
-            affected_employee_ids.add(replacement_id)
+            affected_employee_ids.update(find_all_affected_employees(replacement_id))
 
+        # Hole alle Termine, die betroffen sein könnten
+        # Wir müssen alle Termine finden, deren origin_employee_id zu einem betroffenen Mitarbeiter gehört
         appointments = Appointment.query.filter(
             Appointment.weekday == db_weekday,
             Appointment.calendar_week == calendar_week
@@ -175,39 +207,38 @@ def update_replacement(employee_id, weekday):
             (Appointment.origin_employee_id.in_(affected_employee_ids))
         ).all()
 
-        moved_count = 0
         moved_appointments = []  # Track which appointments were moved for route updates
         
         for appointment in appointments:
-            # Bestimme den aktuell zuständigen Mitarbeiter basierend auf origin_employee_id
-            if appointment.origin_employee_id:
-                current_responsible = get_current_responsible(appointment.origin_employee_id, db_weekday, calendar_week)
-                if appointment.employee_id != current_responsible:
-                    # Track the move for route updates
-                    moved_appointments.append({
-                        'appointment': appointment,
-                        'old_employee_id': appointment.employee_id,
-                        'new_employee_id': current_responsible
-                    })
-                    appointment.employee_id = current_responsible
-                    moved_count += 1
+            # Bestimme den aktuell zuständigen Mitarbeiter
+            base_employee_id = appointment.origin_employee_id or appointment.employee_id
+            if not base_employee_id or (not appointment.origin_employee_id and appointment.employee_id not in affected_employee_ids):
+                continue
+            
+            current_responsible = get_current_responsible(base_employee_id, db_weekday, calendar_week)
+            
+            # Wenn sich der zuständige Mitarbeiter geändert hat, aktualisiere den Termin
+            if appointment.employee_id != current_responsible:
+                if not appointment.origin_employee_id:
+                    appointment.origin_employee_id = base_employee_id
+                moved_appointments.append({
+                    'appointment': appointment,
+                    'old_employee_id': appointment.employee_id,
+                    'new_employee_id': current_responsible
+                })
+                appointment.employee_id = current_responsible
+        
+        moved_count = len(moved_appointments)
 
         # Update route orders and recalculate routes for affected employees
         if moved_appointments:
             from app.services.route_optimizer import RouteOptimizer
-            from app.models.route import Route
             
             route_optimizer = RouteOptimizer()
-            affected_employees = set()
-            
-            # Collect all affected employees
-            for move in moved_appointments:
-                affected_employees.add(move['old_employee_id'])
-                affected_employees.add(move['new_employee_id'])
+            affected_employees = {move['old_employee_id'] for move in moved_appointments} | {move['new_employee_id'] for move in moved_appointments}
             
             # Update routes for each affected employee
             for emp_id in affected_employees:
-                # Get route for this employee and weekday
                 route = Route.query.filter_by(
                     employee_id=emp_id,
                     weekday=db_weekday,
@@ -215,25 +246,23 @@ def update_replacement(employee_id, weekday):
                 ).first()
                 
                 if route:
-                    # Get current route order
                     route_order = route.get_route_order()
                     
-                    # Remove appointments that moved away from this employee
+                    # Update route order in one pass
                     for move in moved_appointments:
-                        if move['old_employee_id'] == emp_id and move['appointment'].id in route_order:
-                            route_order.remove(move['appointment'].id)
+                        app_id = move['appointment'].id
+                        # Remove from old employee
+                        if move['old_employee_id'] == emp_id and app_id in route_order:
+                            route_order.remove(app_id)
+                        # Add to new employee (only HB/NA)
+                        elif (move['new_employee_id'] == emp_id and 
+                              move['appointment'].visit_type in ('HB', 'NA') and 
+                              app_id not in route_order):
+                            route_order.append(app_id)
                     
-                    # Add appointments that moved to this employee
-                    for move in moved_appointments:
-                        if (move['new_employee_id'] == emp_id and 
-                            move['appointment'].visit_type in ('HB', 'NA') and 
-                            move['appointment'].id not in route_order):
-                            route_order.append(move['appointment'].id)
-                    
-                    # Update route order
                     route.set_route_order(route_order)
                     
-                    # Optimize route (intelligent positioning + polyline recalculation)
+                    # Optimize route
                     try:
                         route_optimizer.optimize_route(db_weekday, emp_id, calendar_week=calendar_week)
                     except Exception as e:
