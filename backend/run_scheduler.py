@@ -49,7 +49,7 @@ class SimpleScheduler:
             
         self.scheduler.add_job(
             func=self._scheduled_import,
-            trigger=CronTrigger(minute=minute_pattern, hour='7-17'),
+            trigger=CronTrigger(minute=minute_pattern, hour='8-16'),
             id='auto_import_job',
             name='Automatic Patient Import',
             replace_existing=True
@@ -57,7 +57,7 @@ class SimpleScheduler:
         
         self.scheduler.start()
         self.is_running = True
-        print(f"INFO: Scheduler started - automatic import will run every {interval_minutes} minute(s) between 7 AM and 5 PM")
+        print(f"INFO: Scheduler started - automatic import will run every {interval_minutes} minute(s) between 8 AM and 4:30 PM")
         
     def stop(self):
         if self.scheduler and self.is_running:
@@ -68,6 +68,12 @@ class SimpleScheduler:
     def _scheduled_import(self):
         """Execute the automatic import job"""
         try:
+            # Check if current time is after 16:30 (4:30 PM)
+            current_time = datetime.now()
+            if current_time.hour > 16 or (current_time.hour == 16 and current_time.minute > 30):
+                print(f"INFO: Current time {current_time.strftime('%H:%M')} is after 16:30, skipping import")
+                return
+            
             # Get directory path from config
             config = Config()
             directory_path = config.PATIENTS_IMPORT_PATH or '/scheduler/data/excel_import/Export_PalliDoc'

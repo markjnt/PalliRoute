@@ -174,9 +174,34 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         setPendingReplacement(null);
     };
 
+    // Get current employee info to determine color
+    const currentEmployee = availableEmployees.find(emp => emp.id === employeeId);
+    const employeeFunction = (currentEmployee?.function || '').toLowerCase();
+    const isDoctor = employeeFunction === 'arzt' || employeeFunction === 'honorararzt';
+    
+    // Check custom_text for Tour Nord or Tour Süd
+    const customText = relevantData?.custom_text || '';
+
+    // Determine color based on tour and function
+    const getAvailableColor = () => {
+        if (isDoctor) {
+            // Doctors keep the old green color
+            return '#2196F3';
+        } else if (customText === 'Tour Nord') {
+            // Tour Nord: Rosa
+            return '#E4AED5';
+        } else if (customText === 'Tour Süd') {
+            // Tour Süd: Grün
+            return '#65B761';
+        } else {
+            // Default: Blue to distinguish from tour colors
+            return '#2196F3';
+        }
+    };
+
     // Get status display info
     const statusInfo = isAvailable 
-        ? { value: true, label: 'Verfügbar', color: '#4CAF50' }
+        ? { value: true, label: 'Verfügbar', color: getAvailableColor() }
         : { value: false, label: 'Abwesend', color: '#F44336' };
 
     const isWeekend = weekday === 'Samstag' || weekday === 'Sonntag';
@@ -187,14 +212,17 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                 sx={{ 
                     minHeight: 40,
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    justifyContent: 'center',
                     border: '1px dashed',
                     borderColor: hasConflicts ? 'error.main' : 'grey.300',
                     borderRadius: 1,
                     backgroundColor: isWeekend ? 'grey.100' : 'grey.50',
                     position: 'relative',
                     px: 1,
+                    py: 0.5,
+                    gap: 0.5,
                 }}
             >
                     {/* Conflict warning icon */}
@@ -202,15 +230,15 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                         <Box
                             sx={{
                                 position: 'absolute',
-                                top: -2,
-                                right: -2,
+                                top: -6,
+                                right: -6,
                                 zIndex: 1,
                             }}
                         >
                             <Warning 
                                 sx={{ 
                                     color: 'error.main', 
-                                    fontSize: 16,
+                                    fontSize: 25,
                                     backgroundColor: 'white',
                                     borderRadius: '50%',
                                     padding: '2px'
@@ -220,7 +248,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                     )}
                     
                     {/* Status display */}
-                    <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                         {hasConflicts ? (
                             <Tooltip 
                                 title={`${appointmentsCount} Termin${appointmentsCount !== 1 ? 'e' : ''} vorhanden`}
@@ -266,32 +294,48 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                         )}
                     </Box>
 
-                {/* Replacement Avatar - Only for weekdays */}
+                {/* Replacement Display - Only for weekdays */}
                 {!isWeekend && (
-                    <Box sx={{ ml: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: 0.5 }}>
+                        <Typography 
+                            variant="caption" 
+                            sx={{ 
+                                fontSize: '0.65rem', 
+                                color: 'text.secondary',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            Vertretung:
+                        </Typography>
                         {replacementEmployee ? (
                             <Tooltip 
-                                title={`Vertretung: ${replacementEmployee.first_name} ${replacementEmployee.last_name}`}
+                                title="Vertretung ändern"
                                 arrow
                                 placement="top"
                             >
-                                <Avatar
+                                <Chip
+                                    label={`${replacementEmployee.first_name} ${replacementEmployee.last_name}`}
+                                    size="small"
+                                    onClick={handleReplacementMenuOpen}
                                     sx={{
-                                        width: 24,
-                                        height: 24,
                                         bgcolor: getColorForTour(replacementEmployee.id),
-                                        fontSize: '0.7rem',
                                         color: 'white',
-                                        fontWeight: 'bold',
+                                        fontSize: '0.65rem',
+                                        height: 18,
+                                        maxWidth: '100%',
                                         cursor: 'pointer',
                                         '&:hover': {
                                             opacity: 0.8
+                                        },
+                                        '& .MuiChip-label': {
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            px: 0.75,
+                                            py: 0
                                         }
                                     }}
-                                    onClick={handleReplacementMenuOpen}
-                                >
-                                    {`${replacementEmployee.first_name[0]}${replacementEmployee.last_name[0]}`.toUpperCase()}
-                                </Avatar>
+                                />
                             </Tooltip>
                         ) : (
                             <Tooltip title="Vertretung hinzufügen" arrow placement="top">
@@ -299,15 +343,15 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                                     size="small"
                                     onClick={handleReplacementMenuOpen}
                                     sx={{
-                                        width: 24,
-                                        height: 24,
+                                        width: 18,
+                                        height: 18,
                                         p: 0,
                                         '&:hover': {
                                             backgroundColor: 'primary.50'
                                         }
                                     }}
                                 >
-                                    <PersonAdd sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    <PersonAdd sx={{ fontSize: 14, color: 'text.secondary' }} />
                                 </IconButton>
                             </Tooltip>
                         )}

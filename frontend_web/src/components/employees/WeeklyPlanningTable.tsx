@@ -64,7 +64,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
     // Check if planning week is selected
     const isPlanningWeekSelected = selectedPlanningWeek !== null;
 
-    // Sort employees by function priority and then by name
+    // Sort employees: first by function, then by area (Nord/Süd), then alphabetically
     const sortedEmployees = React.useMemo(() => {
         const functionPriority: Record<string, number> = {
             'Pflegekraft': 1,
@@ -83,7 +83,22 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                 return aPriority - bPriority;
             }
             
-            // Then sort by last name, then first name
+            // Then sort by area (Nordkreis first, then Südkreis)
+            const getAreaOrder = (area?: string) => {
+                if (!area) return 2;
+                if (area.includes('Nordkreis')) return 0;
+                if (area.includes('Südkreis')) return 1;
+                return 2;
+            };
+            
+            const areaOrderA = getAreaOrder(a.area);
+            const areaOrderB = getAreaOrder(b.area);
+            
+            if (areaOrderA !== areaOrderB) {
+                return areaOrderA - areaOrderB;
+            }
+            
+            // Finally sort alphabetically by last name, then first name
             const aName = `${a.last_name} ${a.first_name}`.toLowerCase();
             const bName = `${b.last_name} ${b.first_name}`.toLowerCase();
             
@@ -185,16 +200,16 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                                 </TableCell>
                                 
                                 {/* Wochentage Spalten */}
-                                {weekdays.map((day) => (
-                                    <TableCell 
-                                        key={day}
-                                        align="center"
-                                        sx={{ 
-                                            minWidth: 120,
-                                            borderLeft: 1,
-                                            borderColor: 'divider'
-                                        }}
-                                    >
+                            {weekdays.map((day) => (
+                                <TableCell 
+                                    key={day}
+                                    align="center"
+                                    sx={{ 
+                                        minWidth: 100,
+                                        borderLeft: 1,
+                                        borderColor: 'divider'
+                                    }}
+                                >
                                         <WeeklyPlanningCell
                                             employeeId={employee.id || 0}
                                             weekday={day}

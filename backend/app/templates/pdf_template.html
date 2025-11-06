@@ -150,6 +150,20 @@
         .cell-tk { background-color: #E8F5E9 !important; }
         .cell-na { background-color: #FFEBEE !important; }
         
+        /* Orange background for replacement columns */
+        .replacement-col-header {
+            background-color: #FFF4E6 !important;
+        }
+        
+        .replacement-col-cell {
+            background-color: #FFF4E6 !important;
+        }
+        
+        /* When replacement column has visit type, combine colors */
+        .replacement-col-cell.cell-hb { background-color: #FFE0B2 !important; }
+        .replacement-col-cell.cell-tk { background-color: #FFE0B2 !important; }
+        .replacement-col-cell.cell-na { background-color: #FFCCBC !important; }
+        
         /* Zebra striping only for info columns (num, patient, address, phone) */
         .appointments-table tr:nth-child(even) .num-col,
         .appointments-table tr:nth-child(even) .patient-col,
@@ -165,7 +179,7 @@
             background-color: white;
         }
         
-        /* Weekday columns always gray by default (unless colored by visit type) */
+        /* Weekday columns always gray by default (unless colored by visit type or replacement) */
         .appointments-table td.weekday-col {
             background-color: #f5f5f5;
         }
@@ -199,14 +213,44 @@
             white-space: nowrap;
         }
         .status-chip.available {
-            color: #155724;
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
+            color: #1976D2;
+            background-color: #E3F2FD;
+            border: 1px solid #90CAF9;
         }
         .status-chip.absent {
             color: #721c24;
             background-color: #f8d7da;
             border: 1px solid #f5c6cb;
+        }
+        
+        /* Area colors */
+        .area-nordkreis {
+            color: #E4AED5;
+            font-weight: 600;
+        }
+        
+        .area-suedkreis {
+            color: #65B761;
+            font-weight: 600;
+        }
+        
+        /* Status chip colors by area */
+        .status-chip.available.nordkreis {
+            color: #E4AED5;
+            background-color: #F8E8F5;
+            border: 1px solid #E4AED5;
+        }
+        
+        .status-chip.available.suedkreis {
+            color: #65B761;
+            background-color: #E8F5E9;
+            border: 1px solid #65B761;
+        }
+        
+        .status-chip.available.doctor {
+            color: #1976D2;
+            background-color: #E3F2FD;
+            border: 1px solid #90CAF9;
         }
         
         .num-col { width: 4%; text-align: right; }
@@ -219,6 +263,10 @@
         .phone-col,
         .appointments-table th.phone-col,
         .appointments-table td.phone-col { border-right: 2px solid #d0d0d0; }
+        
+        /* Thicker borders between weekday columns */
+        .appointments-table th.weekday-col:not(:last-child),
+        .appointments-table td.weekday-col:not(:last-child) { border-right: 2px solid #d0d0d0; }
         
         .replacement-info {
             color: #FF9500;
@@ -554,30 +602,29 @@
                 {% for item in overview_data %}
                 <tr class="{% if loop.index % 2 == 0 %}row-even{% else %}row-odd{% endif %}">
                     <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px;">
-                        {{ item.name }}{% if item.area %} · {{ item.area }}{% endif %}
-                        {% if item.function %}
-                            {% set fn_lower = item.function|lower %}
-                            {% if fn_lower == 'pflegekraft' or fn_lower == 'pdl' or fn_lower == 'physiotherapie' %}
-                                {% set fn_class = 'pf' %}
-                            {% elif fn_lower == 'arzt' %}
-                                {% set fn_class = 'arzt' %}
-                            {% elif fn_lower == 'honorararzt' %}
-                                {% set fn_class = 'honorar' %}
+                        {{ item.name }}{% if item.area %}
+                            {% if item.area == 'Nordkreis' %}
+                                · <span class="area-nordkreis">{{ item.area }}</span>
+                            {% elif item.area == 'Südkreis' %}
+                                · <span class="area-suedkreis">{{ item.area }}</span>
                             {% else %}
-                                {% set fn_class = 'default' %}
+                                · {{ item.area }}
                             {% endif %}
-                            <span class="function-chip {{ fn_class }}" style="margin-left: 8px; padding:2px 6px; border-radius:10px; font-size:9px;">{{ item.function }}</span>
                         {% endif %}
                     </td>
                     {% set op = overview_planning.get(item.id) %}
+                    {% set fn_lower = (item.function or '')|lower %}
+                    {% set is_doctor = fn_lower == 'arzt' or fn_lower == 'honorararzt' %}
                     <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
                         {% set pl = op['monday'] if op else None %}
                         {% if pl and not pl.available %}
                             <span class="status-chip absent">Abwesend</span>
                         {% elif pl and pl.custom_text %}
-                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                            {% set tour_class = 'doctor' if is_doctor else ('nordkreis' if pl.custom_text == 'Tour Nord' else ('suedkreis' if pl.custom_text == 'Tour Süd' else '')) %}
+                            <span class="status-chip available {{ tour_class }}">{{ pl.custom_text }}</span>
                         {% elif pl and pl.available %}
-                            <span class="status-chip available">Verfügbar</span>
+                            {% set tour_class = 'doctor' if is_doctor else '' %}
+                            <span class="status-chip available {{ tour_class }}">Verfügbar</span>
                         {% endif %}
                     </td>
                     <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
@@ -585,9 +632,11 @@
                         {% if pl and not pl.available %}
                             <span class="status-chip absent">Abwesend</span>
                         {% elif pl and pl.custom_text %}
-                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                            {% set tour_class = 'doctor' if is_doctor else ('nordkreis' if pl.custom_text == 'Tour Nord' else ('suedkreis' if pl.custom_text == 'Tour Süd' else '')) %}
+                            <span class="status-chip available {{ tour_class }}">{{ pl.custom_text }}</span>
                         {% elif pl and pl.available %}
-                            <span class="status-chip available">Verfügbar</span>
+                            {% set tour_class = 'doctor' if is_doctor else '' %}
+                            <span class="status-chip available {{ tour_class }}">Verfügbar</span>
                         {% endif %}
                     </td>
                     <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
@@ -595,9 +644,11 @@
                         {% if pl and not pl.available %}
                             <span class="status-chip absent">Abwesend</span>
                         {% elif pl and pl.custom_text %}
-                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                            {% set tour_class = 'doctor' if is_doctor else ('nordkreis' if pl.custom_text == 'Tour Nord' else ('suedkreis' if pl.custom_text == 'Tour Süd' else '')) %}
+                            <span class="status-chip available {{ tour_class }}">{{ pl.custom_text }}</span>
                         {% elif pl and pl.available %}
-                            <span class="status-chip available">Verfügbar</span>
+                            {% set tour_class = 'doctor' if is_doctor else '' %}
+                            <span class="status-chip available {{ tour_class }}">Verfügbar</span>
                         {% endif %}
                     </td>
                     <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
@@ -605,9 +656,11 @@
                         {% if pl and not pl.available %}
                             <span class="status-chip absent">Abwesend</span>
                         {% elif pl and pl.custom_text %}
-                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                            {% set tour_class = 'doctor' if is_doctor else ('nordkreis' if pl.custom_text == 'Tour Nord' else ('suedkreis' if pl.custom_text == 'Tour Süd' else '')) %}
+                            <span class="status-chip available {{ tour_class }}">{{ pl.custom_text }}</span>
                         {% elif pl and pl.available %}
-                            <span class="status-chip available">Verfügbar</span>
+                            {% set tour_class = 'doctor' if is_doctor else '' %}
+                            <span class="status-chip available {{ tour_class }}">Verfügbar</span>
                         {% endif %}
                     </td>
                     <td style="padding: 6px 8px; border: 1px solid #ddd; font-size: 9px; text-align:center;">
@@ -615,9 +668,11 @@
                         {% if pl and not pl.available %}
                             <span class="status-chip absent">Abwesend</span>
                         {% elif pl and pl.custom_text %}
-                            <span class="status-chip available">{{ pl.custom_text }}</span>
+                            {% set tour_class = 'doctor' if is_doctor else ('nordkreis' if pl.custom_text == 'Tour Nord' else ('suedkreis' if pl.custom_text == 'Tour Süd' else '')) %}
+                            <span class="status-chip available {{ tour_class }}">{{ pl.custom_text }}</span>
                         {% elif pl and pl.available %}
-                            <span class="status-chip available">Verfügbar</span>
+                            {% set tour_class = 'doctor' if is_doctor else '' %}
+                            <span class="status-chip available {{ tour_class }}">Verfügbar</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -683,11 +738,11 @@
                         {% set pl_we = employee_planning[pk_we] %}
                         {% set pl_th = employee_planning[pk_th] %}
                         {% set pl_fr = employee_planning[pk_fr] %}
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['monday'] }}</div>Montag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['monday'].HB }}</div><div class="count-tk">TK {{ wc['monday'].TK }}</div><div class="count-na">NA {{ wc['monday'].NA }}</div></div>{% endif %}{% if pl_mo and not pl_mo.available %}<br><span class="absence-info">Abwesend</span>{% if pl_mo.replacement_id %}{% set repl = employees[pl_mo.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-monday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['tuesday'] }}</div>Dienstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['tuesday'].HB }}</div><div class="count-tk">TK {{ wc['tuesday'].TK }}</div><div class="count-na">NA {{ wc['tuesday'].NA }}</div></div>{% endif %}{% if pl_tu and not pl_tu.available %}<br><span class="absence-info">Abwesend</span>{% if pl_tu.replacement_id %}{% set repl = employees[pl_tu.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-tuesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['wednesday'] }}</div>Mittwoch{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['wednesday'].HB }}</div><div class="count-tk">TK {{ wc['wednesday'].TK }}</div><div class="count-na">NA {{ wc['wednesday'].NA }}</div></div>{% endif %}{% if pl_we and not pl_we.available %}<br><span class="absence-info">Abwesend</span>{% if pl_we.replacement_id %}{% set repl = employees[pl_we.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-wednesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['thursday'] }}</div>Donnerstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['thursday'].HB }}</div><div class="count-tk">TK {{ wc['thursday'].TK }}</div><div class="count-na">NA {{ wc['thursday'].NA }}</div></div>{% endif %}{% if pl_th and not pl_th.available %}<br><span class="absence-info">Abwesend</span>{% if pl_th.replacement_id %}{% set repl = employees[pl_th.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-thursday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
-                        <th class="weekday-col"><div class="weekday-date">{{ weekday_date_labels['friday'] }}</div>Freitag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['friday'].HB }}</div><div class="count-tk">TK {{ wc['friday'].TK }}</div><div class="count-na">NA {{ wc['friday'].NA }}</div></div>{% endif %}{% if pl_fr and not pl_fr.available %}<br><span class="absence-info">Abwesend</span>{% if pl_fr.replacement_id %}{% set repl = employees[pl_fr.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-friday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}{% endif %}</th>
+                        <th class="weekday-col{% if pl_mo and pl_mo.replacement_id %} replacement-col-header{% endif %}"><div class="weekday-date">{{ weekday_date_labels['monday'] }}</div>Montag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['monday'].HB }}</div><div class="count-tk">TK {{ wc['monday'].TK }}</div><div class="count-na">NA {{ wc['monday'].NA }}</div></div>{% endif %}{% if pl_mo and not pl_mo.available %}<br><span class="absence-info">Abwesend</span>{% endif %}{% if pl_mo and pl_mo.replacement_id %}{% set repl = employees[pl_mo.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-monday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}</th>
+                        <th class="weekday-col{% if pl_tu and pl_tu.replacement_id %} replacement-col-header{% endif %}"><div class="weekday-date">{{ weekday_date_labels['tuesday'] }}</div>Dienstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['tuesday'].HB }}</div><div class="count-tk">TK {{ wc['tuesday'].TK }}</div><div class="count-na">NA {{ wc['tuesday'].NA }}</div></div>{% endif %}{% if pl_tu and not pl_tu.available %}<br><span class="absence-info">Abwesend</span>{% endif %}{% if pl_tu and pl_tu.replacement_id %}{% set repl = employees[pl_tu.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-tuesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}</th>
+                        <th class="weekday-col{% if pl_we and pl_we.replacement_id %} replacement-col-header{% endif %}"><div class="weekday-date">{{ weekday_date_labels['wednesday'] }}</div>Mittwoch{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['wednesday'].HB }}</div><div class="count-tk">TK {{ wc['wednesday'].TK }}</div><div class="count-na">NA {{ wc['wednesday'].NA }}</div></div>{% endif %}{% if pl_we and not pl_we.available %}<br><span class="absence-info">Abwesend</span>{% endif %}{% if pl_we and pl_we.replacement_id %}{% set repl = employees[pl_we.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-wednesday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}</th>
+                        <th class="weekday-col{% if pl_th and pl_th.replacement_id %} replacement-col-header{% endif %}"><div class="weekday-date">{{ weekday_date_labels['thursday'] }}</div>Donnerstag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['thursday'].HB }}</div><div class="count-tk">TK {{ wc['thursday'].TK }}</div><div class="count-na">NA {{ wc['thursday'].NA }}</div></div>{% endif %}{% if pl_th and not pl_th.available %}<br><span class="absence-info">Abwesend</span>{% endif %}{% if pl_th and pl_th.replacement_id %}{% set repl = employees[pl_th.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-thursday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}</th>
+                        <th class="weekday-col{% if pl_fr and pl_fr.replacement_id %} replacement-col-header{% endif %}"><div class="weekday-date">{{ weekday_date_labels['friday'] }}</div>Freitag{% if wc %}<div class="weekday-counts"><div class="count-hb">HB {{ wc['friday'].HB }}</div><div class="count-tk">TK {{ wc['friday'].TK }}</div><div class="count-na">NA {{ wc['friday'].NA }}</div></div>{% endif %}{% if pl_fr and not pl_fr.available %}<br><span class="absence-info">Abwesend</span>{% endif %}{% if pl_fr and pl_fr.replacement_id %}{% set repl = employees[pl_fr.replacement_id] %}{% if repl %}<br><a href="#employee-{{ repl.id }}-friday" class="replacement-link">Vertretung: {{ repl.first_name }} {{ repl.last_name }}</a>{% endif %}{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -710,10 +765,11 @@
                         </td>
                         {% set cell = row.cells['monday'] %}
                         {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
-                        <td class="weekday-col {{ vt_class }}">
+                        {% set replacement_class = 'replacement-col-cell' if (pl_mo and pl_mo.replacement_id) else '' %}
+                        <td class="weekday-col {{ vt_class }} {{ replacement_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
-                            {% if cell.origin_employee_id %}
+                            {% if cell.origin_employee_id and not cell.moved %}
                                 {% set origin_employee = employees[cell.origin_employee_id] %}
                                 {% if origin_employee %}
                                     <br><a href="#employee-{{ origin_employee.id }}-monday" class="replacement-link">Ursprünglich: {{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
@@ -722,10 +778,11 @@
                         </td>
                         {% set cell = row.cells['tuesday'] %}
                         {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
-                        <td class="weekday-col {{ vt_class }}">
+                        {% set replacement_class = 'replacement-col-cell' if (pl_tu and pl_tu.replacement_id) else '' %}
+                        <td class="weekday-col {{ vt_class }} {{ replacement_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
-                            {% if cell.origin_employee_id %}
+                            {% if cell.origin_employee_id and not cell.moved %}
                                 {% set origin_employee = employees[cell.origin_employee_id] %}
                                 {% if origin_employee %}
                                     <br><a href="#employee-{{ origin_employee.id }}-tuesday" class="replacement-link">Ursprünglich: {{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
@@ -734,10 +791,11 @@
                         </td>
                         {% set cell = row.cells['wednesday'] %}
                         {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
-                        <td class="weekday-col {{ vt_class }}">
+                        {% set replacement_class = 'replacement-col-cell' if (pl_we and pl_we.replacement_id) else '' %}
+                        <td class="weekday-col {{ vt_class }} {{ replacement_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
-                            {% if cell.origin_employee_id %}
+                            {% if cell.origin_employee_id and not cell.moved %}
                                 {% set origin_employee = employees[cell.origin_employee_id] %}
                                 {% if origin_employee %}
                                     <br><a href="#employee-{{ origin_employee.id }}-wednesday" class="replacement-link">Ursprünglich: {{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
@@ -746,26 +804,28 @@
                         </td>
                         {% set cell = row.cells['thursday'] %}
                         {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
-                        <td class="weekday-col {{ vt_class }}">
+                        {% set replacement_class = 'replacement-col-cell' if (pl_th and pl_th.replacement_id) else '' %}
+                        <td class="weekday-col {{ vt_class }} {{ replacement_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
-                            {% if cell.origin_employee_id %}
+                            {% if cell.origin_employee_id and not cell.moved %}
                                 {% set origin_employee = employees[cell.origin_employee_id] %}
-                            {% if origin_employee %}
+                                {% if origin_employee %}
                                     <br><a href="#employee-{{ origin_employee.id }}-thursday" class="replacement-link">Ursprünglich: {{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
                                 {% endif %}
                             {% endif %}
                         </td>
                         {% set cell = row.cells['friday'] %}
                         {% set vt_class = 'cell-' + (cell.visit_type|lower) if cell.visit_type else '' %}
-                        <td class="weekday-col {{ vt_class }}">
+                        {% set replacement_class = 'replacement-col-cell' if (pl_fr and pl_fr.replacement_id) else '' %}
+                        <td class="weekday-col {{ vt_class }} {{ replacement_class }}">
                             {% if cell.visit_type %}<strong>{{ cell.visit_type }}</strong>{% endif %}
                             {% if cell.info %}<br>{{ cell.info }}{% endif %}
-                            {% if cell.origin_employee_id %}
+                            {% if cell.origin_employee_id and not cell.moved %}
                                 {% set origin_employee = employees[cell.origin_employee_id] %}
                                 {% if origin_employee %}
                                     <br><a href="#employee-{{ origin_employee.id }}-friday" class="replacement-link">Ursprünglich: {{ origin_employee.first_name }} {{ origin_employee.last_name }}</a>
-                            {% endif %}
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>

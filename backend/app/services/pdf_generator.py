@@ -138,6 +138,16 @@ class PDFGenerator:
             })
             template_data['overview_planning'][employee.id] = planning_map
         
+        # Sort overview_data: first by area (Nordkreis first, then Südkreis), then alphabetically by name
+        def sort_overview(item):
+            area = item.get('area', '')
+            name = item.get('name', '')
+            # Nordkreis = 1, Südkreis = 2, others = 3
+            area_order = 1 if area == 'Nordkreis' else (2 if area == 'Südkreis' else 3)
+            return (area_order, name.lower())
+        
+        template_data['overview_data'].sort(key=sort_overview)
+        
         # Collect all appointments, patients, employees, and planning data for template
         consolidated_by_employee = {}
         for emp_data in employee_routes_data:
@@ -197,7 +207,7 @@ class PDFGenerator:
                             if not row:
                                 row = {
                                     'patient': patient,
-                                    'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None} for day in weekdays }
+                                    'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'moved': False} for day in weekdays }
                                 }
                                 patient_rows[patient.id] = row
                             # Fill cell for this weekday (only for this employee)
@@ -205,7 +215,8 @@ class PDFGenerator:
                                 row['cells'][appointment.weekday] = {
                                     'visit_type': appointment.visit_type or '',
                                     'info': appointment.info or '',
-                                    'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None
+                                    'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None,
+                                    'moved': False
                                 }
                             
                             # Also collect origin employee if it's a replacement
@@ -227,7 +238,7 @@ class PDFGenerator:
                         if not row:
                             row = {
                                 'patient': patient,
-                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None} for day in weekdays }
+                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'moved': False} for day in weekdays }
                             }
                             patient_rows[patient.id] = row
                         # Fill cell
@@ -235,7 +246,8 @@ class PDFGenerator:
                             row['cells'][appointment.weekday] = {
                                 'visit_type': appointment.visit_type or '',
                                 'info': appointment.info or '',
-                                'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None
+                                'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None,
+                                'moved': False
                             }
                         
                         # Also collect origin employee if it's a replacement
@@ -243,6 +255,45 @@ class PDFGenerator:
                             origin_employee = Employee.query.get(appointment.origin_employee_id)
                             if origin_employee:
                                 template_data['employees'][origin_employee.id] = origin_employee
+            
+            # Collect appointments that were moved away from this employee (origin_employee_id == employee.id)
+            # These are appointments that were originally assigned to this employee but are now assigned to someone else
+            for weekday in weekdays:
+                moved_appointments = Appointment.query.filter(
+                    Appointment.origin_employee_id == employee.id,
+                    Appointment.weekday == weekday,
+                    Appointment.calendar_week == calendar_week,
+                    Appointment.employee_id != employee.id  # Only show if moved to different employee
+                ).all()
+                
+                for appointment in moved_appointments:
+                    template_data['appointments'][appointment.id] = appointment
+                    
+                    patient = Patient.query.get(appointment.patient_id)
+                    if patient:
+                        template_data['patients'][appointment.patient_id] = patient
+                        # Ensure row exists
+                        row = patient_rows.get(patient.id)
+                        if not row:
+                            row = {
+                                'patient': patient,
+                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'moved': False} for day in weekdays }
+                            }
+                            patient_rows[patient.id] = row
+                        # Fill cell with moved appointment info
+                        if appointment.weekday in weekdays:
+                            row['cells'][appointment.weekday] = {
+                                'visit_type': appointment.visit_type or '',
+                                'info': appointment.info or '',
+                                'origin_employee_id': appointment.employee_id,  # Show current employee (the replacement)
+                                'moved': True  # Mark as moved
+                            }
+                        
+                        # Collect current employee (replacement)
+                        if appointment.employee_id:
+                            current_employee = Employee.query.get(appointment.employee_id)
+                            if current_employee:
+                                template_data['employees'][current_employee.id] = current_employee
 
             # Build patient order based on selected day route; others appended
             selected_positions = {}
