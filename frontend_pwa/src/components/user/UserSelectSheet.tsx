@@ -61,8 +61,9 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
   // Helper function to get current weekday or fallback
   const getCurrentWeekdayOrFallback = (fallback: Weekday): Weekday => {
     const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const today = new Date().getDay(); // 0 = Sonntag, 1 = Montag, etc.
-    return days[today] || fallback;
+    const today = days[new Date().getDay()];
+    const isWeekday = today === 'monday' || today === 'tuesday' || today === 'wednesday' || today === 'thursday' || today === 'friday';
+    return isWeekday && today ? today : fallback;
   };
 
   const handleUserSelect = (userId: number) => {
@@ -80,10 +81,9 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     setSelectedUser(null); // Clear user selection
     // Set current day if it's weekend (Saturday/Sunday), otherwise Saturday as fallback
     const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const today = new Date().getDay(); // 0 = Sonntag, 1 = Montag, etc.
-    const currentDay = days[today];
+    const currentDay = days[new Date().getDay()];
     const isWeekend = currentDay === 'saturday' || currentDay === 'sunday';
-    const weekday = isWeekend ? currentDay : 'saturday';
+    const weekday = isWeekend && currentDay ? currentDay : 'saturday';
     setSelectedWeekday(weekday);
     onClose(); // Close the sheet after selecting a weekend area
   };

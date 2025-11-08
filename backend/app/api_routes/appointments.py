@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+import json
 from app import db
 from app.models.appointment import Appointment
 from app.models.patient import Patient
@@ -192,6 +193,89 @@ def move_appointment():
         db.session.commit()
         return jsonify({'message': 'Appointment moved successfully'})
         
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@appointments_bp.route('/assign-weekend-area', methods=['POST'])
+def assign_weekend_area():
+    """
+    Assign a weekend appointment that is currently unassigned to one of the weekend areas.
+    Expected JSON body: {
+        "appointment_id": 123,
+        "target_area": "Nord"  # One of: Nord, Mitte, Süd
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data or 'appointment_id' not in data or 'target_area' not in data:
+            return jsonify({'error': 'appointment_id and target_area are required'}), 400
+
+        appointment_id = data['appointment_id']
+        target_area = data['target_area']
+
+        valid_areas = ['Nord', 'Mitte', 'Süd']
+        if target_area not in valid_areas:
+            return jsonify({'error': f"target_area must be one of {', '.join(valid_areas)}"}), 400
+
+        appointment = Appointment.query.get_or_404(appointment_id)
+
+        if appointment.weekday not in ['saturday', 'sunday']:
+            return jsonify({'error': 'Only weekend appointments can be reassigned with this endpoint'}), 400
+
+        original_area = appointment.area
+        if original_area == target_area:
+            return jsonify({'message': 'Appointment already assigned to the requested area'}), 200
+
+        if original_area != 'Nicht zugewiesen':
+            return jsonify({'error': 'Appointment is not marked as unassigned'}), 400
+
+        # Update appointment area
+        appointment.area = target_area
+
+        # Ensure target route exists (only relevant for HB/NA)
+        target_route = None
+        if appointment.visit_type in ('HB', 'NA'):
+            target_route_query = Route.query.filter_by(
+                employee_id=None,
+                weekday=appointment.weekday,
+                area=target_area
+            )
+            if appointment.calendar_week:
+                target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)
+            target_route = target_route_query.first()
+
+            if not target_route:
+                target_route = Route(
+                    employee_id=None,
+                    weekday=appointment.weekday,
+                    route_order=json.dumps([]),
+                    total_duration=0,
+                    total_distance=0,
+                    area=target_area,
+                    calendar_week=appointment.calendar_week
+                )
+                db.session.add(target_route)
+                db.session.flush()
+
+            route_order = target_route.get_route_order()
+            if appointment.id not in route_order:
+                route_order.append(appointment.id)
+                target_route.set_route_order(route_order)
+            route_optimizer.optimize_route(
+                appointment.weekday,
+                area=target_area,
+                calendar_week=appointment.calendar_week
+            )
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Appointment assigned successfully',
+            'appointment': appointment.to_dict()
+        })
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

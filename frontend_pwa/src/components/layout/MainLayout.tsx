@@ -9,7 +9,7 @@ import UserSearchDrawer from '../user/UserSelectSheet';
 import { TopOverviewBar } from './TopOverviewBar';
 
 const MainLayout: React.FC = () => {
-  const { selectedUserId } = useUserStore();
+  const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { selectedWeekday, setSelectedWeekday, resetToCurrentDay } = useWeekdayStore();
   const navigate = useNavigate();
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
@@ -17,8 +17,15 @@ const MainLayout: React.FC = () => {
 
   // Automatisch den aktuellen Tag auswählen beim Laden der App
   useEffect(() => {
-    resetToCurrentDay();
-  }, [resetToCurrentDay]);
+    if (selectedWeekendArea) {
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+      const currentDay = days[new Date().getDay()];
+      const isWeekend = currentDay === 'saturday' || currentDay === 'sunday';
+      setSelectedWeekday(isWeekend && currentDay ? currentDay : 'saturday');
+    } else {
+      resetToCurrentDay();
+    }
+  }, [resetToCurrentDay, selectedWeekendArea, setSelectedWeekday]);
 
   // Redirect to user selection if no user is selected
   useEffect(() => {

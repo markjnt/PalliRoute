@@ -99,4 +99,16 @@ export const appointmentsApi = {
         }
     },
 
+    async assignWeekendArea(appointmentId: number, targetArea: 'Nord' | 'Mitte' | 'Süd'): Promise<void> {
+        try {
+            await api.post('/appointments/assign-weekend-area', {
+                appointment_id: appointmentId,
+                target_area: targetArea
+            });
+        } catch (error) {
+            console.error('Fehler beim Zuweisen des Wochenendbereichs:', error);
+            throw error;
+        }
+    },
+
 }; 

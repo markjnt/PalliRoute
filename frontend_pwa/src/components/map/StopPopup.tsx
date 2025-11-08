@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { InfoWindow } from '@react-google-maps/api';
 import { MarkerData } from '../../types/mapTypes';
 import { Patient, Appointment, Employee } from '../../types/models';
@@ -42,13 +42,18 @@ export const StopPopup: React.FC<StopPopupProps> = ({
   isAdditionalRoute = false,
   employee
 }) => {
-  const { isStopCompleted, toggleStop } = useRouteCompletionStore();
+  const appointmentId = appointment?.id ?? null;
+  const toggleStop = useRouteCompletionStore((state) => state.toggleStop);
+  const isCompleted = useRouteCompletionStore(
+    useCallback(
+      (state) => (appointmentId !== null ? state.isStopCompleted(appointmentId) : false),
+      [appointmentId]
+    )
+  );
   
-  if (!patient || !appointment) {
+  if (!patient || !appointment || appointmentId === null) {
     return null;
   }
-
-  const isCompleted = isStopCompleted(appointment.id!);
   const visitTypeLabels = {
     'HB': 'Hausbesuch',
     'TK': 'Telefonkontakt',
@@ -56,8 +61,8 @@ export const StopPopup: React.FC<StopPopupProps> = ({
   };
 
   const handleCheckboxChange = () => {
-    if (appointment.id) {
-      toggleStop(appointment.id);
+    if (appointmentId !== null) {
+      toggleStop(appointmentId);
     }
   };
 

@@ -543,6 +543,7 @@ class ExcelImportService:
                 responsible_column = f"Zuständige {weekday}"
                 assigned_employee = default_employee
                 
+                has_responsible_assignment = False
                 if has_responsible_columns and responsible_column in df.columns:
                     responsible_alias = row.get(responsible_column)
                     if pd.notna(responsible_alias) and str(responsible_alias).strip() != "":
@@ -550,6 +551,7 @@ class ExcelImportService:
                         alias_employee = next((e for e in employees if e.alias and e.alias.strip() == alias), None)
                         if alias_employee:
                             assigned_employee = alias_employee
+                            has_responsible_assignment = True
                             print(f"      {weekday}: Assigned to {alias_employee.first_name} {alias_employee.last_name} (alias: {alias})")
                         else:
                             print(f"      Warning: No employee found with alias '{alias}' for {weekday}, using default employee")
@@ -600,7 +602,7 @@ class ExcelImportService:
                 # Set tour_employee_id if there's a responsible employee different from default
                 # This allows filtering by tour_employee_id to show appointments to the original employee
                 tour_employee_id_value = None
-                if assigned_employee.id != default_employee.id:
+                if has_responsible_assignment and assigned_employee.id != default_employee.id:
                     # There's a different responsible employee, so store the tour employee
                     tour_employee_id_value = default_employee.id
                 
@@ -675,11 +677,9 @@ class ExcelImportService:
                     
                     if visit_type is not None:
                         # Wenn Weekend-Termin vorhanden ist, aber keine Touren-Wochenende-Angabe,
-                        # überspringen wir diesen Eintrag ohne Fehler (analog zum anderen Fall)
+                        # wird der Termin ohne Area angelegt (leerer String)
                         if weekend_area is None:
-                            print(f"      Warning: Weekend visit present but 'Touren-Wochenende' missing for {patient.first_name} {patient.last_name}; skipping weekend appointment.")
-                            continue
-
+                            weekend_area = "Nicht zugewiesen"
                         appointment = Appointment(
                             patient_id=patient.id,
                             employee_id=None,  # No employee assignment for weekend appointments
@@ -745,7 +745,14 @@ class ExcelImportService:
         # Group weekend appointments by area and weekday
         weekend_area_appointments = {}
         for app in appointments:
-            if app.visit_type in ('HB', 'NA') and app.employee_id is None and app.weekday in ['saturday', 'sunday']:
+            if (
+                app.visit_type in ('HB', 'NA')
+                and app.employee_id is None
+                and app.weekday in ['saturday', 'sunday']
+            ):
+                # Skip creating routes for unassigned appointments; they get assigned later
+                if not app.area or app.area == "Nicht zugewiesen":
+                    continue
                 key = (app.area, app.weekday)
                 if key not in weekend_area_appointments:
                     weekend_area_appointments[key] = []

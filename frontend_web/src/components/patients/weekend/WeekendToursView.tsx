@@ -26,6 +26,7 @@ import { WeekendTourHeader } from './tour/WeekendTourHeader';
 import { WeekendTourStats } from './tour/WeekendTourStats';
 import { WeekendTourControls } from './tour/WeekendTourControls';
 import { WeekendTourSummary } from './tour/WeekendTourSummary';
+import { UnassignedWeekendAppointments } from './UnassignedWeekendAppointments';
 import { 
     usePatientManagement, 
     useRouteManagement, 
@@ -300,6 +301,9 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { currentArea } = useAreaStore();
+    const appointmentManagement = useAppointmentManagement({
+        selectedDay
+    });
 
     // Custom hooks for business logic
     const areaManagement = useAreaManagement({
@@ -313,6 +317,19 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
     const filteredRoutes = areaManagement.getFilteredRoutes();
     const weekendRoutesByArea = areaManagement.getWeekendRoutesByArea();
     const weekendAreas = areaManagement.getWeekendAreas();
+
+    const unassignedAppointments = useMemo(() => {
+        const filteredAppointments = appointments.filter((app) => 
+            app.weekday === selectedDay &&
+            (app.area as string) === 'Nicht zugewiesen' &&
+            !app.employee_id
+        );
+
+        return filteredAppointments.map((appointment) => ({
+            appointment,
+            patient: patients.find((patient) => patient.id === appointment.patient_id)
+        }));
+    }, [appointments, patients, selectedDay]);
 
     if (loadingRoutes || loadingAppointments || loadingPatients) {
         return (
@@ -331,7 +348,7 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
     }
 
     // Show "no routes found" message if no weekend routes exist
-    if (filteredRoutes.length === 0) {
+    if (filteredRoutes.length === 0 && unassignedAppointments.length === 0) {
         return (
             <Alert severity="info" sx={{ my: 2 }}>
                 Keine Wochenend-Touren gefunden für {selectedDay === 'saturday' ? 'Samstag' : 'Sonntag'}.
@@ -347,6 +364,12 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
                     Wochenend-Touren
                 </Typography>
             </Box>
+
+            <UnassignedWeekendAppointments
+                appointments={unassignedAppointments}
+                onAssignArea={appointmentManagement.assignWeekendArea}
+                isAssigning={appointmentManagement.isAssigningWeekendArea}
+            />
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {weekendAreas.map((area) => {

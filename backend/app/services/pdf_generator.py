@@ -66,6 +66,48 @@ class PDFGenerator:
         # Rendering order is always Monday..Friday; only sorting uses selected day
         weekday_order = weekdays[:]
 
+        # Prepare employee list and determine template type
+        employee_routes_list = list(employee_routes_data or [])
+        first_employee = None
+        if employee_routes_list:
+            first_entry = employee_routes_list[0]
+            if isinstance(first_entry, dict):
+                first_employee = first_entry.get('employee')
+            else:
+                first_employee = getattr(first_entry, 'employee', None)
+
+        first_function = (first_employee.function or '').lower() if first_employee and first_employee.function else ''
+        is_doctor_pdf = first_function in ('arzt', 'honorararzt')
+
+        if not employee_routes_list:
+            title_text = 'Routenplanung Wochenübersicht'
+        elif is_doctor_pdf:
+            title_text = 'Routenplanung Ärztetouren'
+        else:
+            title_text = 'Routenplanung Pflegetouren'
+
+        if is_doctor_pdf:
+            def appointment_count(emp_data):
+                routes = emp_data.get('routes', []) if isinstance(emp_data, dict) else getattr(emp_data, 'routes', [])
+                total = 0
+                for route in routes or []:
+                    try:
+                        total += len(route.get_route_order())
+                    except Exception:
+                        total += 0
+                additional = emp_data.get('appointments', []) if isinstance(emp_data, dict) else getattr(emp_data, 'appointments', []) or []
+                total += len(additional)
+                return total
+
+            def doctor_sort_key(emp_data):
+                count = appointment_count(emp_data)
+                employee = emp_data.get('employee') if isinstance(emp_data, dict) else getattr(emp_data, 'employee', None)
+                last_name = (employee.last_name or '').lower() if employee and employee.last_name else ''
+                first_name = (employee.first_name or '').lower() if employee and employee.first_name else ''
+                return (-count, last_name, first_name)
+
+            employee_routes_list.sort(key=doctor_sort_key)
+
         # Compute dates for the given ISO calendar week (current year)
         from datetime import date
         current_year = datetime.now().year
@@ -88,7 +130,7 @@ class PDFGenerator:
 
         template_data = {
             'calendar_week': calendar_week,
-            'employee_routes_data': employee_routes_data,
+            'employee_routes_data': employee_routes_list,
             'current_time': datetime.now().strftime('%d.%m.%Y %H:%M'),
             'appointments': {},
             'patients': {},
@@ -108,7 +150,7 @@ class PDFGenerator:
         }
         
         # Prepare overview data (summary table)
-        for emp_data in employee_routes_data:
+        for emp_data in employee_routes_list:
             employee = emp_data['employee']
             overview_counts = { day: {'HB': 0, 'TK': 0, 'NA': 0} for day in weekdays }
             # Collect planning for overview (per weekday for this employee/week)
@@ -150,7 +192,7 @@ class PDFGenerator:
         
         # Collect all appointments, patients, employees, and planning data for template
         consolidated_by_employee = {}
-        for emp_data in employee_routes_data:
+        for emp_data in employee_routes_list:
             employee = emp_data['employee']
             template_data['employees'][employee.id] = employee
             
@@ -207,7 +249,7 @@ class PDFGenerator:
                             if not row:
                                 row = {
                                     'patient': patient,
-                                    'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'moved': False} for day in weekdays }
+                                    'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'tour_employee_id': None, 'moved': False} for day in weekdays }
                                 }
                                 patient_rows[patient.id] = row
                             # Fill cell for this weekday (only for this employee)
@@ -216,6 +258,7 @@ class PDFGenerator:
                                     'visit_type': appointment.visit_type or '',
                                     'info': appointment.info or '',
                                     'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None,
+                                    'tour_employee_id': appointment.tour_employee_id if appointment.tour_employee_id else None,
                                     'moved': False
                                 }
                             
@@ -224,6 +267,10 @@ class PDFGenerator:
                                 origin_employee = Employee.query.get(appointment.origin_employee_id)
                                 if origin_employee:
                                     template_data['employees'][origin_employee.id] = origin_employee
+                            if appointment.tour_employee_id:
+                                tour_employee = Employee.query.get(appointment.tour_employee_id)
+                                if tour_employee:
+                                    template_data['employees'][tour_employee.id] = tour_employee
             
             # Collect direct appointments (not in routes) - like TK appointments
             if 'appointments' in emp_data:
@@ -238,7 +285,7 @@ class PDFGenerator:
                         if not row:
                             row = {
                                 'patient': patient,
-                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'moved': False} for day in weekdays }
+                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'tour_employee_id': None, 'moved': False} for day in weekdays }
                             }
                             patient_rows[patient.id] = row
                         # Fill cell
@@ -247,6 +294,7 @@ class PDFGenerator:
                                 'visit_type': appointment.visit_type or '',
                                 'info': appointment.info or '',
                                 'origin_employee_id': appointment.origin_employee_id if appointment.origin_employee_id and appointment.origin_employee_id != appointment.employee_id else None,
+                                'tour_employee_id': appointment.tour_employee_id if appointment.tour_employee_id else None,
                                 'moved': False
                             }
                         
@@ -255,6 +303,10 @@ class PDFGenerator:
                             origin_employee = Employee.query.get(appointment.origin_employee_id)
                             if origin_employee:
                                 template_data['employees'][origin_employee.id] = origin_employee
+                        if appointment.tour_employee_id:
+                            tour_employee = Employee.query.get(appointment.tour_employee_id)
+                            if tour_employee:
+                                template_data['employees'][tour_employee.id] = tour_employee
             
             # Collect appointments that were moved away from this employee (origin_employee_id == employee.id)
             # These are appointments that were originally assigned to this employee but are now assigned to someone else
@@ -277,7 +329,7 @@ class PDFGenerator:
                         if not row:
                             row = {
                                 'patient': patient,
-                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'moved': False} for day in weekdays }
+                                'cells': { day: {'visit_type': '', 'info': '', 'origin_employee_id': None, 'tour_employee_id': None, 'moved': False} for day in weekdays }
                             }
                             patient_rows[patient.id] = row
                         # Fill cell with moved appointment info
@@ -286,6 +338,7 @@ class PDFGenerator:
                                 'visit_type': appointment.visit_type or '',
                                 'info': appointment.info or '',
                                 'origin_employee_id': appointment.employee_id,  # Show current employee (the replacement)
+                                'tour_employee_id': appointment.tour_employee_id if appointment.tour_employee_id else None,
                                 'moved': True  # Mark as moved
                             }
                         
@@ -294,6 +347,10 @@ class PDFGenerator:
                             current_employee = Employee.query.get(appointment.employee_id)
                             if current_employee:
                                 template_data['employees'][current_employee.id] = current_employee
+                        if appointment.tour_employee_id:
+                            tour_employee = Employee.query.get(appointment.tour_employee_id)
+                            if tour_employee:
+                                template_data['employees'][tour_employee.id] = tour_employee
 
             # Build patient order based on selected day route; others appended
             selected_positions = {}
@@ -321,11 +378,14 @@ class PDFGenerator:
             template_data['weekday_counts_by_employee'][employee.id] = weekday_counts
 
         template_data['consolidated_by_employee'] = consolidated_by_employee
-        
+        template_data['title_text'] = title_text
+
+        template_name = 'pdf_template_doctor.html' if is_doctor_pdf else 'pdf_template_care.html'
+
         # Get template directory
         template_dir = os.path.join(os.path.dirname(__file__), '..', 'templates')
         env = Environment(loader=FileSystemLoader(template_dir))
-        template = env.get_template('pdf_template.html')
+        template = env.get_template(template_name)
         
         # Render HTML
         html_content = template.render(**template_data)
@@ -449,20 +509,6 @@ class PDFGenerator:
                         if vt in ('HB', 'TK', 'NA'):
                             weekend_counts[appointment.weekday][vt] += 1
 
-            # Override weekend_counts to count by AREA + WEEKDAY + CALENDAR_WEEK (not only routed)
-            area_key = emp_data.get('area', '')
-            for wd in ['saturday', 'sunday']:
-                for vt in ('HB', 'TK', 'NA'):
-                    cnt = Appointment.query.join(
-                        Patient, Appointment.patient_id == Patient.id
-                    ).filter(
-                        Patient.area == area_key,
-                        Appointment.weekday == wd,
-                        Appointment.calendar_week == calendar_week,
-                        Appointment.visit_type == vt
-                    ).count()
-                    weekend_counts[wd][vt] = cnt
-
             # Sorting: first by presence/order on Saturday, then alphabetically
             saturday_positions = {}
             order = 0
@@ -482,6 +528,20 @@ class PDFGenerator:
                 return (pos, last_name, first_name)
 
             sorted_rows = [r for _, r in sorted(patient_rows.items(), key=sort_key)]
+
+            # Recalculate visit-type counts based on consolidated rows to ensure accuracy
+            recalculated_counts = {
+                'saturday': {'HB': 0, 'TK': 0, 'NA': 0},
+                'sunday': {'HB': 0, 'TK': 0, 'NA': 0}
+            }
+            for row in sorted_rows:
+                for wd in weekdays:
+                    cell = row['cells'].get(wd) or {}
+                    vt = (cell.get('visit_type') or '').upper()
+                    if vt in ('HB', 'TK', 'NA'):
+                        recalculated_counts[wd][vt] += 1
+
+            weekend_counts = recalculated_counts
             consolidated_by_employee[group_id] = sorted_rows
             template_data['weekend_counts_by_group'][group_id] = weekend_counts
 

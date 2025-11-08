@@ -18,6 +18,7 @@ import { getColorForEmployeeType } from '../../utils/mapUtils';
 import { WeeklyPlanningCell } from './WeeklyPlanningCell';
 import { useEmployeePlanning } from '../../services/queries/useEmployeePlanning';
 import { usePlanningWeekStore } from '../../stores/usePlanningWeekStore';
+import { useAreaStore } from '../../stores/useAreaStore';
 
 interface WeeklyPlanningTableProps {
     employees: Employee[];
@@ -60,9 +61,30 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
     // React Query hooks - planning week is automatically read from store
     const { data: planningEntries = [], isLoading } = useEmployeePlanning();
     const { selectedPlanningWeek } = usePlanningWeekStore();
+    const { currentArea } = useAreaStore();
     
     // Check if planning week is selected
     const isPlanningWeekSelected = selectedPlanningWeek !== null;
+
+    const filteredEmployees = React.useMemo(() => {
+        if (!currentArea || currentArea === 'Nord- und Südkreis' || currentArea === 'Gesamt') {
+            return employees;
+        }
+
+        return employees.filter((employee) => {
+            if (!employee.area) return false;
+
+            if (currentArea === 'Nordkreis') {
+                return employee.area.includes('Nordkreis');
+            }
+
+            if (currentArea === 'Südkreis') {
+                return employee.area.includes('Südkreis');
+            }
+
+            return true;
+        });
+    }, [employees, currentArea]);
 
     // Sort employees: first by function, then by area (Nord/Süd), then alphabetically
     const sortedEmployees = React.useMemo(() => {
@@ -74,7 +96,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
             'Honorararzt': 5,
         };
 
-        return [...employees].sort((a, b) => {
+        return [...filteredEmployees].sort((a, b) => {
             // First sort by function priority
             const aPriority = functionPriority[a.function] || 999;
             const bPriority = functionPriority[b.function] || 999;
@@ -104,7 +126,7 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
             
             return aName.localeCompare(bName);
         });
-    }, [employees]);
+    }, [filteredEmployees]);
 
 
     // Get all planning entries as array
@@ -183,6 +205,17 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
                                                 {employee.first_name} {employee.last_name}
                                             </Typography>
                                             <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                                                {employee.area && (
+                                                    <Chip
+                                                        label={employee.area.includes('Nordkreis') ? 'N' : 'S'}
+                                                        size="small"
+                                                        sx={{
+                                                            backgroundColor: employee.area.includes('Nordkreis') ? 'primary.main' : 'secondary.main',
+                                                            color: 'white',
+                                                            fontWeight: 'bold'
+                                                        }}
+                                                    />
+                                                )}
                                                 {employee.function && (
                                                     <Chip
                                                         label={employee.function}

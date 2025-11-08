@@ -314,6 +314,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                     sortedRoutePatients={sortedRoutePatients}
                     normalTkPatients={normalTkPatients}
                     emptyTypePatients={emptyTypePatients}
+                    getPatientAppointments={getPatientAppointments}
                 />
             )}
             

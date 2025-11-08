@@ -92,4 +92,18 @@ export const useCheckReplacement = () => {
   });
 };
 
+export const useAssignWeekendArea = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ appointmentId, targetArea }: { appointmentId: number; targetArea: 'Nord' | 'Mitte' | 'Süd' }) =>
+      appointmentsApi.assignWeekendArea(appointmentId, targetArea),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
+      queryClient.invalidateQueries({ queryKey: routeKeys.all });
+      queryClient.invalidateQueries({ queryKey: patientKeys.all });
+    }
+  });
+};
+
 

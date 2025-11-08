@@ -7,6 +7,7 @@ from ..models.route import Route
 from ..services.route_planner import RoutePlanner
 from ..services.route_optimizer import RouteOptimizer
 from ..services.pdf_generator import PDFGenerator
+from ..services.aplano_sync import sync_employee_planning
 from .. import db
 from ..models.patient import Patient
 
@@ -256,6 +257,10 @@ def download_route_pdf():
         if not calendar_week:
             return jsonify({'error': 'calendar_week is required'}), 400
         
+        # Ensure employee planning is synced for this calendar week
+        if not sync_employee_planning(calendar_week):
+            return jsonify({'error': f'Failed to synchronize planning data for calendar week {calendar_week}'}), 500
+
         # Get all employees with their weekday routes for this calendar week
         weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
         

@@ -69,11 +69,25 @@ export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({
     const getBgColor = () => {
         switch (visitType) {
             case 'HB': return 'rgba(25, 118, 210, 0.08)'; // Light blue
-            case 'NA': return 'rgba(156, 39, 176, 0.08)'; // Light purple
+            case 'NA': return 'rgba(244, 67, 54, 0.08)'; // Light red
             case 'TK': return 'rgba(76, 175, 80, 0.08)';  // Light green
             default: return 'rgba(158, 158, 158, 0.08)';  // Light gray
         }
     };
+
+    const getVisitChipStyles = () => {
+        switch (visitType) {
+            case 'HB':
+                return { bgcolor: '#1976d2', label: 'HB' };
+            case 'NA':
+                return { bgcolor: '#f44336', label: 'NA' };
+            case 'TK':
+                return { bgcolor: '#4caf50', label: 'TK' };
+            default:
+                return { bgcolor: '#9e9e9e', label: visitType ?? 'Termin' };
+        }
+    };
+    const visitChipStyles = getVisitChipStyles();
 
     const getAreaColor = (area: string) => {
         switch (area) {
@@ -316,18 +330,29 @@ export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({
                                     {index}
                                 </Box>
                             )}
-                            <Typography 
-                                variant="h6" 
-                                component="div" 
-                                fontWeight="bold"
-                                sx={{ 
-                                    lineHeight: 1.2,
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                }}
-                            >
-                                {patient.last_name}, {patient.first_name}
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography 
+                                    variant="h6" 
+                                    component="div" 
+                                    fontWeight="bold"
+                                    sx={{ 
+                                        lineHeight: 1.2,
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    {patient.last_name}, {patient.first_name}
+                                </Typography>
+                                <Chip
+                                    label={visitChipStyles.label}
+                                    size="small"
+                                    sx={{
+                                        bgcolor: visitChipStyles.bgcolor,
+                                        color: '#fff',
+                                        fontWeight: 600
+                                    }}
+                                />
+                            </Box>
                         </Box>
                         
                         

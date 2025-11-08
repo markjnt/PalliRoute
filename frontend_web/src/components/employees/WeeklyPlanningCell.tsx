@@ -189,7 +189,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
             return '#2196F3';
         } else if (customText === 'Tour Nord') {
             // Tour Nord: Rosa
-            return '#E4AED5';
+            return '#ff8ade';
         } else if (customText === 'Tour Süd') {
             // Tour Süd: Grün
             return '#65B761';
@@ -232,7 +232,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                                 position: 'absolute',
                                 top: -6,
                                 right: -6,
-                                zIndex: 1,
+                                zIndex: 0,
                             }}
                         >
                             <Warning 
