@@ -158,6 +158,10 @@ def sync_employee_planning(calendar_week: int) -> bool:
         True if sync successful, False otherwise
     """
     try:
+        if not getattr(Config, 'APLANO_API_KEY', None):
+            print(f"[sync_employee_planning] APLANO_API_KEY not configured - skipping sync for KW {calendar_week}")
+            return True
+
         # Fetch shifts and absences from Aplano
         shifts = fetch_aplano_shifts(calendar_week)
         absences = fetch_aplano_absences(calendar_week)
@@ -308,4 +312,5 @@ def sync_employee_planning(calendar_week: int) -> bool:
         
     except Exception as e:
         db.session.rollback()
+        print(f"[sync_employee_planning] Error while syncing calendar week {calendar_week}: {e}")
         return False

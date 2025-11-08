@@ -38,7 +38,7 @@ export const useEmployeePlanning = () => {
         resetLoading();
       }
     },
-    refetchInterval: 60000, // Refetch every 60 seconds (1 minute)
+    refetchInterval: 300000, // Refetch every 5 minutes
     refetchIntervalInBackground: true, // Continue refetching even when tab is not active
   });
 };

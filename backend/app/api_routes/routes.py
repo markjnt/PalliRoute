@@ -257,9 +257,18 @@ def download_route_pdf():
         if not calendar_week:
             return jsonify({'error': 'calendar_week is required'}), 400
         
-        # Ensure employee planning is synced for this calendar week
-        if not sync_employee_planning(calendar_week):
-            return jsonify({'error': f'Failed to synchronize planning data for calendar week {calendar_week}'}), 500
+        # Ensure employee planning is synced for this calendar week,
+        # but don't abort download if sync is unavailable (e.g. missing API key/offline)
+        sync_warning = None
+        try:
+            sync_success = sync_employee_planning(calendar_week)
+            if not sync_success:
+                sync_warning = f'Failed to synchronize planning data for calendar week {calendar_week}'
+        except Exception as sync_error:
+            sync_warning = f'Failed to synchronize planning data for calendar week {calendar_week}: {sync_error}'
+
+        if sync_warning:
+            print(f"[download_route_pdf] Warning: {sync_warning}")
 
         # Get all employees with their weekday routes for this calendar week
         weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -395,9 +404,12 @@ def download_route_pdf():
 
         if len(files_to_return) == 1:
             filename, pdf_bytes = files_to_return[0]
-            return Response(pdf_bytes, mimetype='application/pdf', headers={
+            headers = {
                 'Content-Disposition': f'attachment; filename="{filename}"'
-            })
+            }
+            if sync_warning:
+                headers['X-Sync-Warning'] = sync_warning
+            return Response(pdf_bytes, mimetype='application/pdf', headers=headers)
 
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -405,9 +417,12 @@ def download_route_pdf():
                 zipf.writestr(fname, fbytes)
         zip_buffer.seek(0)
         zip_filename = f"PalliRoute_Routenplanung_KW{calendar_week}.zip"
-        return Response(zip_buffer.getvalue(), mimetype='application/zip', headers={
+        zip_headers = {
             'Content-Disposition': f'attachment; filename="{zip_filename}"'
-        })
+        }
+        if sync_warning:
+            zip_headers['X-Sync-Warning'] = sync_warning
+        return Response(zip_buffer.getvalue(), mimetype='application/zip', headers=zip_headers)
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
