@@ -1,22 +1,24 @@
-import React, { useEffect } from 'react';
-import { Box, IconButton, Typography, Chip, Button } from '@mui/material';
+import React, { MouseEvent, useEffect, useMemo, useState } from 'react';
+import { Box, Typography, Chip, Button, Menu, MenuItem } from '@mui/material';
 import { 
-  ArrowBack as ArrowBackIcon,
   Home as HomeIcon,
   Phone as PhoneIcon,
   AddCircle as AddCircleIcon,
-  Route as RouteIcon
+  Route as RouteIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { useCalendarWeekStore } from '../../stores/useCalendarWeekStore';
-import { usePatients } from '../../services/queries/usePatients';
-import { useAppointments } from '../../services/queries/useAppointments';
-import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
+import { usePatients, patientKeys } from '../../services/queries/usePatients';
+import { useAppointments, appointmentKeys } from '../../services/queries/useAppointments';
+import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes, routeKeys } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
 import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
-import { useCalendarWeek } from '../../services/queries/useCalendarWeek';
+import { useCalendarWeek, useCalendarWeeks, calendarWeekKeys } from '../../services/queries/useCalendarWeek';
 import { Weekday } from '../../types/models';
+import { useQueryClient } from '@tanstack/react-query';
+import { getCurrentCalendarWeek } from '../../utils/calendarUtils';
 
 interface WeekdaySelectorProps {
   isOpen: boolean;
@@ -30,20 +32,26 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   onWeekdaySelect,
 }) => {
   const { selectedWeekday } = useWeekdayStore();
-  const { selectedCalendarWeek, setSelectedCalendarWeek } = useCalendarWeekStore();
+  const selectedCalendarWeek = useCalendarWeekStore(state => state.selectedCalendarWeek);
+  const setSelectedCalendarWeek = useCalendarWeekStore(state => state.setSelectedCalendarWeek);
+  const availableCalendarWeeks = useCalendarWeekStore(state => state.availableCalendarWeeks);
+  const setAvailableCalendarWeeks = useCalendarWeekStore(state => state.setAvailableCalendarWeeks);
   const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { clearCompletedStops } = useRouteCompletionStore();
+  const queryClient = useQueryClient();
+  const [calendarWeekMenuAnchorEl, setCalendarWeekMenuAnchorEl] = useState<null | HTMLElement>(null);
   
   const { data: patients = [] } = usePatients();
   const { data: allAppointments = [] } = useAppointments();
   const { data: allRoutes = [] } = useRoutes();
   const { data: employees = [] } = useEmployees();
   const { data: bestCalendarWeek } = useCalendarWeek();
+  const { data: fetchedCalendarWeeks = [] } = useCalendarWeeks();
   const optimizeRoutesMutation = useOptimizeRoutes();
   const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
+  const currentCalendarWeek = useMemo(() => getCurrentCalendarWeek(), []);
 
   const selectedEmployee = employees.find(emp => emp.id === selectedUserId);
-  const selectedRoute = allRoutes.find(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
 
   // Set calendar week when data is loaded
   useEffect(() => {
@@ -51,6 +59,36 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
       setSelectedCalendarWeek(bestCalendarWeek);
     }
   }, [bestCalendarWeek, selectedCalendarWeek, setSelectedCalendarWeek]);
+
+  useEffect(() => {
+    if (fetchedCalendarWeeks.length > 0) {
+      setAvailableCalendarWeeks(fetchedCalendarWeeks);
+    }
+  }, [fetchedCalendarWeeks, setAvailableCalendarWeeks]);
+
+  const sortedCalendarWeeks = useMemo(() => {
+    const weeks = [...availableCalendarWeeks];
+    weeks.sort((a, b) => a - b);
+    return weeks;
+  }, [availableCalendarWeeks]);
+
+  const handleCalendarWeekChange = (week: number) => {
+    setSelectedCalendarWeek(week);
+    setCalendarWeekMenuAnchorEl(null);
+    queryClient.setQueryData(calendarWeekKeys.best(), week);
+    queryClient.invalidateQueries({ queryKey: patientKeys.all, exact: false });
+    queryClient.invalidateQueries({ queryKey: appointmentKeys.all, exact: false });
+    queryClient.invalidateQueries({ queryKey: routeKeys.all, exact: false });
+    clearCompletedStops();
+  };
+
+  const handleCalendarWeekMenuOpen = (event: MouseEvent<HTMLElement>) => {
+    setCalendarWeekMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleCalendarWeekMenuClose = () => {
+    setCalendarWeekMenuAnchorEl(null);
+  };
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -389,35 +427,108 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
         </Button>
         
         {/* Calendar Week Display */}
-        {selectedCalendarWeek && (
-          <Box
-            sx={{
-              bgcolor: 'rgba(0, 122, 255, 0.1)',
-              border: '1px solid rgba(0, 122, 255, 0.2)',
-              borderRadius: 1.5,
-              px: 1.5,
-              py: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-              minWidth: 'fit-content',
-              minHeight: 'unset',
-              height: 'fit-content',
-            }}
-          >
-            <Typography
-              variant="caption"
+        <Button
+          variant="text"
+          onClick={handleCalendarWeekMenuOpen}
+          endIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
+          sx={{
+            color: selectedCalendarWeek === currentCalendarWeek ? '#2e7d32' : '#007AFF',
+            fontWeight: 600,
+            fontSize: '0.7rem',
+            textTransform: 'none',
+            px: 1.5,
+            minWidth: 'fit-content',
+            height: '100%',
+            borderRadius: 1.5,
+            border: selectedCalendarWeek === currentCalendarWeek
+              ? '1px solid rgba(76, 175, 80, 0.4)'
+              : '1px solid rgba(0, 122, 255, 0.2)',
+            bgcolor: selectedCalendarWeek === currentCalendarWeek
+              ? 'rgba(76, 175, 80, 0.15)'
+              : 'rgba(0, 122, 255, 0.1)',
+            '&:hover': {
+              backgroundColor: selectedCalendarWeek === currentCalendarWeek
+                ? 'rgba(56, 142, 60, 0.2)'
+                : 'rgba(0, 122, 255, 0.15)',
+            },
+          }}
+        >
+          KW {selectedCalendarWeek ?? '--'}
+        </Button>
+      </Box>
+
+      <Menu
+        anchorEl={calendarWeekMenuAnchorEl}
+        open={Boolean(calendarWeekMenuAnchorEl)}
+        onClose={handleCalendarWeekMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+        MenuListProps={{
+          dense: true,
+        }}
+      >
+        {sortedCalendarWeeks.length === 0 ? (
+          <MenuItem disabled>Keine Kalenderwochen verfügbar</MenuItem>
+        ) : (
+          sortedCalendarWeeks.map((week) => (
+            <MenuItem
+              key={week}
+              selected={week === selectedCalendarWeek}
+              onClick={() => handleCalendarWeekChange(week)}
               sx={{
-                color: '#007AFF',
-                fontWeight: 600,
-                fontSize: '0.7rem',
+                borderRadius: 1,
+                mb: 0.5,
+                backgroundColor: week === currentCalendarWeek ? 'rgba(76, 175, 80, 0.12)' : 'transparent',
+                '&.Mui-selected': {
+                  backgroundColor: week === currentCalendarWeek ? 'success.main' : 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: week === currentCalendarWeek ? 'success.dark' : 'primary.dark',
+                  },
+                },
+                '&:hover': {
+                  backgroundColor: week === currentCalendarWeek ? 'rgba(56, 142, 60, 0.18)' : 'rgba(0, 122, 255, 0.1)',
+                },
               }}
             >
-              KW {selectedCalendarWeek}
-            </Typography>
-          </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: week === selectedCalendarWeek ? 600 : 400,
+                    color:
+                      week === selectedCalendarWeek
+                        ? 'inherit'
+                        : week === currentCalendarWeek
+                        ? 'success.dark'
+                        : 'inherit',
+                  }}
+                >
+                  KW {week}
+                </Typography>
+                {week === currentCalendarWeek && (
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      backgroundColor:
+                        week === selectedCalendarWeek ? 'white' : 'success.main',
+                      border: week === selectedCalendarWeek ? '1px solid rgba(255, 255, 255, 0.6)' : 'none',
+                    }}
+                  />
+                )}
+              </Box>
+            </MenuItem>
+          ))
         )}
-      </Box>
+      </Menu>
     </Box>
   );
 };
