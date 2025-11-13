@@ -34,12 +34,15 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
         return appt?.info || null;
     };
 
-    // Funktion zum Abrufen des Mitarbeiters für einen bestimmten Wochentag
+    // Funktion zum Abrufen aller Mitarbeiter für einen bestimmten Wochentag
     // Immer die employee_id verwenden (nicht tour_employee_id)
-    const getEmployeeForWeekday = (weekday: Weekday): Employee | null => {
-        const appt = appointments.find(a => a.weekday === weekday);
-        if (!appt?.employee_id) return null;
-        return employees.find(emp => emp.id === appt.employee_id) || null;
+    // Gibt alle Mitarbeiter zurück, die für diesen Wochentag zuständig sind (inklusive currentEmployeeId)
+    const getEmployeesForWeekday = (weekday: Weekday): Employee[] => {
+        const weekdayAppts = appointments.filter(a => a.weekday === weekday && a.employee_id);
+        const employeeIds = Array.from(new Set(weekdayAppts.map(a => a.employee_id).filter((id): id is number => id !== null && id !== undefined)));
+        return employeeIds
+            .map(id => employees.find(emp => emp.id === id))
+            .filter((emp): emp is Employee => emp !== undefined);
     };
 
     // Funktion zum Übersetzen des englischen Wochentags in Deutsch
@@ -74,16 +77,26 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
         }
     };
 
+    // Berechne die maximale Anzahl der Mitarbeiter über alle Wochentage
+    const maxEmployeesCount = React.useMemo(() => {
+        return Math.max(...allWeekdays.map(weekday => getEmployeesForWeekday(weekday).length));
+    }, [allWeekdays, appointments, employees]);
+
+    // Berechne die einheitliche Höhe für alle Boxen (basierend auf dem Maximum)
+    // Kompakter: 10px pro Mitarbeiter
+    const uniformHeight = React.useMemo(() => {
+        return Math.max(70, 70 + (maxEmployeesCount * 10));
+    }, [maxEmployeesCount]);
+
     return (
         <Box sx={{ mt: 1, mb: 1 }}>
             <Grid container spacing={0.5} sx={{ width: '100%' }}>
                 {allWeekdays.map((weekday, idx) => {
                     const visit = getVisitTypeForWeekday(weekday);
                     const info = getInfoForWeekday(weekday);
-                    const employee = getEmployeeForWeekday(weekday);
+                    const weekdayEmployees = getEmployeesForWeekday(weekday);
                     const isSelectedDay = weekday === selectedDay;
-                    // Zeige Mitarbeitername nur an, wenn employee_id vorhanden ist UND nicht gleich currentEmployeeId
-                    const shouldShowEmployeeName = employee && employee.id !== currentEmployeeId;
+                    const hasEmployees = weekdayEmployees.length > 0;
                     
                     return (
                         <Grid size="grow" key={weekday} sx={{ width: 'calc(100% / 7)' }}>
@@ -93,7 +106,6 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                                             {getGermanWeekday(weekday)}: {visit || 'Kein Besuch'}
                                         </Typography>
-                                        {/* Mitarbeitername entfernt */}
                                         {info && (
                                             <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
                                                 {info}
@@ -111,9 +123,9 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                         alignItems: 'center',
                                         p: 0.5,
                                         borderRadius: 1,
-                                        minHeight: '80px', // Feste Mindesthöhe
-                                        height: '80px', // Feste Höhe für alle Boxen
-                                        justifyContent: 'space-between', // Gleichmäßige Verteilung
+                                        height: `${uniformHeight}px`, // Einheitliche Höhe für alle Boxen
+                                        justifyContent: 'flex-start', // Starte oben
+                                        gap: 0.3, // Kompakter Abstand zwischen Elementen
                                         bgcolor: isSelectedDay 
                                             ? visit ? getVisitTypeBgColor(visit) : 'rgba(0, 0, 0, 0.04)'
                                             : 'transparent',
@@ -135,27 +147,35 @@ const WeekdayOverview: React.FC<WeekdayOverviewProps> = ({
                                     >
                                         {visit || '–'}
                                     </Typography>
-                                    {shouldShowEmployeeName && (
-                                        <Typography 
-                                            variant="caption" 
-                                            color="text.secondary"
-                                            sx={{ 
-                                                fontSize: '0.65rem',
-                                                textAlign: 'center',
-                                                lineHeight: 1.2,
-                                                wordBreak: 'break-word',
-                                                overflow: 'hidden',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 2,
-                                                WebkitBoxOrient: 'vertical'
-                                            }}
-                                        >
-                                            {employee.first_name.charAt(0)}. {employee.last_name}
-                                        </Typography>
-                                    )}
-                                    {!shouldShowEmployeeName && (
-                                        <Box sx={{ height: '16px' }} /> // Platzhalter für leere Boxen
-                                    )}
+                                    {hasEmployees ? (
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            flexDirection: 'column', 
+                                            alignItems: 'center',
+                                            gap: 0.1, // Kompakter: reduzierter gap
+                                            width: '100%'
+                                        }}>
+                                            {weekdayEmployees.map((employee, empIdx) => (
+                                                <Typography 
+                                                    key={empIdx}
+                                                    variant="caption" 
+                                                    color="text.secondary"
+                                                    sx={{ 
+                                                        fontSize: '0.65rem',
+                                                        textAlign: 'center',
+                                                        lineHeight: 1.1, // Kompakter: reduzierte line-height
+                                                        wordBreak: 'break-word',
+                                                        overflow: 'hidden',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 1,
+                                                        WebkitBoxOrient: 'vertical'
+                                                    }}
+                                                >
+                                                    {employee.first_name.charAt(0)}. {employee.last_name}
+                                                </Typography>
+                                            ))}
+                                        </Box>
+                                    ) : null}
                                 </Box>
                             </Tooltip>
                         </Grid>

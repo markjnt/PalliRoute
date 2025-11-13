@@ -539,27 +539,22 @@ class ExcelImportService:
                         raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2}. Erlaubte Werte: {', '.join(valid_visit_types)}")
                     duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                 
-                # Check for specific responsible employee
+                # Parse responsible employees - support multiple aliases separated by comma
                 responsible_column = f"Zuständige {weekday}"
-                assigned_employee = default_employee
+                responsible_aliases = []
                 
-                has_responsible_assignment = False
                 if has_responsible_columns and responsible_column in df.columns:
-                    responsible_alias = row.get(responsible_column)
-                    if pd.notna(responsible_alias) and str(responsible_alias).strip() != "":
-                        alias = str(responsible_alias).strip()
-                        alias_employee = next((e for e in employees if e.alias and e.alias.strip() == alias), None)
-                        if alias_employee:
-                            assigned_employee = alias_employee
-                            has_responsible_assignment = True
-                            print(f"      {weekday}: Assigned to {alias_employee.first_name} {alias_employee.last_name} (alias: {alias})")
-                        else:
-                            print(f"      Warning: No employee found with alias '{alias}' for {weekday}, using default employee")
+                    responsible_alias_raw = row.get(responsible_column)
+                    if pd.notna(responsible_alias_raw) and str(responsible_alias_raw).strip() != "":
+                        # Split by comma and strip whitespace from each alias
+                        alias_strings = [alias.strip() for alias in str(responsible_alias_raw).split(',')]
+                        responsible_aliases = [alias for alias in alias_strings if alias]  # Remove empty strings
                 
-                # Store the original assigned employee (before any replacement logic)
-                original_employee_id = assigned_employee.id
+                # If no responsible aliases found, use default employee (single entry)
+                if not responsible_aliases:
+                    responsible_aliases = [None]  # None means use default_employee
                 
-                # Parse time info
+                # Parse time info (shared for all appointments of this weekday)
                 time_info_column = f"Uhrzeit/Info {weekday}"
                 time_info = None
                 if time_info_column in row and not pd.isna(row[time_info_column]):
@@ -573,7 +568,7 @@ class ExcelImportService:
                     except (ValueError, IndexError):
                         pass
                 
-                # Check for replacement employee (highest priority)
+                # Weekday mapping
                 weekday_map = {
                     'Montag': 'monday',
                     'Dienstag': 'tuesday',
@@ -583,43 +578,57 @@ class ExcelImportService:
                 }
                 english_weekday = weekday_map.get(weekday, weekday.lower())
                 replacement_key = (english_weekday, patient.calendar_week)
-                
-                # Check if assigned employee has a replacement for this weekday and calendar week
-                if replacement_key in replacement_assignments and assigned_employee.id in replacement_assignments[replacement_key]:
-                    replacement_id = replacement_assignments[replacement_key][assigned_employee.id]
-                    replacement_employee = next((e for e in employees if e.id == replacement_id), None)
-                    if replacement_employee:
-                        print(f"      {weekday}: Using replacement employee {replacement_employee.first_name} {replacement_employee.last_name} (replacing {assigned_employee.first_name} {assigned_employee.last_name})")
-                        assigned_employee = replacement_employee
-                    else:
-                        print(f"      Warning: Replacement employee with ID {replacement_id} not found, using original employee")
-                
-                # Create appointment
-                # employee_id = zuständiger Mitarbeiter (oder ursprünglicher wenn kein zuständiger vorhanden)
-                # tour_employee_id = ursprünglicher Mitarbeiter aus "Touren"-Spalte (nur wenn zuständiger != ursprünglicher)
                 visit_type_value = visit_type if visit_type is not None else ""
                 
-                # Set tour_employee_id if there's a responsible employee different from default
-                # This allows filtering by tour_employee_id to show appointments to the original employee
-                tour_employee_id_value = None
-                if has_responsible_assignment and assigned_employee.id != default_employee.id:
-                    # There's a different responsible employee, so store the tour employee
-                    tour_employee_id_value = default_employee.id
-                
-                appointment = Appointment(
-                    patient_id=patient.id,
-                    employee_id=assigned_employee.id,  # Zuständiger Mitarbeiter (oder ursprünglicher)
-                    origin_employee_id=original_employee_id,
-                    tour_employee_id=tour_employee_id_value,  # Ursprünglicher Mitarbeiter aus "Touren"
-                    weekday=english_weekday,
-                    time=appointment_time,
-                    visit_type=visit_type_value,
-                    duration=duration,
-                    info=time_info,
-                    area=patient.area,
-                    calendar_week=patient.calendar_week
-                )
-                appointments.append(appointment)
+                # Create one appointment for each responsible alias (or default if no alias)
+                for alias in responsible_aliases:
+                    assigned_employee = default_employee
+                    has_responsible_assignment = False
+                    
+                    if alias is not None:
+                        # Find employee by alias
+                        alias_employee = next((e for e in employees if e.alias and e.alias.strip() == alias), None)
+                        if alias_employee:
+                            assigned_employee = alias_employee
+                            has_responsible_assignment = True
+                            print(f"      {weekday}: Assigned to {alias_employee.first_name} {alias_employee.last_name} (alias: {alias})")
+                        else:
+                            print(f"      Warning: No employee found with alias '{alias}' for {weekday}, using default employee")
+                    
+                    # Store the original assigned employee (before any replacement logic)
+                    original_employee_id = assigned_employee.id
+                    
+                    # Check for replacement employee (highest priority)
+                    if replacement_key in replacement_assignments and assigned_employee.id in replacement_assignments[replacement_key]:
+                        replacement_id = replacement_assignments[replacement_key][assigned_employee.id]
+                        replacement_employee = next((e for e in employees if e.id == replacement_id), None)
+                        if replacement_employee:
+                            print(f"      {weekday}: Using replacement employee {replacement_employee.first_name} {replacement_employee.last_name} (replacing {assigned_employee.first_name} {assigned_employee.last_name})")
+                            assigned_employee = replacement_employee
+                        else:
+                            print(f"      Warning: Replacement employee with ID {replacement_id} not found, using original employee")
+                    
+                    # Set tour_employee_id if there's a responsible employee different from default
+                    # Use original_employee_id (before replacement) for comparison
+                    tour_employee_id_value = None
+                    if has_responsible_assignment and original_employee_id != default_employee.id:
+                        # There's a different responsible employee, so store the tour employee
+                        tour_employee_id_value = default_employee.id
+                    
+                    appointment = Appointment(
+                        patient_id=patient.id,
+                        employee_id=assigned_employee.id,  # Zuständiger Mitarbeiter (oder ursprünglicher)
+                        origin_employee_id=original_employee_id,
+                        tour_employee_id=tour_employee_id_value,  # Ursprünglicher Mitarbeiter aus "Touren"
+                        weekday=english_weekday,
+                        time=appointment_time,
+                        visit_type=visit_type_value,
+                        duration=duration,
+                        info=time_info,
+                        area=patient.area,
+                        calendar_week=patient.calendar_week
+                    )
+                    appointments.append(appointment)
             
             # Create weekend appointments if available
             if weekend_days:

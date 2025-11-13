@@ -101,7 +101,7 @@ export const TourContainer: React.FC<TourContainerProps> = ({
     const routeId = route?.id;
     const isVisible = routeVisibility.isVisible;
 
-    // Get patients using custom hook
+    // Get patients and appointments using custom hook
     const {
         hbPatients,
         tkPatients,
@@ -113,7 +113,15 @@ export const TourContainer: React.FC<TourContainerProps> = ({
         getSortedRoutePatients,
         getPatientAppointments,
         isTourEmployeeAppointment,
-        hasAppointmentsForDay
+        hasAppointmentsForDay,
+        hbAppointments,
+        naAppointments,
+        normalRouteAppointments,
+        tourEmployeeAppointments,
+        normalTkAppointments,
+        tourEmployeeTkAppointments,
+        normalEmptyTypeAppointments,
+        tourEmployeeEmptyTypeAppointments
     } = patientManagement;
 
     const sortedRoutePatients = getSortedRoutePatients(route);
@@ -335,6 +343,14 @@ export const TourContainer: React.FC<TourContainerProps> = ({
                             employeeId={employee.id}
                             onMoveUp={handleMoveUp}
                             onMoveDown={handleMoveDown}
+                            normalRouteAppointments={normalRouteAppointments}
+                            tourEmployeeAppointments={tourEmployeeAppointments}
+                            normalTkAppointments={normalTkAppointments}
+                            tourEmployeeTkAppointments={tourEmployeeTkAppointments}
+                            normalEmptyTypeAppointments={normalEmptyTypeAppointments}
+                            tourEmployeeEmptyTypeAppointments={tourEmployeeEmptyTypeAppointments}
+                            route={route}
+                            patients={patients}
                         />
                     </>
                 ) : (

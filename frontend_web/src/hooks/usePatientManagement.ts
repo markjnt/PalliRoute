@@ -32,6 +32,30 @@ interface PatientManagementReturn {
   // Patient appointments
   getPatientAppointments: (patientId: number) => Appointment[];
   
+  // Appointments by visit type (returns all appointments, not deduplicated)
+  getAppointmentsByVisitType: (visitType: 'HB' | 'NA' | 'TK' | '') => Appointment[];
+  hbAppointments: Appointment[];
+  naAppointments: Appointment[];
+  tkAppointments: Appointment[];
+  
+  // Normal route appointments (HB + NA, excluding tour_employee appointments)
+  normalRouteAppointments: Appointment[];
+  
+  // Tour employee appointments (shown but not in route) - HB and NA only
+  tourEmployeeAppointments: Appointment[];
+  
+  // Normal TK appointments (not tour_employee appointments)
+  normalTkAppointments: Appointment[];
+  
+  // Tour employee TK appointments (shown but not in normal TK section)
+  tourEmployeeTkAppointments: Appointment[];
+  
+  // Empty type appointments (not tour_employee appointments)
+  normalEmptyTypeAppointments: Appointment[];
+  
+  // Tour employee empty type appointments (shown but not in normal empty type section)
+  tourEmployeeEmptyTypeAppointments: Appointment[];
+  
   // Check if appointment is tour employee appointment
   isTourEmployeeAppointment: (appointment: Appointment, employeeId?: number) => boolean;
   
@@ -74,7 +98,7 @@ export const usePatientManagement = ({
     return appointment.tour_employee_id === employeeId && appointment.employee_id !== employeeId;
   }, []);
 
-  // Get patients by visit type
+  // Get patients by visit type (deduplicated)
   const getPatientsByVisitType = useCallback((visitType: 'HB' | 'NA' | 'TK' | '') => {
     const typeAppointments = filteredAppointments.filter(app => app.visit_type === visitType);
     const patientIds = Array.from(new Set(typeAppointments.map(a => a.patient_id)));
@@ -82,6 +106,11 @@ export const usePatientManagement = ({
       .map(id => patients.find(p => p.id === id))
       .filter((p): p is Patient => p !== undefined);
   }, [filteredAppointments, patients]);
+
+  // Get appointments by visit type (returns all appointments, not deduplicated)
+  const getAppointmentsByVisitType = useCallback((visitType: 'HB' | 'NA' | 'TK' | '') => {
+    return filteredAppointments.filter(app => app.visit_type === visitType);
+  }, [filteredAppointments]);
 
   // Pre-calculated patient groups
   const hbPatients = useMemo(() => getPatientsByVisitType('HB'), [getPatientsByVisitType]);
@@ -244,6 +273,42 @@ export const usePatientManagement = ({
     return hbPatients.length > 0 || tkPatients.length > 0 || naPatients.length > 0 || emptyTypePatients.length > 0;
   }, [hbPatients.length, tkPatients.length, naPatients.length, emptyTypePatients.length]);
 
+  // Pre-calculated appointment groups
+  const hbAppointments = useMemo(() => getAppointmentsByVisitType('HB'), [getAppointmentsByVisitType]);
+  const naAppointments = useMemo(() => getAppointmentsByVisitType('NA'), [getAppointmentsByVisitType]);
+  const tkAppointments = useMemo(() => getAppointmentsByVisitType('TK'), [getAppointmentsByVisitType]);
+  const emptyTypeAppointments = useMemo(() => getAppointmentsByVisitType(''), [getAppointmentsByVisitType]);
+
+  // Get normal route appointments (HB + NA, excluding tour_employee appointments)
+  const normalRouteAppointments = useMemo(() => {
+    return [...hbAppointments, ...naAppointments].filter(app => !isTourEmployeeAppointment(app, employeeId));
+  }, [hbAppointments, naAppointments, isTourEmployeeAppointment, employeeId]);
+
+  // Get tour employee appointments (shown but not in route) - HB and NA only
+  const tourEmployeeAppointments = useMemo(() => {
+    return [...hbAppointments, ...naAppointments].filter(app => isTourEmployeeAppointment(app, employeeId));
+  }, [hbAppointments, naAppointments, isTourEmployeeAppointment, employeeId]);
+
+  // Get normal TK appointments (not tour_employee appointments)
+  const normalTkAppointments = useMemo(() => {
+    return tkAppointments.filter(app => !isTourEmployeeAppointment(app, employeeId));
+  }, [tkAppointments, isTourEmployeeAppointment, employeeId]);
+
+  // Get tour employee TK appointments (shown but not in normal TK section)
+  const tourEmployeeTkAppointments = useMemo(() => {
+    return tkAppointments.filter(app => isTourEmployeeAppointment(app, employeeId));
+  }, [tkAppointments, isTourEmployeeAppointment, employeeId]);
+
+  // Get normal empty type appointments (not tour_employee appointments)
+  const normalEmptyTypeAppointments = useMemo(() => {
+    return emptyTypeAppointments.filter(app => !isTourEmployeeAppointment(app, employeeId));
+  }, [emptyTypeAppointments, isTourEmployeeAppointment, employeeId]);
+
+  // Get tour employee empty type appointments (shown but not in normal empty type section)
+  const tourEmployeeEmptyTypeAppointments = useMemo(() => {
+    return emptyTypeAppointments.filter(app => isTourEmployeeAppointment(app, employeeId));
+  }, [emptyTypeAppointments, isTourEmployeeAppointment, employeeId]);
+
   return {
     getPatientsByVisitType,
     hbPatients,
@@ -255,6 +320,16 @@ export const usePatientManagement = ({
     tourEmployeeTkPatients,
     getSortedRoutePatients,
     getPatientAppointments,
+    getAppointmentsByVisitType,
+    hbAppointments,
+    naAppointments,
+    tkAppointments,
+    normalRouteAppointments,
+    tourEmployeeAppointments,
+    normalTkAppointments,
+    tourEmployeeTkAppointments,
+    normalEmptyTypeAppointments,
+    tourEmployeeEmptyTypeAppointments,
     isTourEmployeeAppointment,
     getPatientCountByEmployee,
     hasAppointmentsForDay

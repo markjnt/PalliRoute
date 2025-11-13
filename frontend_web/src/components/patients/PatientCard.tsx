@@ -47,6 +47,10 @@ interface PatientCardProps {
     isLast?: boolean; // New prop to indicate if this is the last patient in the list
     isTourEmployeeAppointment?: boolean; // Indicates if this is a tour employee appointment (shown but not in route)
     currentEmployeeId?: number; // ID of the employee currently viewing this card (for WeekdayOverview)
+    appointmentId?: number; // Specific appointment ID to display (if multiple appointments exist for the same day)
+    multipleAppointments?: Appointment[]; // Multiple appointments for the same patient (same day, different employees)
+    tourEmployeeAppointmentsForPatient?: Appointment[]; // Tour employee appointments for this patient (to show "Zuständig" in normal route appointments)
+    isFirstTourEmployeeAppointment?: boolean; // Indicates if this is the first tour employee appointment for this patient (to show "Auch zuständig" for subsequent ones)
 }
 
 export const PatientCard: React.FC<PatientCardProps> = ({ 
@@ -61,7 +65,11 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     isFirst = false,
     isLast = false,
     isTourEmployeeAppointment = false,
-    currentEmployeeId
+    currentEmployeeId,
+    appointmentId,
+    multipleAppointments,
+    tourEmployeeAppointmentsForPatient,
+    isFirstTourEmployeeAppointment = true
 }) => {
     const cardRef = useRef<HTMLDivElement>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -81,7 +89,10 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     });
     
     // Get current employee ID from the selected day appointment
-    const selectedDayAppointment = patientAppointments.find(app => app.weekday === selectedDay);
+    // If appointmentId is provided, use that specific appointment, otherwise use the first one
+    const selectedDayAppointment = appointmentId 
+        ? patientAppointments.find(app => app.id === appointmentId && app.weekday === selectedDay)
+        : patientAppointments.find(app => app.weekday === selectedDay);
     const selectedDayEmployeeId = selectedDayAppointment?.employee_id;
     
     // Get tour employee info if this appointment has a tour_employee_id (for responsible employee view)
@@ -94,6 +105,66 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     const responsibleEmployee = isTourEmployeeAppointment && selectedDayEmployeeId
         ? employees.find(e => e.id === selectedDayEmployeeId)
         : null;
+
+    // Get additional employees if multiple appointments exist for the same patient
+    const additionalEmployees = React.useMemo(() => {
+        if (!multipleAppointments || multipleAppointments.length <= 1) return [];
+        
+        return multipleAppointments
+            .map(app => {
+                const emp = employees.find(e => e.id === app.employee_id);
+                return emp ? { employee: emp, appointmentId: app.id } : null;
+            })
+            .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null)
+            .filter(item => item.employee.id !== selectedDayEmployeeId); // Exclude current employee
+    }, [multipleAppointments, employees, selectedDayEmployeeId]);
+
+    // Get tour employee employees for this patient (to show "Zuständig" in normal route appointments)
+    const tourEmployeeEmployees = React.useMemo(() => {
+        if (!tourEmployeeAppointmentsForPatient || tourEmployeeAppointmentsForPatient.length === 0) return [];
+        if (isTourEmployeeAppointment) return []; // Don't show for tour employee appointments themselves
+        
+        return tourEmployeeAppointmentsForPatient
+            .map(app => {
+                const emp = employees.find(e => e.id === app.employee_id);
+                return emp ? { employee: emp, appointmentId: app.id } : null;
+            })
+            .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null);
+    }, [tourEmployeeAppointmentsForPatient, employees, isTourEmployeeAppointment]);
+
+    // Get other responsible employees when tourEmployee is shown (Ursprungstour)
+    // These are all appointments for the same patient on the same day, excluding the current appointment and tour_employee_id
+    const otherResponsibleEmployees = React.useMemo(() => {
+        if (!tourEmployee || !selectedDayAppointment || !tourEmployeeId) return [];
+        
+        // Get all appointments for this patient on the selected day
+        const allDayAppointments = patientAppointments.filter(app => app.weekday === selectedDay);
+        
+        // Filter out:
+        // 1. The current appointment
+        // 2. Appointments with the same employee_id as the current appointment
+        // 3. Appointments with employee_id equal to tour_employee_id (already shown as "Ursprungstour")
+        //    This ensures the Ursprungstour employee is never shown in "Auch zuständig"
+        return allDayAppointments
+            .filter(app => 
+                app.id !== selectedDayAppointment.id && 
+                app.employee_id !== selectedDayAppointment.employee_id &&
+                app.employee_id !== tourEmployeeId && // Explicitly exclude tour_employee_id to avoid duplicates
+                app.employee_id !== null &&
+                app.employee_id !== undefined
+            )
+            .map(app => {
+                const emp = employees.find(e => e.id === app.employee_id);
+                return emp ? { employee: emp, appointmentId: app.id } : null;
+            })
+            .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null)
+            // Remove duplicates (same employee_id) - additional safety check
+            .filter((item, index, self) => 
+                index === self.findIndex(t => t.employee.id === item.employee.id)
+            )
+            // Final safety check: explicitly exclude tourEmployee if it somehow got through
+            .filter(item => item.employee.id !== tourEmployeeId);
+    }, [tourEmployee, selectedDayAppointment, patientAppointments, selectedDay, employees, tourEmployeeId]);
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -567,7 +638,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                         }
                                     }}
                                 >
-                                    Zuständig: {responsibleEmployee.first_name} {responsibleEmployee.last_name}
+                                    {multipleAppointments && multipleAppointments.length > 1 ? 'Auch zuständig' : 'Zuständig'}: {responsibleEmployee.first_name} {responsibleEmployee.last_name}
                                 </Typography>
                             </Box>
                         )}
@@ -601,6 +672,120 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                     Ursprungstour: {tourEmployee.first_name} {tourEmployee.last_name}
                                 </Typography>
                             </Box>
+                        )}
+                        
+                        {/* Andere zuständige Mitarbeiter anzeigen (wenn Ursprungstour angezeigt wird) */}
+                        {otherResponsibleEmployees.length > 0 && (
+                            <>
+                                {otherResponsibleEmployees.map((item, idx) => (
+                                    <Box 
+                                        key={idx}
+                                        sx={{ 
+                                            mt: 1,
+                                            display: 'flex',
+                                            justifyContent: 'flex-end',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <Typography 
+                                            variant="body1" 
+                                            color="primary.main"
+                                            onClick={() => scrollToEmployee(item.employee.id)}
+                                            sx={{ 
+                                                fontSize: '0.875rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                px: 1.5,
+                                                py: 0.5,
+                                                borderRadius: 1,
+                                                transition: 'background-color 0.2s ease',
+                                                '&:hover': {
+                                                    backgroundColor: 'primary.light',
+                                                    color: 'primary.contrastText'
+                                                }
+                                            }}
+                                        >
+                                            Auch zuständig: {item.employee.first_name} {item.employee.last_name}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </>
+                        )}
+                        
+                        {/* Tour employee Mitarbeiter anzeigen (wenn normaler Route-Termin und Tour-Employee-Termin existiert) */}
+                        {tourEmployeeEmployees.length > 0 && (
+                            <>
+                                {tourEmployeeEmployees.map((item, idx) => (
+                                    <Box 
+                                        key={idx}
+                                        sx={{ 
+                                            mt: 1,
+                                            display: 'flex',
+                                            justifyContent: 'flex-end',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <Typography 
+                                            variant="body1" 
+                                            color="primary.main"
+                                            onClick={() => scrollToEmployee(item.employee.id)}
+                                            sx={{ 
+                                                fontSize: '0.875rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                px: 1.5,
+                                                py: 0.5,
+                                                borderRadius: 1,
+                                                transition: 'background-color 0.2s ease',
+                                                '&:hover': {
+                                                    backgroundColor: 'primary.light',
+                                                    color: 'primary.contrastText'
+                                                }
+                                            }}
+                                        >
+                                            Auch zuständig: {item.employee.first_name} {item.employee.last_name}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </>
+                        )}
+                        
+                        {/* Mehrere zuständige Mitarbeiter anzeigen */}
+                        {additionalEmployees.length > 0 && (
+                            <>
+                                {additionalEmployees.map((item, idx) => (
+                                    <Box 
+                                        key={idx}
+                                        sx={{ 
+                                            mt: 1,
+                                            display: 'flex',
+                                            justifyContent: 'flex-end',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <Typography 
+                                            variant="body1" 
+                                            color="primary.main"
+                                            onClick={() => scrollToEmployee(item.employee.id)}
+                                            sx={{ 
+                                                fontSize: '0.875rem',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                px: 1.5,
+                                                py: 0.5,
+                                                borderRadius: 1,
+                                                transition: 'background-color 0.2s ease',
+                                                '&:hover': {
+                                                    backgroundColor: 'primary.light',
+                                                    color: 'primary.contrastText'
+                                                }
+                                            }}
+                                        >
+                                            Auch zuständig: {item.employee.first_name} {item.employee.last_name}
+                                        </Typography>
+                                    </Box>
+                                ))}
+                            </>
                         )}
                     </Box>
                 </Box>
