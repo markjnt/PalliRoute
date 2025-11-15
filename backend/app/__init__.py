@@ -2,9 +2,11 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from config import Config
+from flask_migrate import Migrate
 
 # Initialize SQLAlchemy
 db = SQLAlchemy()
+migrate = Migrate()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -21,6 +23,7 @@ def create_app(config_class=Config):
 
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
 
     # Register error handlers
     @app.errorhandler(400)
@@ -51,9 +54,12 @@ def create_app(config_class=Config):
     app.register_blueprint(config_bp, url_prefix='/api/config')
     app.register_blueprint(employee_planning_bp, url_prefix='/api/employee-planning')
 
-    # Create database tables automatically
+    # Import all models within app context so Flask-Migrate can detect them
     with app.app_context():
-        db.create_all()
+        from . import models
+
+    # Database migrations are handled by Flask-Migrate
+    # Run 'flask db upgrade' to apply migrations
 
     @app.route('/health')
     def health_check():

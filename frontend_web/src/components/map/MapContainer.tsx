@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Box, CircularProgress, Alert, Button } from '@mui/material';
+import { Phone as PhoneIcon } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { MapContainerProps } from '../../types/mapTypes';
 import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, createWeekendAreaMarkerData, createWeekendPatientMarkerData, parseRouteOrder } from '../../utils/mapUtils';
@@ -21,6 +23,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   selectedWeekday,
   userArea
 }) => {
+  const navigate = useNavigate();
+  
   // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -237,6 +241,41 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         zIndex: 1000,
       }}>
         <AreaSelection compact={true} />
+      </Box>
+
+      {/* Rufbereitschaft Button - positioned absolutely over the map, top right */}
+      <Box sx={{
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 1000,
+      }}>
+        <Button
+          onClick={() => navigate('/oncall')}
+          variant="outlined"
+          startIcon={<PhoneIcon />}
+          sx={{
+            borderRadius: '12px',
+            textTransform: 'none',
+            fontWeight: 600,
+            fontSize: '1rem',
+            px: 2,
+            py: 1,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+            color: '#1d1d1f',
+            borderColor: 'rgba(0, 0, 0, 0.12)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderColor: 'rgba(0, 0, 0, 0.2)',
+              boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
+            },
+          }}
+        >
+          Rufbereitschaft
+        </Button>
       </Box>
 
       <GoogleMap

@@ -41,18 +41,19 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install -U pip && \
     pip install --prefer-binary -r requirements.txt
 
-# Copy the backend code
+# Copy backend code
 COPY backend/ .
 
-# Set environment variables
+# Add entrypoint for migrations
+COPY backend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 ENV FLASK_APP=run.py \
     FLASK_ENV=production
 
-# Expose the port
 EXPOSE 9000
 
-# Default command (can be overridden in docker-compose)
-CMD ["gunicorn", "--bind=0.0.0.0:9000", "run:app", "--workers=8", "--timeout=300"]
+ENTRYPOINT ["/entrypoint.sh"]
 
 # Create scheduler image
 FROM scheduler AS scheduler-image

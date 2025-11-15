@@ -5,6 +5,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { MainLayout } from './components/layout/MainLayout';
 import { MapView } from './components/layout/MainViewMap';
+import { OnCallPlanningView } from './components/oncall/OnCallPlanningView';
 
 // Create a theme instance
 const theme = createTheme({
@@ -71,6 +72,7 @@ const App: React.FC = () => {
               <Route index element={<MapView />} />
               {/* Additional routes will be nested here */}
             </Route>
+            <Route path="oncall" element={<OnCallPlanningView />} />
           </Routes>
         </Router>
       </DndProvider>
