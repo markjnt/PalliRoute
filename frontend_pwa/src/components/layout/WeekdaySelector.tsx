@@ -218,7 +218,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
     <Box
       sx={{
         position: 'absolute',
-        top: 58,
+        top: 28,
         left: 28,
         right: 28,
         height: 200, // Increased height to accommodate the button

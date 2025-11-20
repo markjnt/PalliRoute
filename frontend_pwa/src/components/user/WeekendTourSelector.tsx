@@ -62,7 +62,7 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          p: 2,
+          p: 1.5,
           mb: 1,
           bgcolor: selectedArea ? 'rgba(255, 152, 0, 0.1)' : 'rgba(0, 0, 0, 0.02)',
           border: selectedArea ? '2px solid #ff9800' : '1px solid rgba(0, 0, 0, 0.08)',
@@ -74,8 +74,8 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <WeekendIcon sx={{ color: '#ff9800', mr: 1 }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
+          <WeekendIcon sx={{ color: '#ff9800', mr: 1, fontSize: '1.2rem' }} />
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1d1d1f', fontSize: '0.95rem' }}>
             Wochenend-Touren
           </Typography>
           {selectedArea && (
@@ -85,23 +85,23 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
               sx={{
                 bgcolor: getAreaColor(selectedArea),
                 color: 'white',
-                fontSize: '0.75rem',
+                fontSize: '0.7rem',
                 fontWeight: 500,
-                height: 20,
+                height: 18,
                 ml: 1,
                 '& .MuiChip-label': {
-                  px: 1,
+                  px: 0.75,
                 },
               }}
             />
           )}
         </Box>
-        {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        {isExpanded ? <ExpandLessIcon sx={{ fontSize: '1.2rem' }} /> : <ExpandMoreIcon sx={{ fontSize: '1.2rem' }} />}
       </Button>
 
       {/* Collapsible content */}
       <Collapse in={isExpanded}>
-        <Grid container spacing={2}>
+        <Grid container spacing={1.5}>
           {weekendAreas.map((area) => (
             <Grid size={{ xs: 12, sm: 6 }} key={area.id}>
               <Card
@@ -125,52 +125,60 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
                   },
                 }}
               >
-                <CardContent sx={{ p: 2 }}>
-                  <Box display="flex" alignItems="center" mb={2}>
+                <CardContent sx={{ p: 1.5 }}>
+                  <Box display="flex" alignItems="center">
                     <Avatar
                       sx={{
-                        width: 48,
-                        height: 48,
+                        width: 36,
+                        height: 36,
                         bgcolor: selectedArea === area.id ? '#007AFF' : area.color,
                         color: 'white',
-                        mr: 2,
-                        fontSize: '1.2rem',
+                        mr: 1.5,
+                        fontSize: '1rem',
                         fontWeight: 600,
                       }}
                     >
                       {getInitials(area.id)}
                     </Avatar>
-                    <Box flex={1}>
-                      <Typography
-                        variant="h6"
-                        component="h3"
-                        sx={{
-                          fontWeight: 600,
-                          color: '#1d1d1f',
-                          mb: 0.5,
-                        }}
-                      >
-                        {area.label}
-                      </Typography>
-                      <Chip
-                        label={area.id}
-                        size="small"
-                        sx={{
-                          bgcolor: area.chipColor,
-                          color: 'white',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          height: 20,
-                          '& .MuiChip-label': {
-                            px: 1,
-                          },
-                        }}
-                      />
+                    <Box flex={1} display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                      <Box>
+                        <Typography
+                          variant="subtitle1"
+                          component="h3"
+                          sx={{
+                            fontWeight: 600,
+                            color: '#1d1d1f',
+                            fontSize: '0.95rem',
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {area.label}
+                        </Typography>
+                        <Chip
+                          label={area.id}
+                          size="small"
+                          sx={{
+                            bgcolor: area.chipColor,
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            fontWeight: 500,
+                            height: 18,
+                            mt: 0.25,
+                            '& .MuiChip-label': {
+                              px: 0.75,
+                            },
+                          }}
+                        />
+                      </Box>
                     </Box>
                     <IconButton
                       size="small"
                       sx={{
                         color: selectedArea === area.id ? '#007AFF' : 'rgba(0, 0, 0, 0.3)',
+                        ml: 0.5,
+                        '& .MuiSvgIcon-root': {
+                          fontSize: '1.2rem',
+                        },
                       }}
                     >
                       {selectedArea === area.id ? (

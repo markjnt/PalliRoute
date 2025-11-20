@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Avatar, IconButton, Typography, Chip } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -18,12 +18,27 @@ import { WeekdaySelector } from './WeekdaySelector';
 interface TopOverviewBarProps {
   onUserSwitch: () => void;
   onSheetToggle: () => void;
+  onCloseWeekdaySelector?: () => void;
 }
 
-export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle }) => {
+export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle, onCloseWeekdaySelector }) => {
   const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
   const [isWeekdayMenuOpen, setIsWeekdayMenuOpen] = useState(false);
+
+  // Close weekday selector when requested from outside
+  useEffect(() => {
+    if (onCloseWeekdaySelector) {
+      const closeHandler = () => {
+        setIsWeekdayMenuOpen(false);
+      };
+      // Store close handler so it can be called from MainLayout
+      (window as any).__closeWeekdaySelector = closeHandler;
+      return () => {
+        delete (window as any).__closeWeekdaySelector;
+      };
+    }
+  }, [onCloseWeekdaySelector]);
 
   const { data: employees = [] } = useEmployees();
   const { data: patients = [] } = usePatients();
@@ -98,7 +113,7 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
       <Box
         sx={{
           position: 'absolute',
-          top: 50,
+          top: 20,
           left: 20,
           right: 20,
           zIndex: 1000,

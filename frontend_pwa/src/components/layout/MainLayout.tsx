@@ -13,7 +13,7 @@ const MainLayout: React.FC = () => {
   const { selectedWeekday, setSelectedWeekday, resetToCurrentDay } = useWeekdayStore();
   const navigate = useNavigate();
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
-  const [isTestSheetOpen, setIsTestSheetOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // Automatisch den aktuellen Tag auswählen beim Laden der App
   useEffect(() => {
@@ -42,12 +42,16 @@ const MainLayout: React.FC = () => {
     setIsUserDrawerOpen(false);
   };
 
-  const handleTestSheetToggle = () => {
-    setIsTestSheetOpen(!isTestSheetOpen);
+  const handleSheetToggle = () => {
+    setIsSheetOpen(!isSheetOpen);
   };
 
-  const handleTestSheetClose = () => {
-    setIsTestSheetOpen(false);
+  const handleSheetClose = () => {
+    setIsSheetOpen(false);
+    // Also close weekday selector when map is clicked
+    if ((window as any).__closeWeekdaySelector) {
+      (window as any).__closeWeekdaySelector();
+    }
   };
 
   return (
@@ -63,17 +67,18 @@ const MainLayout: React.FC = () => {
       bottom: 0
     }}>
       <Box sx={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-        <MapView onMapClick={handleTestSheetClose} />
+        <MapView onMapClick={handleSheetClose} />
         
         {/* Top Overview Bar */}
         <TopOverviewBar 
           onUserSwitch={handleUserSwitch}
-          onSheetToggle={handleTestSheetToggle}
+          onSheetToggle={handleSheetToggle}
+          onCloseWeekdaySelector={() => {}}
         />
 
         <MainBottomSheet 
-          isOpen={isTestSheetOpen}
-          onClose={handleTestSheetClose}
+          isOpen={isSheetOpen}
+          onClose={handleSheetClose}
         />
 
         <UserSearchDrawer
