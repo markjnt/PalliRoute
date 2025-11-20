@@ -41,6 +41,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy backend code
 COPY backend/ .
 
+# Copy migrations to separate directory (outside of data) to avoid being overwritten by volume mounts
+# Placed in /backend/migrations so Flask-Migrate finds it without -d parameter
+COPY backend/data/migrations/ migrations/
+
 # Add entrypoint for migrations
 COPY backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

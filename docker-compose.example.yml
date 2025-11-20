@@ -5,7 +5,6 @@ services:
     pull_policy: always
     volumes:
       - ./backend/data:/backend/data
-      - ./backend/data/migrations:/backend/data/migrations
       - /path/to/xlsx/Mitarbeiterliste:/backend/data/excel_import/Mitarbeiterliste
       - /path/to/xlsx/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
     environment:
