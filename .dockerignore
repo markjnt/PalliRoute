@@ -39,10 +39,19 @@ docs/
 .DS_Store
 *.tmp
 
-# Aber erlaube den data Ordner
+# Aber erlaube den data Ordner (sowohl root als auch backend/)
 !data/
 !data/uploads/
 !data/flask_session/
+!backend/data/
+!backend/data/migrations/
+!backend/data/migrations/**
+
+# Aber schließe Datenbank-Dateien aus (sollen nicht ins Image)
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/data/__pycache__
 
 # Beispieldateien
 example_import_files/
