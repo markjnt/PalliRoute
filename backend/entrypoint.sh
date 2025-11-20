@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo "Running DB migrations..."
-if flask db upgrade -d backend/data/migrations; then
+if flask db upgrade -d data/migrations; then
     echo "Migrations completed successfully"
 else
     echo "WARNING: Migration failed or no migrations to run. Continuing anyway..."

@@ -27,9 +27,6 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 
 WORKDIR /backend
 
-# Create data directory with appropriate permissions
-RUN mkdir -p /backend/data && chmod 775 /backend/data
-
 # Install WeasyPrint system package (includes all dependencies)
 RUN apt-get update && apt-get install -y weasyprint && rm -rf /var/lib/apt/lists/*
 
@@ -43,6 +40,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy backend code
 COPY backend/ .
+
+# Create data directory with appropriate permissions (after COPY to ensure migrations are included)
+RUN mkdir -p /backend/data && chmod 775 /backend/data
 
 # Add entrypoint for migrations
 COPY backend/entrypoint.sh /entrypoint.sh

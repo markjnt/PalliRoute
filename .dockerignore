@@ -1,6 +1,5 @@
 # Umgebungsvariablen und Konfiguration
 .env
-.env.*
 *.pyc
 __pycache__
 .pytest_cache
