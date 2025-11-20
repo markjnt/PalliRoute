@@ -166,20 +166,7 @@ def sync_employee_planning(calendar_week: int) -> bool:
         shifts = fetch_aplano_shifts(calendar_week)
         absences = fetch_aplano_absences(calendar_week)
         
-        # Get all employees - catch database errors if new columns don't exist yet
-        try:
-            employees = Employee.query.all()
-        except Exception as db_error:
-            error_msg = str(db_error).lower()
-            # Check if error is related to missing columns
-            if 'no such column' in error_msg or 'does not exist' in error_msg:
-                print(f"[sync_employee_planning] ERROR: Database schema is outdated. New columns added to Employee model don't exist in database yet.")
-                print(f"[sync_employee_planning] Please run database migration: flask db upgrade")
-                print(f"[sync_employee_planning] Skipping sync for KW {calendar_week}")
-                return False
-            else:
-                # Re-raise other database errors
-                raise
+        employees = Employee.query.all()
         
         # Group shifts by employee and date
         employee_shifts = {}

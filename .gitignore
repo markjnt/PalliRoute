@@ -2,7 +2,9 @@
 .env
 
 # Data
-/backend/data/
+/backend/data/*
+!/backend/data/migrations/
+!/backend/data/migrations/**
 
 # IDE-Dateien
 /.idea
@@ -24,7 +26,6 @@ __pycache__/
 
 # testing
 /frontend_web/coverage
-
 /frontend_pwa/coverage
 
 
