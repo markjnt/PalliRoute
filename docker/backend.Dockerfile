@@ -41,9 +41,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy backend code
 COPY backend/ .
 
-# Create data directory with appropriate permissions (after COPY to ensure migrations are included)
-RUN mkdir -p /backend/data && chmod 775 /backend/data
-
 # Add entrypoint for migrations
 COPY backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
