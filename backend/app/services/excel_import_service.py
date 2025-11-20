@@ -167,6 +167,9 @@ class ExcelImportService:
         """
         Import employees from Excel file with dynamic planning management
         Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet, Alias
+        Optional columns: Rufbereitschaft Pflege unter der Woche, Rufbereitschaft Pflege Wochenende Tag,
+                         Rufbereitschaft Pflege Wochenende Nacht, Rufbereitschaft Ärzte unter der Woche,
+                         Rufbereitschaft Ärzte Wochenende, Wochenenddienste Pflege
         
         Note: This import also deletes all patient, appointment and route data
         """
@@ -239,6 +242,49 @@ class ExcelImportService:
                     elif 'Aliasse' in df.columns and pd.notna(row['Aliasse']):
                         alias = str(row['Aliasse']).strip()
 
+                    # Handle Rufbereitschaft fields (optional, integer values)
+                    oncall_nursing_weekday = None
+                    if 'Rufbereitschaft Pflege unter der Woche' in df.columns and pd.notna(row['Rufbereitschaft Pflege unter der Woche']):
+                        try:
+                            oncall_nursing_weekday = int(float(row['Rufbereitschaft Pflege unter der Woche']))
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege unter der Woche' in Zeile {idx + 2}. Erwartet: Zahl")
+                    
+                    oncall_nursing_weekend_day = None
+                    if 'Rufbereitschaft Pflege Wochenende Tag' in df.columns and pd.notna(row['Rufbereitschaft Pflege Wochenende Tag']):
+                        try:
+                            oncall_nursing_weekend_day = int(float(row['Rufbereitschaft Pflege Wochenende Tag']))
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege Wochenende Tag' in Zeile {idx + 2}. Erwartet: Zahl")
+                    
+                    oncall_nursing_weekend_night = None
+                    if 'Rufbereitschaft Pflege Wochenende Nacht' in df.columns and pd.notna(row['Rufbereitschaft Pflege Wochenende Nacht']):
+                        try:
+                            oncall_nursing_weekend_night = int(float(row['Rufbereitschaft Pflege Wochenende Nacht']))
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege Wochenende Nacht' in Zeile {idx + 2}. Erwartet: Zahl")
+                    
+                    oncall_doctors_weekday = None
+                    if 'Rufbereitschaft Ärzte unter der Woche' in df.columns and pd.notna(row['Rufbereitschaft Ärzte unter der Woche']):
+                        try:
+                            oncall_doctors_weekday = int(float(row['Rufbereitschaft Ärzte unter der Woche']))
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Ärzte unter der Woche' in Zeile {idx + 2}. Erwartet: Zahl")
+                    
+                    oncall_doctors_weekend = None
+                    if 'Rufbereitschaft Ärzte Wochenende' in df.columns and pd.notna(row['Rufbereitschaft Ärzte Wochenende']):
+                        try:
+                            oncall_doctors_weekend = int(float(row['Rufbereitschaft Ärzte Wochenende']))
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Ärzte Wochenende' in Zeile {idx + 2}. Erwartet: Zahl")
+                    
+                    weekend_services_nursing = None
+                    if 'Wochenenddienste Pflege' in df.columns and pd.notna(row['Wochenenddienste Pflege']):
+                        try:
+                            weekend_services_nursing = int(float(row['Wochenenddienste Pflege']))
+                        except (ValueError, TypeError):
+                            raise ValueError(f"Ungültiger Wert für 'Wochenenddienste Pflege' in Zeile {idx + 2}. Erwartet: Zahl")
+
                     first_name = str(row['Vorname']).strip()
                     last_name = str(row['Nachname']).strip()
                     employee_key = f"{first_name.lower()}_{last_name.lower()}"
@@ -263,6 +309,12 @@ class ExcelImportService:
                         existing_employee.work_hours = work_hours
                         existing_employee.area = area
                         existing_employee.alias = alias
+                        existing_employee.oncall_nursing_weekday = oncall_nursing_weekday
+                        existing_employee.oncall_nursing_weekend_day = oncall_nursing_weekend_day
+                        existing_employee.oncall_nursing_weekend_night = oncall_nursing_weekend_night
+                        existing_employee.oncall_doctors_weekday = oncall_doctors_weekday
+                        existing_employee.oncall_doctors_weekend = oncall_doctors_weekend
+                        existing_employee.weekend_services_nursing = weekend_services_nursing
                         updated_employees.append(existing_employee)
                         print(f"Updated employee: {first_name} {last_name}")
                     else:
@@ -278,7 +330,13 @@ class ExcelImportService:
                             function=function,
                             work_hours=work_hours,
                             area=area,
-                            alias=alias
+                            alias=alias,
+                            oncall_nursing_weekday=oncall_nursing_weekday,
+                            oncall_nursing_weekend_day=oncall_nursing_weekend_day,
+                            oncall_nursing_weekend_night=oncall_nursing_weekend_night,
+                            oncall_doctors_weekday=oncall_doctors_weekday,
+                            oncall_doctors_weekend=oncall_doctors_weekend,
+                            weekend_services_nursing=weekend_services_nursing
                         )
                         added_employees.append(employee)
                         db.session.add(employee)

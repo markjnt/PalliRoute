@@ -72,7 +72,7 @@ const App: React.FC = () => {
               <Route index element={<MapView />} />
               {/* Additional routes will be nested here */}
             </Route>
-            <Route path="oncall" element={<OnCallPlanningView />} />
+            <Route path="rbawplan" element={<OnCallPlanningView />} />
           </Routes>
         </Router>
       </DndProvider>

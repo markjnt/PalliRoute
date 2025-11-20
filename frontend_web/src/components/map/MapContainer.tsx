@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Box, CircularProgress, Alert, Button } from '@mui/material';
-import { Phone as PhoneIcon } from '@mui/icons-material';
+import { Event as EventIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { MapContainerProps } from '../../types/mapTypes';
@@ -251,9 +251,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         zIndex: 1000,
       }}>
         <Button
-          onClick={() => navigate('/oncall')}
+          onClick={() => navigate('/rbawplan')}
           variant="outlined"
-          startIcon={<PhoneIcon />}
+          startIcon={<EventIcon />}
           sx={{
             borderRadius: '12px',
             textTransform: 'none',
@@ -274,7 +274,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             },
           }}
         >
-          Rufbereitschaft
+          RB/AW Planung
         </Button>
       </Box>
 

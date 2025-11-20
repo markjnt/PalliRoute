@@ -17,6 +17,13 @@ class Employee(db.Model):
     work_hours = db.Column(db.Float, nullable=False)  # Percentage of full-time (e.g., 100.0)
     area = db.Column(db.String(50), nullable=True)  # Area for employee
     alias = db.Column(db.String(500), nullable=True)  # Alias for employee
+    # Rufbereitschaft fields (Anzahl)
+    oncall_nursing_weekday = db.Column(db.Integer, nullable=True)  # Rufbereitschaft Pflege unter der Woche
+    oncall_nursing_weekend_day = db.Column(db.Integer, nullable=True)  # Rufbereitschaft Pflege Wochenende Tag
+    oncall_nursing_weekend_night = db.Column(db.Integer, nullable=True)  # Rufbereitschaft Pflege Wochenende Nacht
+    oncall_doctors_weekday = db.Column(db.Integer, nullable=True)  # Rufbereitschaft Ärzte unter der Woche
+    oncall_doctors_weekend = db.Column(db.Integer, nullable=True)  # Rufbereitschaft Ärzte Wochenende
+    weekend_services_nursing = db.Column(db.Integer, nullable=True)  # Wochenenddienste Pflege
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -42,6 +49,12 @@ class Employee(db.Model):
             'work_hours': self.work_hours,
             'area': self.area,
             'alias': self.alias,
+            'oncall_nursing_weekday': self.oncall_nursing_weekday,
+            'oncall_nursing_weekend_day': self.oncall_nursing_weekend_day,
+            'oncall_nursing_weekend_night': self.oncall_nursing_weekend_night,
+            'oncall_doctors_weekday': self.oncall_doctors_weekday,
+            'oncall_doctors_weekend': self.oncall_doctors_weekend,
+            'weekend_services_nursing': self.weekend_services_nursing,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -59,5 +72,11 @@ class Employee(db.Model):
             function=data.get('function'),
             work_hours=data.get('work_hours'),
             area=data.get('area'),
-            alias=data.get('alias')
+            alias=data.get('alias'),
+            oncall_nursing_weekday=data.get('oncall_nursing_weekday'),
+            oncall_nursing_weekend_day=data.get('oncall_nursing_weekend_day'),
+            oncall_nursing_weekend_night=data.get('oncall_nursing_weekend_night'),
+            oncall_doctors_weekday=data.get('oncall_doctors_weekday'),
+            oncall_doctors_weekend=data.get('oncall_doctors_weekend'),
+            weekend_services_nursing=data.get('weekend_services_nursing')
         )
