@@ -23,6 +23,9 @@ def create_app(config_class=Config):
 
     # Initialize extensions
     db.init_app(app)
+
+    from . import models
+
     migrate.init_app(app, db)
 
     # Register error handlers
@@ -55,13 +58,6 @@ def create_app(config_class=Config):
     app.register_blueprint(config_bp, url_prefix='/api/config')
     app.register_blueprint(employee_planning_bp, url_prefix='/api/employee-planning')
     app.register_blueprint(oncall_assignments_bp, url_prefix='/api/oncall-assignments')
-
-    # Import all models within app context so Flask-Migrate can detect them
-    with app.app_context():
-        from . import models
-
-    # Database migrations are handled by Flask-Migrate
-    # Run 'flask db upgrade' to apply migrations
 
     @app.route('/health')
     def health_check():
