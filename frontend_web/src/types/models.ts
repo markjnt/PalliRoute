@@ -26,6 +26,12 @@ export interface Employee {
     work_hours: number;
     area: Area;
     alias?: string;
+    oncall_nursing_weekday?: number;
+    oncall_nursing_weekend_day?: number;
+    oncall_nursing_weekend_night?: number;
+    oncall_doctors_weekday?: number;
+    oncall_doctors_weekend?: number;
+    weekend_services_nursing?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -107,4 +113,68 @@ export interface Route {
     calendar_week?: number;  // Added for easier filtering
     created_at: string;
     updated_at: string;
+}
+
+export type DutyType = 
+    | 'rb_nursing_weekday'           // Rufbereitschaft Pflege unter der Woche
+    | 'rb_nursing_weekend_day'        // Rufbereitschaft Pflege Wochenende Tag
+    | 'rb_nursing_weekend_night'      // Rufbereitschaft Pflege Wochenende Nacht
+    | 'rb_doctors_weekday'            // Rufbereitschaft Ärzte unter der Woche
+    | 'rb_doctors_weekend'            // Rufbereitschaft Ärzte Wochenende
+    | 'aw_nursing';                   // Wochenenddienste Pflege
+
+export type OnCallArea = 'Nord' | 'Süd' | 'Mitte';
+
+export interface OnCallAssignment {
+    id?: number;
+    employee_id: number;
+    date: string;  // ISO date string (YYYY-MM-DD)
+    duty_type: DutyType;
+    area?: OnCallArea;
+    calendar_week?: number;
+    created_at?: string;
+    updated_at?: string;
+    employee?: Employee;  // Populated when fetched with employee details
+}
+
+export interface OnCallAssignmentFormData extends Omit<OnCallAssignment, 'id' | 'created_at' | 'updated_at' | 'employee' | 'calendar_week'> {
+}
+
+export interface EmployeeCapacity {
+    employee_id: number;
+    employee_name: string;
+    month: number;
+    year: number;
+    capacities: {
+        rb_nursing_weekday: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+        rb_nursing_weekend_day: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+        rb_nursing_weekend_night: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+        rb_doctors_weekday: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+        rb_doctors_weekend: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+        aw_nursing: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+    };
 } 

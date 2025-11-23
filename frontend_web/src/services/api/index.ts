@@ -4,3 +4,4 @@ export * from './appointments';
 export * from './config';
 export * from './routes'; 
 export * from './employeePlanning';
+export * from './oncallAssignments';

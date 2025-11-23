@@ -46,6 +46,7 @@ def create_app(config_class=Config):
     from .api_routes.routes import routes_bp
     from .api_routes.config import bp as config_bp
     from .api_routes.employee_plannings import employee_planning_bp
+    from .api_routes.oncall_assignments import oncall_assignments_bp
 
     app.register_blueprint(employees_bp, url_prefix='/api/employees')
     app.register_blueprint(patients_bp, url_prefix='/api/patients')
@@ -53,6 +54,7 @@ def create_app(config_class=Config):
     app.register_blueprint(routes_bp, url_prefix='/api/routes')
     app.register_blueprint(config_bp, url_prefix='/api/config')
     app.register_blueprint(employee_planning_bp, url_prefix='/api/employee-planning')
+    app.register_blueprint(oncall_assignments_bp, url_prefix='/api/oncall-assignments')
 
     # Import all models within app context so Flask-Migrate can detect them
     with app.app_context():
