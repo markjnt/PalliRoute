@@ -113,7 +113,7 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
       <Box
         sx={{
           position: 'absolute',
-          top: 20,
+          top: 50,
           left: 20,
           right: 20,
           zIndex: 1000,

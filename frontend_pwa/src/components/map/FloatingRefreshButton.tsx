@@ -30,7 +30,7 @@ export const FloatingRefreshButton: React.FC = () => {
         onClick={refreshData}
         sx={{
           position: 'absolute',
-          top: 95, // Position under TopOverviewBar (64px height + 20px margin + 11px for spacing)
+          top: 125, // Position under TopOverviewBar (64px height + 20px margin + 46px for spacing)
           right: 28, // Align with the Avatar button (20px from edge + 8px margin-right)
           zIndex: 1000,
           bgcolor: 'rgba(33, 150, 243, 0.9)',
@@ -70,7 +70,7 @@ export const FloatingRefreshButton: React.FC = () => {
           size="small"
           sx={{
             position: 'absolute',
-            top: 150, // Position below button (95 + 48 + 7px gap)
+            top: 180, // Position below button (125 + 48 + 7px gap)
             right: 21, // Same horizontal position as button
             zIndex: 1000,
             width: 66,
