@@ -145,7 +145,7 @@ class ExcelImportService:
                             planning_entry = EmployeePlanning(
                                 employee_id=employee.id,
                                 weekday=weekday,
-                                status='available',
+                                available=True,
                                 calendar_week=calendar_week
                             )
                             planning_entries.append(planning_entry)

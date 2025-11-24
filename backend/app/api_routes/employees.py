@@ -108,34 +108,21 @@ def delete_employee(id):
 
 @employees_bp.route('/import', methods=['POST'])
 def import_employees():
-    # Get directory path from config
-    directory_path = current_app.config.get('EMPLOYEES_IMPORT_PATH')
+    # Get file path from config
+    file_path = current_app.config.get('EMPLOYEES_IMPORT_PATH')
     
-    if not directory_path:
+    if not file_path:
         return jsonify({"error": "EMPLOYEES_IMPORT_PATH not configured"}), 400
     
-    # Validate directory path
-    if not os.path.exists(directory_path):
-        return jsonify({"error": f"Directory not found: {directory_path}"}), 400
+    # Validate file path
+    if not os.path.exists(file_path):
+        return jsonify({"error": f"File not found: {file_path}"}), 400
     
-    if not os.path.isdir(directory_path):
-        return jsonify({"error": f"Path is not a directory: {directory_path}"}), 400
-    
-    # Find the newest Excel file in the directory
-    excel_files = []
-    for file in os.listdir(directory_path):
-        if file.endswith(('.xlsx', '.xls')):
-            file_path = os.path.join(directory_path, file)
-            excel_files.append((file_path, os.path.getmtime(file_path)))
-    
-    if not excel_files:
-        return jsonify({"error": f"No Excel files found in directory: {directory_path}"}), 400
-    
-    # Get the newest file
-    newest_file = max(excel_files, key=lambda x: x[1])[0]
+    if not os.path.isfile(file_path):
+        return jsonify({"error": f"Path is not a file: {file_path}"}), 400
     
     try:
-        result = ExcelImportService.import_employees(newest_file)
+        result = ExcelImportService.import_employees(file_path)
         added_employees = result['added']
         updated_employees = result['updated']
         removed_employees = result['removed']
