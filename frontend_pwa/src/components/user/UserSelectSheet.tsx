@@ -88,6 +88,32 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
       );
     }
 
+    if (activeFilter === 'all') {
+      const getGroupOrder = (employee: Employee) => {
+        const area = employee.area?.toLowerCase() || '';
+        if (employee.function === 'Pflegekraft') {
+          if (area.includes('nord')) return 1; // Pflege Nord
+          if (area.includes('süd')) return 2; // Pflege Süd
+          return 3; // Other Pflegekräfte without area
+        }
+        if (employee.function === 'PDL') return 4;
+        if (employee.function === 'Arzt') return 5;
+        if (employee.function === 'Honorararzt') return 6;
+        return 999;
+      };
+
+      filtered = [...filtered].sort((a, b) => {
+        const orderDiff = getGroupOrder(a) - getGroupOrder(b);
+        if (orderDiff !== 0) {
+          return orderDiff;
+        }
+
+        const nameA = `${a.last_name} ${a.first_name}`.toLowerCase();
+        const nameB = `${b.last_name} ${b.first_name}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    }
+
     return filtered;
   }, [employees, searchTerm, activeFilter]);
 
