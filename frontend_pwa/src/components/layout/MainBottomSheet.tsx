@@ -77,6 +77,9 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
                   onSelectAll={selectAll}
                   onDeselectAll={deselectAll}
                 />
+                <div style={{ padding: '16px 0', textAlign: 'center', color: '#555' }}>
+                  das ist ein test
+                </div>
               </Sheet.Scroller>
             </Sheet.Content>
           </Sheet.Container>
