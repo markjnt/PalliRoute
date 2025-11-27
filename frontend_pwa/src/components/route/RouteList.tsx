@@ -42,6 +42,7 @@ interface RouteStop {
   responsibleEmployeeName?: string;  // For tour_employee appointments: shows "Zuständig: [Name]"
   tourEmployeeName?: string;  // For responsible employee: shows "Ursprungstour: [Name]"
   isTourEmployeeAppointment?: boolean;  // Mark tour_employee appointments for styling
+  originEmployeeName?: string;  // For replacement appointments: shows "Ursprünglich (Vertretung): [Name]"
 }
 
 
@@ -142,6 +143,13 @@ export const RouteList: React.FC = () => {
               ? employees.find(e => e.id === appointment.tour_employee_id)
               : null;
             
+            // Get origin employee name (only when different from current employee)
+            const showOriginEmployee = appointment.origin_employee_id &&
+              appointment.origin_employee_id !== appointment.employee_id;
+            const originEmployee = showOriginEmployee
+              ? employees.find(e => e.id === appointment.origin_employee_id)
+              : null;
+            
             stops.push({
               id: appointmentId,
               position: index + 1,
@@ -158,6 +166,9 @@ export const RouteList: React.FC = () => {
                 : undefined,
               tourEmployeeName: tourEmployee 
                 ? `${tourEmployee.first_name} ${tourEmployee.last_name}`
+                : undefined,
+              originEmployeeName: originEmployee
+                ? `${originEmployee.first_name} ${originEmployee.last_name}`
                 : undefined,
             });
           }
@@ -199,6 +210,11 @@ export const RouteList: React.FC = () => {
         const responsibleEmployee = appointment.employee_id
           ? employees.find(e => e.id === appointment.employee_id)
           : null;
+        const showOriginEmployee = appointment.origin_employee_id &&
+          appointment.origin_employee_id !== appointment.employee_id;
+        const originEmployee = showOriginEmployee
+          ? employees.find(e => e.id === appointment.origin_employee_id)
+          : null;
         
         stops.push({
           id: appointment.id,
@@ -215,6 +231,9 @@ export const RouteList: React.FC = () => {
             ? `${responsibleEmployee.first_name} ${responsibleEmployee.last_name}`
             : undefined,
           isTourEmployeeAppointment: true, // Mark as tour employee appointment
+          originEmployeeName: originEmployee
+            ? `${originEmployee.first_name} ${originEmployee.last_name}`
+            : undefined,
         });
       }
     });
@@ -258,6 +277,12 @@ export const RouteList: React.FC = () => {
         ? employees.find(e => e.id === appointment.tour_employee_id)
         : null;
       
+      const showOriginEmployee = appointment.origin_employee_id &&
+        appointment.origin_employee_id !== appointment.employee_id;
+      const originEmployee = showOriginEmployee
+        ? employees.find(e => e.id === appointment.origin_employee_id)
+        : null;
+      
       return {
         id: appointment.id || 0,
         patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unbekannter Patient',
@@ -273,6 +298,9 @@ export const RouteList: React.FC = () => {
           ? `${tourEmployee.first_name} ${tourEmployee.last_name}`
           : undefined,
         isTourEmployeeAppointment: isTourEmployeeAppointment, // Mark tour_employee TK appointments
+        originEmployeeName: originEmployee
+          ? `${originEmployee.first_name} ${originEmployee.last_name}`
+          : undefined,
       };
     }).sort((a, b) => {
       // Sortiere: tour_employee Termine ans Ende
@@ -536,6 +564,22 @@ export const RouteList: React.FC = () => {
                           }}
                         >
                           Ursprungstour: {tkApp.tourEmployeeName}
+                        </Typography>
+                      </Box>
+                    )}
+                    
+                    {/* Ursprünglich (Vertretung) anzeigen */}
+                    {tkApp.originEmployeeName && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#007AFF',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Ursprünglich (Vertretung): {tkApp.originEmployeeName}
                         </Typography>
                       </Box>
                     )}

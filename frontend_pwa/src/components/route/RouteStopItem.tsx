@@ -45,6 +45,7 @@ interface RouteStop {
   responsibleEmployeeName?: string;  // For tour_employee appointments: shows "Zuständig: [Name]"
   tourEmployeeName?: string;  // For responsible employee: shows "Ursprungstour: [Name]"
   isTourEmployeeAppointment?: boolean;  // Mark tour_employee appointments for styling
+  originEmployeeName?: string;  // For replacement appointments: shows "Ursprünglich (Vertretung): [Name]"
 }
 
 interface RouteStopItemProps {
@@ -250,6 +251,22 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
                   }}
                 >
                   Ursprungstour: {stop.tourEmployeeName}
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Ursprünglich (Vertretung) anzeigen */}
+            {stop.originEmployeeName && (
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#007AFF',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  Ursprünglich (Vertretung): {stop.originEmployeeName}
                 </Typography>
               </Box>
             )}

@@ -25,7 +25,6 @@ import {
 import { Sheet } from 'react-modal-sheet';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
-import { useWeekdayStore, Weekday } from '../../stores/useWeekdayStore';
 import { Employee } from '../../types/models';
 import { employeeTypeColors } from '../../utils/colors';
 import WeekendTourSelector from './WeekendTourSelector';
@@ -48,7 +47,6 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     setSelectedUser, 
     setSelectedWeekendArea 
   } = useUserStore();
-  const { setSelectedWeekday } = useWeekdayStore();
 
   const filteredEmployees = useMemo(() => {
     let filtered = employees;
@@ -117,22 +115,12 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     return filtered;
   }, [employees, searchTerm, activeFilter]);
 
-  // Helper function to get current weekday or fallback
-  const getCurrentWeekdayOrFallback = (fallback: Weekday): Weekday => {
-    const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const today = days[new Date().getDay()];
-    const isWeekday = today === 'monday' || today === 'tuesday' || today === 'wednesday' || today === 'thursday' || today === 'friday';
-    return isWeekday && today ? today : fallback;
-  };
-
   const handleUserSelect = (userId: number) => {
     setSelectedUser(userId);
     setSelectedWeekendArea(null); // Clear weekend area selection
     setIsWeekendExpanded(false); // Collapse weekend menu
     setActiveFilter('all'); // Reset filter when selecting a user
-    // Set current day or Monday as fallback for employees
-    const weekday = getCurrentWeekdayOrFallback('monday');
-    setSelectedWeekday(weekday);
+    // Weekday wird automatisch in MainLayout.tsx gesetzt, wenn zwischen Tour-Arten gewechselt wird
     onClose(); // Close the sheet after selecting a user
   };
 
@@ -140,12 +128,7 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     setSelectedWeekendArea(area);
     setSelectedUser(null); // Clear user selection
     setActiveFilter('aw'); // Set filter to AW when weekend area is selected
-    // Set current day if it's weekend (Saturday/Sunday), otherwise Saturday as fallback
-    const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDay = days[new Date().getDay()];
-    const isWeekend = currentDay === 'saturday' || currentDay === 'sunday';
-    const weekday = isWeekend && currentDay ? currentDay : 'saturday';
-    setSelectedWeekday(weekday);
+    // Weekday wird automatisch in MainLayout.tsx gesetzt, wenn zwischen Tour-Arten gewechselt wird
     onClose(); // Close the sheet after selecting a weekend area
   };
 
