@@ -362,10 +362,27 @@ def download_route_pdf():
             key = r.area or 'Unbekannt'
             area_to_routes.setdefault(key, []).append(r)
         for area, routes_in_area in area_to_routes.items():
+            # Get employee name if employee_id is set (from AW assignment)
+            employee_name = None
+            employee_id = None
+            # Check if any route in this area has an employee_id
+            for route in routes_in_area:
+                if route.employee_id:
+                    employee_id = route.employee_id
+                    employee = Employee.query.get(route.employee_id)
+                    if employee:
+                        employee_name = f"{employee.first_name} {employee.last_name}"
+                    break  # All routes in same area should have same employee_id
+            
+            # Build area label with employee name if available
+            area_label = f"AW {area}"
+            if employee_name:
+                area_label = f"AW {area}: {employee_name}"
+            
             weekend_employee_data.append({
                 'group_id': f"area-{area}",
                 'area': area,
-                'area_label': f"AW {area}",
+                'area_label': area_label,
                 'routes': routes_in_area,
                 'appointments': []
             })

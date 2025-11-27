@@ -16,10 +16,11 @@ import {
     Home as HomeIcon,
     Phone as PhoneIcon
 } from '@mui/icons-material';
-import { Weekday, Route, Patient, Appointment } from '../../../types/models';
+import { Weekday, Route, Patient, Appointment, Employee } from '../../../types/models';
 import { useRoutes } from '../../../services/queries/useRoutes';
 import { useAppointmentsByWeekday } from '../../../services/queries/useAppointments';
 import { usePatients } from '../../../services/queries/usePatients';
+import { useEmployees } from '../../../services/queries/useEmployees';
 import { useAreaStore } from '../../../stores/useAreaStore';
 import { WeekendPatientCard } from './WeekendPatientCard';
 import { WeekendTourHeader } from './tour/WeekendTourHeader';
@@ -48,6 +49,7 @@ interface WeekendTourContainerProps {
     routes: Route[];
     appointments: Appointment[];
     patients: Patient[];
+    employees: Employee[];
     selectedDay: Weekday;
 }
 
@@ -56,6 +58,7 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
     routes,
     appointments,
     patients,
+    employees,
     selectedDay
 }) => {
     const [expanded, setExpanded] = useState(false);
@@ -83,9 +86,23 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
         selectedDay
     });
 
-    // Find the route for this area and day
-    const route = routes.find(r => (r.area as string) === area && r.weekday === selectedDay && !r.employee_id);
+    // Find the route for this area and day (can have employee_id now)
+    // Normalize area for comparison (handle both "Nordkreis"/"Südkreis" and "Nord"/"Süd")
+    const normalizeAreaForRoute = (routeArea: string): string => {
+        if (!routeArea) return '';
+        const areaLower = routeArea.toLowerCase();
+        if (areaLower.includes('nord') && !areaLower.includes('süd')) return 'Nord';
+        if (areaLower.includes('süd') && !areaLower.includes('nord')) return 'Süd';
+        if (areaLower.includes('mitte')) return 'Mitte';
+        return routeArea;
+    };
+    
+    const route = routes.find(r => {
+        const routeAreaNormalized = normalizeAreaForRoute(r.area as string);
+        return routeAreaNormalized === area && r.weekday === selectedDay;
+    });
     const routeId = route?.id;
+    const assignedEmployee = route?.employee_id ? employees.find(e => e.id === route.employee_id) : null;
 
     // Get route visibility using custom hook
     const routeVisibility = useRouteVisibility({ routeId });
@@ -165,7 +182,7 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
                 alignItems: 'flex-start' 
             }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <WeekendTourHeader area={area} />
+                    <WeekendTourHeader area={area} employee={assignedEmployee} />
 
                     <WeekendTourStats area={area} route={route} />
                     
@@ -300,6 +317,7 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
     });
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
+    const { data: employees = [], isLoading: loadingEmployees, error: employeesError } = useEmployees();
     const { currentArea } = useAreaStore();
     const appointmentManagement = useAppointmentManagement({
         selectedDay
@@ -331,7 +349,7 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
         }));
     }, [appointments, patients, selectedDay]);
 
-    if (loadingRoutes || loadingAppointments || loadingPatients) {
+    if (loadingRoutes || loadingAppointments || loadingPatients || loadingEmployees) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
                 <CircularProgress />
@@ -387,6 +405,7 @@ export const WeekendToursView: React.FC<WeekendToursViewProps> = ({ selectedDay 
                             routes={filteredRoutes}
                             appointments={appointments}
                             patients={patients}
+                            employees={employees}
                             selectedDay={selectedDay}
                         />
                     );

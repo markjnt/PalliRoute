@@ -11,9 +11,11 @@ from ..models.patient import Patient
 from ..models.appointment import Appointment, VISIT_TYPE_DURATIONS
 from ..models.route import Route
 from ..models.employee_planning import EmployeePlanning
+from ..models.oncall_assignment import OnCallAssignment
 from .. import db
 import json
 from .route_planner import RoutePlanner
+from datetime import date
 
 class ExcelImportService:
     # Class-level cache for geocoding to avoid redundant API calls
@@ -957,6 +959,85 @@ class ExcelImportService:
         print(f"Route planning complete: {planned_routes} routes planned successfully, {failed_routes} routes failed")
 
     @staticmethod
+    def _update_weekend_routes_from_aw_assignments(calendar_weeks: List[int]):
+        """
+        Update weekend routes with employee_id from AW (aw_nursing) assignments.
+        Matches routes by area, weekday, and calendar_week.
+        """
+        if not calendar_weeks:
+            return
+        
+        # Map route area to assignment area
+        # Route areas can be "Nordkreis", "Südkreis", "Mitte", etc.
+        # Assignment areas are "Nord", "Süd", "Mitte"
+        def normalize_area(route_area: str) -> str:
+            """Convert route area to assignment area format"""
+            if not route_area:
+                return None
+            route_area_lower = route_area.lower()
+            if 'nord' in route_area_lower:
+                return 'Nord'
+            elif 'süd' in route_area_lower or 'sued' in route_area_lower:
+                return 'Süd'
+            elif 'mitte' in route_area_lower:
+                return 'Mitte'
+            return None
+        
+        # Map weekday string to ISO weekday number (1=Monday, 7=Sunday)
+        weekday_to_iso = {
+            'saturday': 6,
+            'sunday': 7
+        }
+        
+        updated_count = 0
+        
+        # Get all weekend routes (employee_id is None, weekday is saturday or sunday)
+        weekend_routes = Route.query.filter(
+            Route.employee_id.is_(None),
+            Route.weekday.in_(['saturday', 'sunday']),
+            Route.calendar_week.in_(calendar_weeks)
+        ).all()
+        
+        for route in weekend_routes:
+            # Normalize route area to match assignment area
+            assignment_area = normalize_area(route.area)
+            if not assignment_area:
+                continue
+            
+            # Get the date for this route (from calendar_week and weekday)
+            try:
+                current_year = datetime.now().year
+                iso_weekday = weekday_to_iso.get(route.weekday.lower())
+                if not iso_weekday:
+                    continue
+                
+                # Calculate date from calendar week and weekday
+                route_date = date.fromisocalendar(current_year, route.calendar_week, iso_weekday)
+                
+                # Find matching AW assignment
+                assignment = OnCallAssignment.query.filter(
+                    OnCallAssignment.duty_type == 'aw_nursing',
+                    OnCallAssignment.area == assignment_area,
+                    OnCallAssignment.date == route_date,
+                    OnCallAssignment.calendar_week == route.calendar_week
+                ).first()
+                
+                if assignment:
+                    route.employee_id = assignment.employee_id
+                    route.updated_at = datetime.utcnow()
+                    updated_count += 1
+                    print(f"    Updated route for area {route.area} on {route.weekday} (KW {route.calendar_week}) with employee_id {assignment.employee_id}")
+            except Exception as e:
+                print(f"    Error updating route {route.id} for area {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
+                continue
+        
+        if updated_count > 0:
+            db.session.commit()
+            print(f"    Updated {updated_count} weekend routes with AW assignments")
+        else:
+            print(f"    No weekend routes updated (no matching AW assignments found)")
+
+    @staticmethod
     def import_patients(file_path) -> Dict[str, List[Any]]:
         """
         Import patients and their appointments from Excel file (supports multiple sheets)
@@ -1025,6 +1106,10 @@ class ExcelImportService:
             # Step 6: Plan all routes
             print("\nStep 6: Planning all routes...")
             ExcelImportService._plan_all_routes(all_routes)
+            
+            # Step 7: Update weekend routes with employee_id from AW assignments
+            print("\nStep 7: Updating weekend routes with AW assignments...")
+            ExcelImportService._update_weekend_routes_from_aw_assignments(calendar_weeks)
             
             # Calculate final statistics
             calendar_weeks_str = ', '.join(map(str, calendar_weeks)) if calendar_weeks else 'None'

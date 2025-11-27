@@ -67,18 +67,19 @@ export const oncallAssignmentsApi = {
         }
     },
 
-    // Get employee capacity information
-    async getEmployeeCapacity(employeeId: number, month?: number, year?: number): Promise<EmployeeCapacity> {
+    // Get capacity information for all employees
+    async getAllEmployeesCapacity(month?: number, year?: number): Promise<{ month: number; year: number; capacities: Record<number, EmployeeCapacity> }> {
         try {
             const params: { month?: number; year?: number } = {};
             if (month) params.month = month;
             if (year) params.year = year;
-            const response = await api.get(`/oncall-assignments/capacity/${employeeId}`, { params });
+            const response = await api.get('/oncall-assignments/capacity', { params });
             return response.data;
         } catch (error) {
-            console.error(`Failed to fetch capacity for employee ${employeeId}:`, error);
+            console.error('Failed to fetch capacity for all employees:', error);
             throw error;
         }
-    }
+    },
+
 };
 
