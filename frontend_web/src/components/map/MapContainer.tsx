@@ -105,7 +105,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         
         const appointmentPositions = new Map();
         routes.forEach(route => {
-          if (route.weekday === selectedWeekday && !route.employee_id) {
+          // Include all weekend routes (with or without employee_id from AW assignment)
+          if (route.weekday === selectedWeekday && (route.weekday === 'saturday' || route.weekday === 'sunday')) {
             const routeOrder = parseRouteOrder(route.route_order);
             routeOrder.forEach((appointmentId, idx) => {
               appointmentPositions.set(appointmentId, { position: idx + 1, routeId: route.id, area: route.area });
@@ -181,7 +182,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const routePaths = useMemo(() => {
     return dayRoutes.map(route => {
       if (isWeekend) {
-        // Weekend routes - no employee, use area-based color
+        // Weekend routes - may have employee_id from AW assignment
         const getAreaColor = (area?: string) => {
           switch (area) {
             case 'Nord': return '#1976d2';
@@ -191,15 +192,19 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           }
         };
         const color = getAreaColor(route.area as string);
+        const employee = employees.find(e => e.id === route.employee_id);
+        const employeeName = employee 
+          ? `${employee.first_name} ${employee.last_name} (AW ${route.area})`
+          : `Wochenend-Tour ${route.area}`;
         return {
-          employeeId: null,
+          employeeId: route.employee_id || null,
           routeId: route.id,
           routeOrder: parseRouteOrder(route.route_order),
           color,
           polyline: route.polyline,
           totalDistance: route.total_distance || 0,
           totalDuration: route.total_duration || 0,
-          employeeName: `Wochenend-Tour ${route.area}`
+          employeeName
         };
       } else {
         // Weekday routes - employee-based
