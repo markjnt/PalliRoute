@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Typography, CircularProgress, Chip } from '@mui/material';
-import { Employee } from '../../types/models';
-import { formatMonthYear } from '../../utils/oncall/dateUtils';
+import { Employee } from '../../../types/models';
+import { formatMonthYear } from '../../../utils/oncall/dateUtils';
 import { EmployeeCapacityCard } from './EmployeeCapacityCard';
-import { useAllEmployeesCapacity } from '../../services/queries/useOnCallAssignments';
-import { employeeTypeColors } from '../../utils/colors';
+import { useAllEmployeesCapacity } from '../../../services/queries/useOnCallAssignments';
+import { employeeTypeColors } from '../../../utils/colors';
 
 interface CapacityOverviewProps {
   employees: Employee[];
@@ -97,18 +97,19 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, c
   return (
     <Box
       sx={{
-        mt: 4,
-        pt: 4,
+        mt: 5,
+        pt: 5,
         borderTop: '1px solid',
-        borderColor: 'divider',
+        borderColor: 'rgba(0, 0, 0, 0.08)',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3.5 }}>
         <Typography
           variant="h6"
           sx={{
             fontWeight: 600,
-            fontSize: '1.125rem',
+            fontSize: '1.25rem',
+            letterSpacing: '-0.01em',
           }}
         >
           Kapazitätsübersicht
@@ -118,6 +119,7 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, c
           color="text.secondary"
           sx={{
             fontSize: '0.875rem',
+            fontWeight: 500,
           }}
         >
           {formatMonthYear(currentDate)}
@@ -125,49 +127,82 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, c
       </Box>
 
       {/* Filter Chips */}
-      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ mb: 3.5, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
         <Chip
           label="Alle"
           onClick={() => setActiveFilter('all')}
-          color={activeFilter === 'all' ? 'primary' : 'default'}
-          variant={activeFilter === 'all' ? 'filled' : 'outlined'}
           sx={{
-            fontWeight: activeFilter === 'all' ? 600 : 400,
+            fontWeight: activeFilter === 'all' ? 600 : 500,
+            fontSize: '0.875rem',
+            height: 32,
+            borderRadius: 2.5,
+            backgroundColor: activeFilter === 'all' ? 'primary.main' : 'rgba(0, 0, 0, 0.04)',
+            color: activeFilter === 'all' ? 'white' : 'text.primary',
+            border: activeFilter === 'all' ? 'none' : '1px solid',
+            borderColor: 'rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              backgroundColor: activeFilter === 'all' ? 'primary.dark' : 'rgba(0, 0, 0, 0.08)',
+              transform: 'translateY(-1px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
+            },
           }}
         />
         <Chip
           label="Pflege"
           onClick={() => setActiveFilter('pflege')}
-          color={activeFilter === 'pflege' ? 'primary' : 'default'}
-          variant={activeFilter === 'pflege' ? 'filled' : 'outlined'}
           sx={{
-            fontWeight: activeFilter === 'pflege' ? 600 : 400,
-            bgcolor: activeFilter === 'pflege' ? employeeTypeColors.default : undefined,
-            color: activeFilter === 'pflege' ? 'white' : undefined,
+            fontWeight: activeFilter === 'pflege' ? 600 : 500,
+            fontSize: '0.875rem',
+            height: 32,
+            borderRadius: 2.5,
+            backgroundColor: activeFilter === 'pflege' ? employeeTypeColors.default : 'rgba(0, 0, 0, 0.04)',
+            color: activeFilter === 'pflege' ? 'white' : 'text.primary',
+            border: activeFilter === 'pflege' ? 'none' : '1px solid',
+            borderColor: 'rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.2s ease',
             '&:hover': {
-              bgcolor: activeFilter === 'pflege' ? employeeTypeColors.default : undefined,
+              backgroundColor: activeFilter === 'pflege' ? employeeTypeColors.default : 'rgba(0, 0, 0, 0.08)',
+              transform: 'translateY(-1px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
             },
           }}
         />
         <Chip
           label="Ärzte"
           onClick={() => setActiveFilter('arzt')}
-          color={activeFilter === 'arzt' ? 'primary' : 'default'}
-          variant={activeFilter === 'arzt' ? 'filled' : 'outlined'}
           sx={{
-            fontWeight: activeFilter === 'arzt' ? 600 : 400,
-            bgcolor: activeFilter === 'arzt' ? employeeTypeColors.Arzt : undefined,
-            color: activeFilter === 'arzt' ? 'white' : undefined,
+            fontWeight: activeFilter === 'arzt' ? 600 : 500,
+            fontSize: '0.875rem',
+            height: 32,
+            borderRadius: 2.5,
+            backgroundColor: activeFilter === 'arzt' ? employeeTypeColors.Arzt : 'rgba(0, 0, 0, 0.04)',
+            color: activeFilter === 'arzt' ? 'white' : 'text.primary',
+            border: activeFilter === 'arzt' ? 'none' : '1px solid',
+            borderColor: 'rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.2s ease',
             '&:hover': {
-              bgcolor: activeFilter === 'arzt' ? employeeTypeColors.Arzt : undefined,
+              backgroundColor: activeFilter === 'arzt' ? employeeTypeColors.Arzt : 'rgba(0, 0, 0, 0.08)',
+              transform: 'translateY(-1px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
             },
           }}
         />
       </Box>
 
       {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress
+            sx={{
+              color: 'primary.main',
+            }}
+          />
         </Box>
       ) : (
         <Box
@@ -179,7 +214,7 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, c
               md: 'repeat(3, 1fr)',
               lg: 'repeat(4, 1fr)',
             },
-            gap: 2,
+            gap: 2.5,
           }}
         >
           {filteredAndSortedEmployees.map((employee) => (

@@ -11,13 +11,14 @@ import {
 import { useEmployees } from '../../services/queries/useEmployees';
 import { OnCallAssignment, DutyType, OnCallArea, Employee } from '../../types/models';
 import { OnCallAssignmentsQueryParams } from '../../services/api/oncallAssignments';
-import { CalendarHeader } from './CalendarHeader';
-import { CalendarGrid } from './CalendarGrid';
-import { AssignmentDialog } from './AssignmentDialog';
-import { CapacityOverview } from './CapacityOverview';
+import { CalendarHeader } from './calendar/CalendarHeader';
+import { CalendarGrid } from './calendar/CalendarGrid';
+import { AssignmentDialog } from './dialogs/AssignmentDialog';
+import { CapacityOverview } from './capacity/CapacityOverview';
 import { formatDate, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
 import { isWeekend } from '../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../utils/oncall/constants';
+import type { AutoPlanningSettings } from './dialogs/AutoPlanningDialog';
 
 export const OnCallPlanningView: React.FC = () => {
   const { viewMode, currentDate } = useOnCallPlanningStore();
@@ -145,6 +146,12 @@ export const OnCallPlanningView: React.FC = () => {
     setSelectedDuty(null);
   }, []);
 
+  const handleAutoPlanningStart = useCallback((settings: AutoPlanningSettings) => {
+    // TODO: Implement auto planning logic
+    console.log('Auto planning started with settings:', settings);
+    // This will be implemented when backend API is ready
+  }, []);
+
   if (assignmentsLoading || employeesLoading) {
     return (
       <Box
@@ -182,7 +189,7 @@ export const OnCallPlanningView: React.FC = () => {
           p: 4,
         }}
       >
-        <CalendarHeader actualDates={actualDates} />
+        <CalendarHeader actualDates={actualDates} onAutoPlanningStart={handleAutoPlanningStart} />
 
         <Box
           sx={{

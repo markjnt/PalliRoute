@@ -16,11 +16,10 @@ import {
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
-import { DutyType, OnCallArea, Employee, OnCallAssignment, EmployeeCapacity } from '../../types/models';
-import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../utils/oncall/constants';
-import { formatDate } from '../../utils/oncall/dateUtils';
-import { getDutyColor } from '../../utils/oncall/colorUtils';
-import { employeeTypeColors } from '../../utils/colors';
+import { DutyType, OnCallArea, Employee, OnCallAssignment, EmployeeCapacity } from '../../../types/models';
+import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../../utils/oncall/constants';
+import { getDutyColor } from '../../../utils/oncall/colorUtils';
+import { employeeTypeColors } from '../../../utils/colors';
 
 interface AssignmentDialogProps {
   open: boolean;
@@ -198,7 +197,7 @@ export const AssignmentDialog: React.FC<AssignmentDialogProps> = ({
         </Typography>
       </DialogTitle>
       <DialogContent sx={{ pt: 3 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 3 }}>
           {/* Option to remove assignment */}
           <Card
             onClick={() => handleEmployeeSelect('')}

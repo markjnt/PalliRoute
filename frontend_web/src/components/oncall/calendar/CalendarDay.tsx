@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Box, Typography, Divider } from '@mui/material';
-import { OnCallAssignment, DutyType, OnCallArea } from '../../types/models';
-import { isToday, isWeekend } from '../../utils/oncall/dateUtils';
+import { OnCallAssignment, DutyType, OnCallArea } from '../../../types/models';
+import { isToday, isWeekend } from '../../../utils/oncall/dateUtils';
 import { DutyChip } from './DutyChip';
 
 interface CalendarDayProps {

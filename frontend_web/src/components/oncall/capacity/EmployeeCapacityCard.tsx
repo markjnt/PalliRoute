@@ -7,9 +7,9 @@ import {
   WbSunny as DayIcon,
   Nightlight as NightIcon,
 } from '@mui/icons-material';
-import { Employee, EmployeeCapacity } from '../../types/models';
-import { getCapacityColor } from '../../utils/oncall/colorUtils';
-import { employeeTypeColors } from '../../utils/colors';
+import { Employee, EmployeeCapacity } from '../../../types/models';
+import { getCapacityColor } from '../../../utils/oncall/colorUtils';
+import { employeeTypeColors } from '../../../utils/colors';
 
 interface EmployeeCapacityCardProps {
   employee: Employee;
@@ -108,15 +108,16 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
   return (
     <Box
       sx={{
-        p: 2.5,
-        mb: 2,
-        borderRadius: 2,
+        p: 3,
+        borderRadius: 3,
         border: '1px solid',
-        borderColor: 'divider',
-        backgroundColor: 'background.paper',
+        borderColor: 'rgba(0, 0, 0, 0.06)',
+        backgroundColor: 'white',
         transition: 'all 0.2s ease',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
         '&:hover': {
-          boxShadow: 1,
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          transform: 'translateY(-2px)',
         },
       }}
     >
@@ -146,8 +147,10 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                 bgcolor: employee.area.includes('Nordkreis') ? 'primary.main' : 'secondary.main',
                 color: 'white',
                 fontSize: '0.7rem',
-                height: 20,
-                fontWeight: 'bold',
+                height: 22,
+                fontWeight: 600,
+                borderRadius: 2,
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
                 '& .MuiChip-label': {
                   px: 0.75,
                 },
@@ -160,13 +163,16 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
           label={functionInfo.name}
           size="small"
           sx={{
-            height: '24px',
+            height: 26,
             fontSize: '0.7rem',
             fontWeight: 500,
             backgroundColor: functionInfo.color,
             color: 'white',
+            borderRadius: 2,
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
             '& .MuiChip-icon': {
               color: 'white',
+              fontSize: '0.85rem',
             },
           }}
         />
@@ -227,9 +233,11 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                 color={color}
                 size="small"
                 sx={{
-                  height: '20px',
+                  height: 22,
                   fontSize: '0.7rem',
                   fontWeight: 600,
+                  borderRadius: 2,
+                  border: 'none',
                 }}
               />
             </Box>
@@ -238,18 +246,20 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
               value={Math.min(percentage, 100)}
               color={color === 'error' ? 'error' : color === 'warning' ? 'warning' : 'success'}
               sx={{
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: 'action.hover',
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                overflow: 'hidden',
                 '& .MuiLinearProgress-bar': {
-                  borderRadius: 3,
+                  borderRadius: 4,
+                  transition: 'transform 0.3s ease',
                 },
               }}
             />
             <Typography
               variant="caption"
               sx={{
-                mt: 0.5,
+                mt: 0.75,
                 display: 'block',
                 fontSize: '0.7rem',
                 color: isOverCapacity 
@@ -257,7 +267,7 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                   : hasNoRemaining 
                     ? 'warning.main' 
                     : 'success.main',
-                fontWeight: isOverCapacity || hasNoRemaining ? 600 : 400,
+                fontWeight: isOverCapacity || hasNoRemaining ? 600 : 500,
               }}
             >
               Verbleibend: {cap.remaining}
