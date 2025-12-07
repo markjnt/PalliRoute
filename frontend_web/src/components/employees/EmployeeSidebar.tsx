@@ -304,7 +304,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
                     variant="contained"
                     onClick={handleImport}
                     fullWidth
-                    startIcon={<RefreshIcon />}
+                    startIcon={importEmployeesMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
                     disabled={importEmployeesMutation.isPending}
                 >
                     {importEmployeesMutation.isPending ? 'Importiere...' : `Excel Import${lastEmployeeImportTime ? ` (${formatLastUpdateTime(lastEmployeeImportTime)})` : ''}`}

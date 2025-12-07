@@ -561,7 +561,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     <Button
                         variant="contained"
                         fullWidth
-                        startIcon={<RefreshIcon />}
+                        startIcon={patientImportMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
                         onClick={handleImport}
                         disabled={!employees.length || patientImportMutation.isPending}
                     >
