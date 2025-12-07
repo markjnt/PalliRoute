@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -77,9 +77,26 @@ export const RouteList: React.FC = () => {
     return weekdayMap[weekday] || weekday;
   };
 
-  // Reset completion stops when user or weekend area changes
+  // Reset completion stops when user or weekend area changes (but not on initial mount)
+  const prevUserIdRef = useRef<number | null>(null);
+  const prevWeekendAreaRef = useRef<string | null>(null);
+  const isInitialMountRef = useRef(true);
+  
   useEffect(() => {
-    clearAllCompletedStops();
+    // Skip on initial mount - only clear if values actually changed
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      prevUserIdRef.current = selectedUserId;
+      prevWeekendAreaRef.current = selectedWeekendArea;
+      return;
+    }
+    
+    // Only clear if the values actually changed
+    if (prevUserIdRef.current !== selectedUserId || prevWeekendAreaRef.current !== selectedWeekendArea) {
+      clearAllCompletedStops();
+      prevUserIdRef.current = selectedUserId;
+      prevWeekendAreaRef.current = selectedWeekendArea;
+    }
   }, [selectedUserId, selectedWeekendArea, clearAllCompletedStops]);
 
   // Update current weekday in store and auto-reset when switching days
