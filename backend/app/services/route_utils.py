@@ -61,11 +61,43 @@ def get_weekend_start_location(area: str) -> Dict[str, float]:
     """
     Get a central starting location for weekend routes based on area
     For weekend routes, we need a central point in the area as starting point
+    
+    Args:
+        area: Area name (Nord, Mitte, Süd, or variations like Nordkreis, Südkreis)
+    
+    Returns:
+        Dictionary with 'lat' and 'lng' keys containing the coordinates
     """
-    # Central starting location for all weekend routes: Auf der Brück 9, 51645 Gummersbach
-    weekend_start_location = {'lat': 50.9833022, 'lng': 7.5412243}  # Gummersbach coordinates
-
-    return weekend_start_location
+    # Define start locations for each weekend area
+    # Coordinates are geocoded from the actual addresses
+    weekend_start_locations = {
+        'Mitte': {
+            'lat': 50.9833022, 
+            'lng': 7.5412243,  # Auf der Brück 9, 51645 Gummersbach
+        },
+        'Nord': {
+            'lat': 51.11806869506836,  # Lüdenscheider Str. 5, 51688 Wipperfürth
+            'lng': 7.399380207061768,
+        },
+        'Süd': {
+            'lat': 50.8775055,  # Bahnhofstraße 1, 51545 Waldbröl
+            'lng': 7.6168993,
+        }
+    }
+    
+    # Normalize area name (handle variations like 'Nordkreis' -> 'Nord')
+    area_normalized = area
+    if 'Nord' in area or area == 'Nordkreis':
+        area_normalized = 'Nord'
+    elif 'Süd' in area or area == 'Südkreis':
+        area_normalized = 'Süd'
+    elif 'Mitte' in area:
+        area_normalized = 'Mitte'
+    
+    # Get location for the area, default to Mitte if not found
+    location = weekend_start_locations.get(area_normalized, weekend_start_locations['Mitte'])
+    
+    return {'lat': location['lat'], 'lng': location['lng']}
 
 def get_gmaps_client() -> googlemaps.Client:
     """Get Google Maps client with API key"""

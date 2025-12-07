@@ -56,7 +56,7 @@ export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ 
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {isGeneralWeekendMarker 
             ? 'Zentraler Startpunkt für alle Wochenend-Touren' 
-            : `Wochenend-Tour: ${marker.area}-Bereich`
+            : `${marker.area}-Bereich`
           }
         </Typography>
       </Box>
@@ -64,8 +64,18 @@ export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ 
       {/* Address */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
-          Auf der Brück 9<br/>
-          51645 Gummersbach
+          {(() => {
+            switch (area) {
+              case 'Nord':
+                return <>Lüdenscheider Str. 5<br/>51688 Wipperfürth</>;
+              case 'Mitte':
+                return <>Auf der Brück 9<br/>51645 Gummersbach</>;
+              case 'Süd':
+                return <>Bahnhofstraße 1<br/>51545 Waldbröl</>;
+              default:
+                return <>Auf der Brück 9<br/>51645 Gummersbach</>;
+            }
+          })()}
         </Typography>
       </Box>
       

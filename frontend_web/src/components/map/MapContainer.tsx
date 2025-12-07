@@ -89,11 +89,39 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     const newMarkers = [];
     
     if (isWeekend) {
-      // Weekend logic: Show only one central weekend start marker and weekend patient markers
+      // Weekend logic: Show start markers for each visible area and weekend patient markers
       
-      // Always create single weekend start marker (for all three areas) - similar to employee markers
-      const marker = createWeekendAreaMarkerData('Wochenend-Touren');
-      if (marker) newMarkers.push(marker);
+      // Get unique areas from visible routes
+      const visibleAreas = new Set<string>();
+      dayRoutes.forEach(route => {
+        if (route.area) {
+          visibleAreas.add(route.area as string);
+        }
+      });
+      
+      // If no routes but we're in weekend mode, show all areas or based on userArea
+      if (visibleAreas.size === 0) {
+        if (isAllAreas) {
+          visibleAreas.add('Nord');
+          visibleAreas.add('Mitte');
+          visibleAreas.add('Süd');
+        } else {
+          // Always show Mitte
+          visibleAreas.add('Mitte');
+          // Add selected area
+          if (userArea === 'Nordkreis' || userArea === 'Nord') {
+            visibleAreas.add('Nord');
+          } else if (userArea === 'Südkreis' || userArea === 'Süd') {
+            visibleAreas.add('Süd');
+          }
+        }
+      }
+      
+      // Create weekend start marker for each visible area
+      visibleAreas.forEach(area => {
+        const marker = createWeekendAreaMarkerData(area);
+        if (marker) newMarkers.push(marker);
+      });
       
       // Create weekend patient markers
       if (patients.length > 0 && appointments.length > 0) {

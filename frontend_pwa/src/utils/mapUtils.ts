@@ -135,14 +135,43 @@ export const createEmployeeMarkerData = (employee: Employee, routeId?: number): 
   }
 };
 
+// Get weekend start location coordinates based on area
+// These coordinates match the backend route_utils.py get_weekend_start_location function
+export const getWeekendStartLocation = (area: string): { lat: number; lng: number } => {
+  // Normalize area name (handle variations like 'Nordkreis' -> 'Nord')
+  let areaNormalized = area;
+  if (area.includes('Nord') || area === 'Nordkreis') {
+    areaNormalized = 'Nord';
+  } else if (area.includes('Süd') || area === 'Südkreis') {
+    areaNormalized = 'Süd';
+  } else if (area.includes('Mitte')) {
+    areaNormalized = 'Mitte';
+  }
+  
+  // Define start locations for each weekend area
+  const weekendStartLocations: Record<string, { lat: number; lng: number }> = {
+    'Mitte': {
+      lat: 50.9833022,  // Auf der Brück 9, 51645 Gummersbach
+      lng: 7.5412243
+    },
+    'Nord': {
+      lat: 51.11806869506836,  // Lüdenscheider Str. 5, 51688 Wipperfürth
+      lng: 7.399380207061768
+    },
+    'Süd': {
+      lat: 50.8775055,  // Bahnhofstraße 1, 51545 Waldbröl
+      lng: 7.6168993
+    }
+  };
+  
+  // Get location for the area, default to Mitte if not found
+  return weekendStartLocations[areaNormalized] || weekendStartLocations['Mitte'];
+};
+
 // Create weekend area marker data
 export const createWeekendAreaMarkerData = (area: string): MarkerData | null => {
-  // Weekend start location coordinates (Auf der Brück 9, 51645 Gummersbach)
-  // These coordinates match the backend route_utils.py get_weekend_start_location function
-  const weekendStartLat = 50.9833022;
-  const weekendStartLng = 7.5412243;
-  
-  const position = new google.maps.LatLng(weekendStartLat, weekendStartLng);
+  const weekendStartLocation = getWeekendStartLocation(area);
+  const position = new google.maps.LatLng(weekendStartLocation.lat, weekendStartLocation.lng);
   
   return {
     position,
@@ -196,10 +225,8 @@ export const calculateRouteBounds = (
   
   // If it's a weekend area, add the weekend start location
   if (selectedWeekendArea) {
-    // Weekend start location coordinates (matching backend route_utils.py)
-    const weekendStartLat = 50.9833022;
-    const weekendStartLng = 7.5412243;
-    bounds.extend(new google.maps.LatLng(weekendStartLat, weekendStartLng));
+    const weekendStartLocation = getWeekendStartLocation(selectedWeekendArea);
+    bounds.extend(new google.maps.LatLng(weekendStartLocation.lat, weekendStartLocation.lng));
     hasValidPoints = true;
   }
   
