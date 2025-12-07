@@ -50,7 +50,7 @@ interface PatientCardProps {
     appointmentId?: number; // Specific appointment ID to display (if multiple appointments exist for the same day)
     multipleAppointments?: Appointment[]; // Multiple appointments for the same patient (same day, different employees)
     tourEmployeeAppointmentsForPatient?: Appointment[]; // Tour employee appointments for this patient (to show "Zuständig" in normal route appointments)
-    isFirstTourEmployeeAppointment?: boolean; // Indicates if this is the first tour employee appointment for this patient (to show "Auch zuständig" for subsequent ones)
+    isFirstTourEmployeeAppointment?: boolean; // Indicates if this is the first tour employee appointment for this patient (to show "Gemeinsam mit" for subsequent ones)
 }
 
 export const PatientCard: React.FC<PatientCardProps> = ({ 
@@ -144,7 +144,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
         // 1. The current appointment
         // 2. Appointments with the same employee_id as the current appointment
         // 3. Appointments with employee_id equal to tour_employee_id (already shown as "Ursprungstour")
-        //    This ensures the Ursprungstour employee is never shown in "Auch zuständig"
+        //    This ensures the Ursprungstour employee is never shown in "Gemeinsam mit"
         return allDayAppointments
             .filter(app => 
                 app.id !== selectedDayAppointment.id && 
@@ -638,7 +638,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                         }
                                     }}
                                 >
-                                    {multipleAppointments && multipleAppointments.length > 1 ? 'Auch zuständig' : 'Zuständig'}: {responsibleEmployee.first_name} {responsibleEmployee.last_name}
+                                    {isFirstTourEmployeeAppointment ? 'Zuständig' : 'Gemeinsam mit'}: {responsibleEmployee.first_name} {responsibleEmployee.last_name}
                                 </Typography>
                             </Box>
                         )}
@@ -705,7 +705,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                                 }
                                             }}
                                         >
-                                            Auch zuständig: {item.employee.first_name} {item.employee.last_name}
+                                            Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
                                         </Typography>
                                     </Box>
                                 ))}
@@ -743,7 +743,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                                 }
                                             }}
                                         >
-                                            Auch zuständig: {item.employee.first_name} {item.employee.last_name}
+                                            Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
                                         </Typography>
                                     </Box>
                                 ))}
@@ -781,7 +781,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                                                 }
                                             }}
                                         >
-                                            Auch zuständig: {item.employee.first_name} {item.employee.last_name}
+                                            Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
                                         </Typography>
                                     </Box>
                                 ))}

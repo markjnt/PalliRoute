@@ -122,6 +122,42 @@ class ExcelImportService:
             raise Exception(f"Error deleting planning for employee {employee_id}: {str(e)}")
 
     @staticmethod
+    def cleanup_employee_references(employee_id):
+        """
+        Clean up references to an employee before deletion:
+        - Set employee_id to NULL in routes
+        - Set employee_id, origin_employee_id, and tour_employee_id to NULL in appointments
+        """
+        try:
+            # Update routes: set employee_id to NULL
+            routes_updated = Route.query.filter_by(employee_id=employee_id).update({'employee_id': None})
+            if routes_updated > 0:
+                print(f"  Set employee_id to NULL in {routes_updated} routes")
+            
+            # Update appointments: set employee_id to NULL where it matches
+            appointments_employee_updated = Appointment.query.filter_by(employee_id=employee_id).update({'employee_id': None})
+            if appointments_employee_updated > 0:
+                print(f"  Set employee_id to NULL in {appointments_employee_updated} appointments")
+            
+            # Update appointments: set origin_employee_id to NULL where it matches
+            appointments_origin_updated = Appointment.query.filter_by(origin_employee_id=employee_id).update({'origin_employee_id': None})
+            if appointments_origin_updated > 0:
+                print(f"  Set origin_employee_id to NULL in {appointments_origin_updated} appointments")
+            
+            # Update appointments: set tour_employee_id to NULL where it matches
+            appointments_tour_updated = Appointment.query.filter_by(tour_employee_id=employee_id).update({'tour_employee_id': None})
+            if appointments_tour_updated > 0:
+                print(f"  Set tour_employee_id to NULL in {appointments_tour_updated} appointments")
+            
+            # Update replacement references in employee planning
+            replacement_updated = EmployeePlanning.query.filter_by(replacement_id=employee_id).update({'replacement_id': None})
+            if replacement_updated > 0:
+                print(f"  Set replacement_id to NULL in {replacement_updated} planning entries")
+            
+        except Exception as e:
+            raise Exception(f"Error cleaning up employee references: {str(e)}")
+
+    @staticmethod
     def _create_planning_entries_for_employees(employees):
         """
         Create planning entries for all employees for all weeks and weekdays
@@ -173,13 +209,10 @@ class ExcelImportService:
                          Rufbereitschaft Pflege Wochenende Nacht, Rufbereitschaft Ärzte unter der Woche,
                          Rufbereitschaft Ärzte Wochenende, Wochenenddienste Pflege
         
-        Note: This import also deletes all patient, appointment and route data
+        Note: Existing employees are updated, new employees are added, and employees not in the Excel file are removed.
+        Patient data is NOT deleted during employee import.
         """
         try:
-            # Step 1: Delete existing patient data (patients, appointments, routes)
-            print("Step 1: Deleting existing patient data...")
-            ExcelImportService.delete_patient_data()
-            
             df = pd.read_excel(file_path)
             required_columns = ['Vorname', 'Nachname', 'Strasse', 'PLZ', 'Ort', 'Funktion', 'Stellenumfang', 'Gebiet']
             
@@ -357,6 +390,19 @@ class ExcelImportService:
             
             # Delete planning entries and employees that are not in Excel
             for emp in removed_employees:
+                # Check if employee has active references before deletion
+                has_routes = Route.query.filter_by(employee_id=emp.id).count() > 0
+                has_appointments = (
+                    Appointment.query.filter_by(employee_id=emp.id).count() > 0 or
+                    Appointment.query.filter_by(origin_employee_id=emp.id).count() > 0 or
+                    Appointment.query.filter_by(tour_employee_id=emp.id).count() > 0
+                )
+                
+                if has_routes or has_appointments:
+                    print(f"  Warning: Employee {emp.first_name} {emp.last_name} has active references in routes/appointments. References will be set to NULL.")
+                
+                # Clean up all references to this employee before deletion
+                ExcelImportService.cleanup_employee_references(emp.id)
                 ExcelImportService.delete_planning_for_employee(emp.id)
                 db.session.delete(emp)
             
@@ -640,6 +686,9 @@ class ExcelImportService:
                 replacement_key = (english_weekday, patient.calendar_week)
                 visit_type_value = visit_type if visit_type is not None else ""
                 
+                # Store the number of responsible aliases to check if multiple assignments exist
+                num_responsible_aliases = len(responsible_aliases) if responsible_aliases != [None] else 0
+                
                 # Create one appointment for each responsible alias (or default if no alias)
                 for alias in responsible_aliases:
                     assigned_employee = default_employee
@@ -668,12 +717,19 @@ class ExcelImportService:
                         else:
                             print(f"      Warning: Replacement employee with ID {replacement_id} not found, using original employee")
                     
-                    # Set tour_employee_id if there's a responsible employee different from default
+                    # Set tour_employee_id if there's an explicit responsible employee assignment
                     # Use original_employee_id (before replacement) for comparison
                     tour_employee_id_value = None
-                    if has_responsible_assignment and original_employee_id != default_employee.id:
-                        # There's a different responsible employee, so store the tour employee
-                        tour_employee_id_value = default_employee.id
+                    if has_responsible_assignment:
+                        # If the responsible employee is different from the tour employee, always set tour_employee_id
+                        if original_employee_id != default_employee.id:
+                            tour_employee_id_value = default_employee.id
+                        # If the responsible employee is the same as the tour employee, only set tour_employee_id
+                        # if there are multiple responsible aliases (multi-assignment scenario)
+                        elif num_responsible_aliases > 1:
+                            tour_employee_id_value = default_employee.id
+                        # If there's only one responsible alias and it's the same as the tour employee,
+                        # don't set tour_employee_id (redundant information)
                     
                     appointment = Appointment(
                         patient_id=patient.id,

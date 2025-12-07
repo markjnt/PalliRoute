@@ -199,6 +199,8 @@ const TourSections: React.FC<TourSectionsProps> = ({
                                     const visitType = patientAppts[0].visit_type === 'HB' ? 'HB' : 'NA';
                                     const isMultiple = patientAppts.length > 1;
                                     
+                                    // Since appointments are grouped by patient_id, each displayed appointment is the first for this patient
+                                    // So isFirstTourEmployeeAppointment should always be true
                                     return (
                                         <ListItem 
                                             key={`tour-patient-${patientId}`} 
@@ -214,6 +216,7 @@ const TourSections: React.FC<TourSectionsProps> = ({
                                                 currentEmployeeId={employeeId}
                                                 appointmentId={patientAppts[0].id}
                                                 multipleAppointments={isMultiple ? patientAppts : undefined}
+                                                isFirstTourEmployeeAppointment={true}
                                             />
                                         </ListItem>
                                     );

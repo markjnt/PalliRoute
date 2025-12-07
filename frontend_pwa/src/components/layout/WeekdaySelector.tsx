@@ -37,7 +37,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
   const availableCalendarWeeks = useCalendarWeekStore(state => state.availableCalendarWeeks);
   const setAvailableCalendarWeeks = useCalendarWeekStore(state => state.setAvailableCalendarWeeks);
   const { selectedUserId, selectedWeekendArea } = useUserStore();
-  const { clearCompletedStops } = useRouteCompletionStore();
+  const { clearAllCompletedStops } = useRouteCompletionStore();
   const queryClient = useQueryClient();
   const [calendarWeekMenuAnchorEl, setCalendarWeekMenuAnchorEl] = useState<null | HTMLElement>(null);
   
@@ -60,6 +60,13 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
     }
   }, [bestCalendarWeek, selectedCalendarWeek, setSelectedCalendarWeek]);
 
+  // Clear completion stops when calendar week changes
+  useEffect(() => {
+    if (selectedCalendarWeek !== null) {
+      clearAllCompletedStops();
+    }
+  }, [selectedCalendarWeek, clearAllCompletedStops]);
+
   useEffect(() => {
     if (fetchedCalendarWeeks.length > 0) {
       setAvailableCalendarWeeks(fetchedCalendarWeeks);
@@ -79,7 +86,8 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
     queryClient.invalidateQueries({ queryKey: patientKeys.all, exact: false });
     queryClient.invalidateQueries({ queryKey: appointmentKeys.all, exact: false });
     queryClient.invalidateQueries({ queryKey: routeKeys.all, exact: false });
-    clearCompletedStops();
+    // Clear all completed stops when calendar week changes
+    clearAllCompletedStops();
   };
 
   const handleCalendarWeekMenuOpen = (event: MouseEvent<HTMLElement>) => {
@@ -206,7 +214,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
       );
       
       // Reset route completion status after optimization
-      clearCompletedStops();
+      clearAllCompletedStops();
     } catch (error) {
       console.error('Failed to optimize all routes:', error);
     }

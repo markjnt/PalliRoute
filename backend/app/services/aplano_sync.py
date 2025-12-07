@@ -168,7 +168,7 @@ def sync_employee_planning(calendar_week: int) -> bool:
         
         employees = Employee.query.all()
         
-        # Group shifts by employee and date
+        # Group shifts by employee and date (multiple shifts per day possible)
         employee_shifts = {}
         for shift in shifts:
             user_name = shift.get('user', '')
@@ -184,10 +184,13 @@ def sync_employee_planning(calendar_week: int) -> bool:
             if user_name not in employee_shifts:
                 employee_shifts[user_name] = {}
             
-            employee_shifts[user_name][shift_date] = {
+            if shift_date not in employee_shifts[user_name]:
+                employee_shifts[user_name][shift_date] = []
+            
+            employee_shifts[user_name][shift_date].append({
                 'is_absent': is_absent,
                 'work_space': work_space
-            }
+            })
         
         # Group absences by employee and date range
         employee_absences = {}
@@ -258,23 +261,50 @@ def sync_employee_planning(calendar_week: int) -> bool:
                     available = False
                     custom_text = absence_type
                 else:
-                    # Check if employee has shift on this date
-                    shift_info = shifts_for_employee.get(date_str)
+                    # Check if employee has shifts on this date
+                    shifts_for_date = shifts_for_employee.get(date_str, [])
                     
-                    if shift_info:
-                        # Employee has shift - available if not absent (no RB in workSpace)
-                        available = not shift_info['is_absent']
-                        # If available and workSpace contains a tour name, set it as custom text
-                        if available:
+                    if shifts_for_date:
+                        # Check if at least one shift has a valid tour/AW and is not absent (no RB)
+                        available_shift = None
+                        custom_text = None
+                        is_weekend = weekday in ['saturday', 'sunday']
+                        
+                        for shift_info in shifts_for_date:
+                            # Skip if shift has RB (absent)
+                            if shift_info['is_absent']:
+                                continue
+                            
                             work_space_value = shift_info.get('work_space', '')
-                            if 'Tour Nord' in work_space_value:
-                                custom_text = 'Tour Nord'
-                            elif 'Tour Süd' in work_space_value:
-                                custom_text = 'Tour Süd'
+                            
+                            # Check for valid tour/AW based on weekday
+                            if is_weekend:
+                                # Weekend: check if AW is present, then check for Nord, Süd, or Mitte
+                                if 'AW' in work_space_value:
+                                    if 'Nord' in work_space_value:
+                                        available_shift = shift_info
+                                        custom_text = 'AW Nord'
+                                        break
+                                    elif 'Süd' in work_space_value:
+                                        available_shift = shift_info
+                                        custom_text = 'AW Süd'
+                                        break
+                                    elif 'Mitte' in work_space_value:
+                                        available_shift = shift_info
+                                        custom_text = 'AW Mitte'
+                                        break
                             else:
-                                custom_text = None
-                        else:
-                            custom_text = None
+                                # Weekday: check for Tour Nord or Tour Süd
+                                if 'Tour Nord' in work_space_value:
+                                    available_shift = shift_info
+                                    custom_text = 'Tour Nord'
+                                    break
+                                elif 'Tour Süd' in work_space_value:
+                                    available_shift = shift_info
+                                    custom_text = 'Tour Süd'
+                                    break
+                        
+                        available = available_shift is not None
                     else:
                         # No shift - employee is absent
                         available = False

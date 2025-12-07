@@ -193,6 +193,15 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
         } else if (customText === 'Tour Süd') {
             // Tour Süd: Grün
             return '#65B761';
+        } else if (customText === 'AW Nord') {
+            // AW Nord: Light blue (from colorUtils.ts)
+            return '#59cdf0';
+        } else if (customText === 'AW Mitte') {
+            // AW Mitte: Yellow (from colorUtils.ts)
+            return '#ffe600';
+        } else if (customText === 'AW Süd') {
+            // AW Süd: Green (from colorUtils.ts)
+            return '#41b955';
         } else {
             // Default: Blue to distinguish from tour colors
             return '#2196F3';

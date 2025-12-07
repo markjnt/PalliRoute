@@ -5,7 +5,7 @@ import { MarkerData } from '../../types/mapTypes';
 import { Appointment, Employee, Patient } from '../../types/models';
 import { createMarkerIcon, createMarkerLabel } from '../../utils/markerConfig';
 import { StopPopup } from './StopPopup';
-import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
+import { useRouteCompletionStore, useCompletedStops } from '../../stores/useRouteCompletionStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
 import { getColorForTour } from '../../utils/colors';
@@ -54,6 +54,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
 }) => {
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const { setCurrentWeekday } = useRouteCompletionStore();
+  const completedStops = useCompletedStops();
   const { selectedWeekday } = useWeekdayStore();
   const { selectedEmployeeIds } = useAdditionalRoutesStore();
   const { selectedUserId, selectedWeekendArea } = useUserStore();
@@ -168,6 +169,9 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
           // Get route color for this marker
           const routeColor = getMarkerRouteColor(marker);
           
+          // Check if this marker's appointment is completed
+          const isCompleted = marker.appointmentId ? completedStops.has(marker.appointmentId) : false;
+          
           // Area-based styling
           let opacity = 1;
           
@@ -193,15 +197,23 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
             );
           }
           
+          // If completed, reduce opacity only (keep original color)
+          if (isCompleted) {
+            opacity = 0.4; // Reduced opacity for completed markers
+          }
+          
           let label = marker.isInactive ? undefined : createMarkerLabel(marker.routePosition, marker.visitType, marker.label);
           
           if (marker.isInactive) {
             opacity = 0.6;
           }
           
+          // Include completion status in key to force re-render when status changes
+          const markerKey = `marker-${groupIdx}-${idx}-${marker.appointmentId || 'none'}-${isCompleted ? 'completed' : 'active'}`;
+          
           return (
             <Marker
-              key={`marker-${groupIdx}-${idx}`}
+              key={markerKey}
               position={displayPosition}
               icon={icon}
               label={label}
