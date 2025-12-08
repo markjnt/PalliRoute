@@ -43,9 +43,7 @@ interface RouteStop {
   tourEmployeeName?: string;  // For responsible employee: shows "Ursprungstour: [Name]"
   isTourEmployeeAppointment?: boolean;  // Mark tour_employee appointments for styling
   originEmployeeName?: string;  // For replacement appointments: shows "Ursprünglich (Vertretung): [Name]"
-  otherResponsibleEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // Other responsible employees when tourEmployee is shown
-  tourEmployeeEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // Tour employee employees for this patient
-  additionalEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // Multiple responsible employees for the same patient
+  otherResponsibleEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // All other appointments for the same patient on the same day
 }
 
 
@@ -164,8 +162,22 @@ export const RouteList: React.FC = () => {
               ? employees.find(e => e.id === appointment.employee_id)
               : null;
             
+            // Get all appointments for this patient on the selected day
+            const allDayAppointments = appointments.filter(app => 
+              app.patient_id === patient.id && 
+              app.weekday === selectedWeekday
+            );
+            
+            // Check if there are multiple appointments for this patient on the same day (Multi-Assignment)
+            const hasMultipleAppointments = allDayAppointments.length > 1;
+            
             // Get tour employee name (for responsible employee appointments)
-            const tourEmployee = !isTourEmployeeAppointment && appointment.tour_employee_id
+            // Show tour employee if:
+            // 1. tour_employee_id is set
+            // 2. Not a tour employee appointment itself
+            // 3. Either tour_employee_id is different from employee_id OR there are multiple appointments (Multi-Assignment)
+            const tourEmployee = !isTourEmployeeAppointment && appointment.tour_employee_id &&
+              (appointment.tour_employee_id !== appointment.employee_id || hasMultipleAppointments)
               ? employees.find(e => e.id === appointment.tour_employee_id)
               : null;
             
@@ -176,63 +188,14 @@ export const RouteList: React.FC = () => {
               ? employees.find(e => e.id === appointment.origin_employee_id)
               : null;
             
-            // Get all appointments for this patient on the selected day
-            const allDayAppointments = appointments.filter(app => 
-              app.patient_id === patient.id && 
-              app.weekday === selectedWeekday
-            );
-            
-            // Get other responsible employees when tourEmployee is shown (Ursprungstour)
-            // These are all appointments for the same patient on the same day, excluding:
-            // 1. The current appointment
-            // 2. Appointments with the same employee_id as the current appointment
-            // 3. Appointments with employee_id equal to tour_employee_id (already shown as "Ursprungstour")
-            const otherResponsibleEmployees = tourEmployee && appointment.tour_employee_id
+            // Get other responsible employees (alle weiteren Termine für denselben Patienten am selben Tag)
+            // These are all appointments for the same patient on the same day, excluding the current appointment
+            // In Multi-Assignment scenarios, the tour_employee_id may also appear in "Gemeinsam mit"
+            const otherResponsibleEmployees = allDayAppointments.length > 1
               ? allDayAppointments
                   .filter(app => 
                     app.id !== appointment.id && 
                     app.employee_id !== appointment.employee_id &&
-                    app.employee_id !== appointment.tour_employee_id &&
-                    app.employee_id !== null &&
-                    app.employee_id !== undefined
-                  )
-                  .map(app => {
-                    const emp = employees.find(e => e.id === app.employee_id);
-                    return emp ? { employee: emp, appointmentId: app.id || 0 } : null;
-                  })
-                  .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null)
-                  .filter((item, index, self) => 
-                    index === self.findIndex(t => t.employee.id === item.employee.id)
-                  )
-                  .filter(item => item.employee.id !== appointment.tour_employee_id)
-              : [];
-            
-            // Get tour employee employees for this patient (to show "Zuständig" in normal route appointments)
-            // These are appointments where tour_employee_id matches but employee_id is different
-            const tourEmployeeAppointments = !isTourEmployeeAppointment && appointment.tour_employee_id
-              ? allDayAppointments.filter(app =>
-                  app.tour_employee_id === appointment.tour_employee_id &&
-                  app.employee_id !== appointment.employee_id &&
-                  app.employee_id !== null &&
-                  app.employee_id !== undefined
-                )
-              : [];
-            
-            const tourEmployeeEmployees = tourEmployeeAppointments
-              .map(app => {
-                const emp = employees.find(e => e.id === app.employee_id);
-                return emp ? { employee: emp, appointmentId: app.id || 0 } : null;
-              })
-              .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null);
-            
-            // Get additional employees if multiple appointments exist for the same patient
-            // (excluding the current appointment and tour_employee_id)
-            const additionalEmployees = allDayAppointments.length > 1
-              ? allDayAppointments
-                  .filter(app => 
-                    app.id !== appointment.id &&
-                    app.employee_id !== appointment.employee_id &&
-                    app.employee_id !== appointment.tour_employee_id &&
                     app.employee_id !== null &&
                     app.employee_id !== undefined
                   )
@@ -267,8 +230,6 @@ export const RouteList: React.FC = () => {
                 ? `${originEmployee.first_name} ${originEmployee.last_name}`
                 : undefined,
               otherResponsibleEmployees: otherResponsibleEmployees.length > 0 ? otherResponsibleEmployees : undefined,
-              tourEmployeeEmployees: tourEmployeeEmployees.length > 0 ? tourEmployeeEmployees : undefined,
-              additionalEmployees: additionalEmployees.length > 0 ? additionalEmployees : undefined,
             });
           }
         }
@@ -351,14 +312,12 @@ export const RouteList: React.FC = () => {
         app.weekday === selectedWeekday
       );
       
-      // Get additional employees if multiple appointments exist for the same patient
-      // (excluding the current appointment and tour_employee_id)
-      const additionalEmployees = allDayAppointments.length > 1
+      // Get other responsible employees (alle weiteren Termine für denselben Patienten am selben Tag)
+      const otherResponsibleEmployees = allDayAppointments.length > 1
         ? allDayAppointments
             .filter(app => 
               app.id !== appointment.id &&
               app.employee_id !== appointment.employee_id &&
-              app.employee_id !== appointment.tour_employee_id &&
               app.employee_id !== null &&
               app.employee_id !== undefined
             )
@@ -390,7 +349,7 @@ export const RouteList: React.FC = () => {
         originEmployeeName: originEmployee
           ? `${originEmployee.first_name} ${originEmployee.last_name}`
           : undefined,
-        additionalEmployees: additionalEmployees.length > 0 ? additionalEmployees : undefined,
+        otherResponsibleEmployees: otherResponsibleEmployees.length > 0 ? otherResponsibleEmployees : undefined,
       });
     });
     
@@ -471,8 +430,6 @@ export const RouteList: React.FC = () => {
       isTourEmployeeAppointment: boolean;
       originEmployeeName?: string;
       otherResponsibleEmployees?: Array<{ employee: typeof employees[0], appointmentId: number }>;
-      tourEmployeeEmployees?: Array<{ employee: typeof employees[0], appointmentId: number }>;
-      additionalEmployees?: Array<{ employee: typeof employees[0], appointmentId: number }>;
     }> = [];
     
     allTkPatientIds.forEach(patientId => {
@@ -503,43 +460,12 @@ export const RouteList: React.FC = () => {
           app.weekday === selectedWeekday
         );
         
-        // Get tour employee employees for this patient (from tour employee TK appointments)
-        const tourEmployeeTkApptsForPatient = tourEmployeeTkAppts;
-        const tourEmployeeEmployees = tourEmployeeTkApptsForPatient
-          .map(app => {
-            const emp = employees.find(e => e.id === app.employee_id);
-            return emp ? { employee: emp, appointmentId: app.id || 0 } : null;
-          })
-          .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null);
-        
-        // Get other responsible employees when tourEmployee is shown (Ursprungstour)
-        const otherResponsibleEmployees = tourEmployee && appointment.tour_employee_id
-          ? allDayAppointments
-              .filter(app => 
-                app.id !== appointment.id && 
-                app.employee_id !== appointment.employee_id &&
-                app.employee_id !== appointment.tour_employee_id &&
-                app.employee_id !== null &&
-                app.employee_id !== undefined
-              )
-              .map(app => {
-                const emp = employees.find(e => e.id === app.employee_id);
-                return emp ? { employee: emp, appointmentId: app.id || 0 } : null;
-              })
-              .filter((item): item is { employee: typeof employees[0], appointmentId: number } => item !== null)
-              .filter((item, index, self) => 
-                index === self.findIndex(t => t.employee.id === item.employee.id)
-              )
-              .filter(item => item.employee.id !== appointment.tour_employee_id)
-          : [];
-        
-        // Get additional employees if multiple appointments exist for the same patient
-        const additionalEmployees = allDayAppointments.length > 1
+        // Get other responsible employees (alle weiteren Termine für denselben Patienten am selben Tag)
+        const otherResponsibleEmployees = allDayAppointments.length > 1
           ? allDayAppointments
               .filter(app => 
                 app.id !== appointment.id &&
                 app.employee_id !== appointment.employee_id &&
-                app.employee_id !== appointment.tour_employee_id &&
                 app.employee_id !== null &&
                 app.employee_id !== undefined
               )
@@ -570,8 +496,6 @@ export const RouteList: React.FC = () => {
             ? `${originEmployee.first_name} ${originEmployee.last_name}`
             : undefined,
           otherResponsibleEmployees: otherResponsibleEmployees.length > 0 ? otherResponsibleEmployees : undefined,
-          tourEmployeeEmployees: tourEmployeeEmployees.length > 0 ? tourEmployeeEmployees : undefined,
-          additionalEmployees: additionalEmployees.length > 0 ? additionalEmployees : undefined,
         });
       } else if (tourEmployeeTkAppts.length > 0) {
         // Only tour employee TK appointments (no normal ones)
@@ -597,13 +521,12 @@ export const RouteList: React.FC = () => {
           app.weekday === selectedWeekday
         );
         
-        // Get additional employees if multiple appointments exist for the same patient
-        const additionalEmployees = allDayAppointments.length > 1
+        // Get other responsible employees (alle weiteren Termine für denselben Patienten am selben Tag)
+        const otherResponsibleEmployees = allDayAppointments.length > 1
           ? allDayAppointments
               .filter(app => 
                 app.id !== appointment.id &&
                 app.employee_id !== appointment.employee_id &&
-                app.employee_id !== appointment.tour_employee_id &&
                 app.employee_id !== null &&
                 app.employee_id !== undefined
               )
@@ -633,7 +556,7 @@ export const RouteList: React.FC = () => {
           originEmployeeName: originEmployee
             ? `${originEmployee.first_name} ${originEmployee.last_name}`
             : undefined,
-          additionalEmployees: additionalEmployees.length > 0 ? additionalEmployees : undefined,
+          otherResponsibleEmployees: otherResponsibleEmployees.length > 0 ? otherResponsibleEmployees : undefined,
         });
       }
     });

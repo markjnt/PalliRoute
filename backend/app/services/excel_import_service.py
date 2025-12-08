@@ -722,14 +722,11 @@ class ExcelImportService:
                     tour_employee_id_value = None
                     if has_responsible_assignment:
                         # If the responsible employee is different from the tour employee, always set tour_employee_id
+                        # This includes cases where multiple employees are assigned and the current one is not the tour employee
                         if original_employee_id != default_employee.id:
                             tour_employee_id_value = default_employee.id
-                        # If the responsible employee is the same as the tour employee, only set tour_employee_id
-                        # if there are multiple responsible aliases (multi-assignment scenario)
-                        elif num_responsible_aliases > 1:
-                            tour_employee_id_value = default_employee.id
-                        # If there's only one responsible alias and it's the same as the tour employee,
-                        # don't set tour_employee_id (redundant information)
+                        # If the responsible employee is the same as the tour employee, don't set tour_employee_id
+                        # (redundant information, even if there are multiple assignments)
                     
                     appointment = Appointment(
                         patient_id=patient.id,

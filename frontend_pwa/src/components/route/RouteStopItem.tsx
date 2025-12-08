@@ -46,9 +46,7 @@ interface RouteStop {
   tourEmployeeName?: string;  // For responsible employee: shows "Ursprungstour: [Name]"
   isTourEmployeeAppointment?: boolean;  // Mark tour_employee appointments for styling
   originEmployeeName?: string;  // For replacement appointments: shows "Ursprünglich (Vertretung): [Name]"
-  otherResponsibleEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // Other responsible employees when tourEmployee is shown
-  tourEmployeeEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // Tour employee employees for this patient
-  additionalEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // Multiple responsible employees for the same patient
+  otherResponsibleEmployees?: Array<{ employee: { id?: number; first_name: string; last_name: string }; appointmentId: number }>;  // All other appointments for the same patient on the same day
 }
 
 interface RouteStopItemProps {
@@ -274,7 +272,7 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
               </Box>
             )}
             
-            {/* Andere zuständige Mitarbeiter anzeigen (wenn Ursprungstour angezeigt wird) */}
+            {/* Andere zuständige Mitarbeiter anzeigen (alle weiteren Termine für denselben Patienten am selben Tag) */}
             {stop.otherResponsibleEmployees && stop.otherResponsibleEmployees.length > 0 && (
               <>
                 {stop.otherResponsibleEmployees.map((item, idx) => (
@@ -294,45 +292,6 @@ export const RouteStopItem: React.FC<RouteStopItemProps> = ({
               </>
             )}
             
-            {/* Tour employee Mitarbeiter anzeigen (wenn normaler Route-Termin und Tour-Employee-Termin existiert) */}
-            {stop.tourEmployeeEmployees && stop.tourEmployeeEmployees.length > 0 && (
-              <>
-                {stop.tourEmployeeEmployees.map((item, idx) => (
-                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: '#007AFF',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
-                    </Typography>
-                  </Box>
-                ))}
-              </>
-            )}
-            
-            {/* Mehrere zuständige Mitarbeiter anzeigen */}
-            {stop.additionalEmployees && stop.additionalEmployees.length > 0 && (
-              <>
-                {stop.additionalEmployees.map((item, idx) => (
-                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: '#007AFF',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
-                    </Typography>
-                  </Box>
-                ))}
-              </>
-            )}
           
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <LocationIcon sx={{ 

@@ -97,7 +97,20 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     
     // Get tour employee info if this appointment has a tour_employee_id (for responsible employee view)
     const tourEmployeeId = selectedDayAppointment?.tour_employee_id;
-    const tourEmployee = tourEmployeeId && !isTourEmployeeAppointment 
+    
+    // Check if there are multiple appointments for this patient on the same day (Multi-Assignment)
+    const hasMultipleAppointments = React.useMemo(() => {
+        if (!selectedDayAppointment) return false;
+        const allDayAppointments = patientAppointments.filter(app => app.weekday === selectedDay);
+        return allDayAppointments.length > 1;
+    }, [patientAppointments, selectedDay, selectedDayAppointment]);
+    
+    // Show tour employee if:
+    // 1. tour_employee_id is set
+    // 2. Not a tour employee appointment itself
+    // 3. Either tour_employee_id is different from employee_id OR there are multiple appointments (Multi-Assignment)
+    const tourEmployee = tourEmployeeId && !isTourEmployeeAppointment && 
+        (tourEmployeeId !== selectedDayEmployeeId || hasMultipleAppointments)
         ? employees.find(e => e.id === tourEmployeeId) 
         : null;
     
@@ -133,23 +146,26 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     }, [tourEmployeeAppointmentsForPatient, employees, isTourEmployeeAppointment]);
 
     // Get other responsible employees when tourEmployee is shown (Ursprungstour)
-    // These are all appointments for the same patient on the same day, excluding the current appointment and tour_employee_id
+    // These are all appointments for the same patient on the same day, excluding the current appointment
+    // In Multi-Assignment scenarios, the tour_employee_id may also appear in "Gemeinsam mit"
     const otherResponsibleEmployees = React.useMemo(() => {
-        if (!tourEmployee || !selectedDayAppointment || !tourEmployeeId) return [];
+        if (!selectedDayAppointment) return [];
         
         // Get all appointments for this patient on the selected day
         const allDayAppointments = patientAppointments.filter(app => app.weekday === selectedDay);
         
+        // Only show if there are multiple appointments (Multi-Assignment scenario)
+        if (allDayAppointments.length <= 1) return [];
+        
         // Filter out:
         // 1. The current appointment
         // 2. Appointments with the same employee_id as the current appointment
-        // 3. Appointments with employee_id equal to tour_employee_id (already shown as "Ursprungstour")
-        //    This ensures the Ursprungstour employee is never shown in "Gemeinsam mit"
+        // Note: In Multi-Assignment scenarios, we DO include tour_employee_id in "Gemeinsam mit"
+        // even though it's also shown as "Ursprungstour" (user requested this behavior)
         return allDayAppointments
             .filter(app => 
                 app.id !== selectedDayAppointment.id && 
                 app.employee_id !== selectedDayAppointment.employee_id &&
-                app.employee_id !== tourEmployeeId && // Explicitly exclude tour_employee_id to avoid duplicates
                 app.employee_id !== null &&
                 app.employee_id !== undefined
             )
@@ -161,10 +177,8 @@ export const PatientCard: React.FC<PatientCardProps> = ({
             // Remove duplicates (same employee_id) - additional safety check
             .filter((item, index, self) => 
                 index === self.findIndex(t => t.employee.id === item.employee.id)
-            )
-            // Final safety check: explicitly exclude tourEmployee if it somehow got through
-            .filter(item => item.employee.id !== tourEmployeeId);
-    }, [tourEmployee, selectedDayAppointment, patientAppointments, selectedDay, employees, tourEmployeeId]);
+            );
+    }, [selectedDayAppointment, patientAppointments, selectedDay, employees]);
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -674,7 +688,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             </Box>
                         )}
                         
-                        {/* Andere zuständige Mitarbeiter anzeigen (wenn Ursprungstour angezeigt wird) */}
+                        {/* Andere zuständige Mitarbeiter anzeigen (alle weiteren Termine für denselben Patienten am selben Tag) */}
                         {otherResponsibleEmployees.length > 0 && (
                             <>
                                 {otherResponsibleEmployees.map((item, idx) => (
@@ -712,81 +726,6 @@ export const PatientCard: React.FC<PatientCardProps> = ({
                             </>
                         )}
                         
-                        {/* Tour employee Mitarbeiter anzeigen (wenn normaler Route-Termin und Tour-Employee-Termin existiert) */}
-                        {tourEmployeeEmployees.length > 0 && (
-                            <>
-                                {tourEmployeeEmployees.map((item, idx) => (
-                                    <Box 
-                                        key={idx}
-                                        sx={{ 
-                                            mt: 1,
-                                            display: 'flex',
-                                            justifyContent: 'flex-end',
-                                            alignItems: 'center'
-                                        }}
-                                    >
-                                        <Typography 
-                                            variant="body1" 
-                                            color="primary.main"
-                                            onClick={() => scrollToEmployee(item.employee.id)}
-                                            sx={{ 
-                                                fontSize: '0.875rem',
-                                                fontWeight: 600,
-                                                cursor: 'pointer',
-                                                px: 1.5,
-                                                py: 0.5,
-                                                borderRadius: 1,
-                                                transition: 'background-color 0.2s ease',
-                                                '&:hover': {
-                                                    backgroundColor: 'primary.light',
-                                                    color: 'primary.contrastText'
-                                                }
-                                            }}
-                                        >
-                                            Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
-                                        </Typography>
-                                    </Box>
-                                ))}
-                            </>
-                        )}
-                        
-                        {/* Mehrere zuständige Mitarbeiter anzeigen */}
-                        {additionalEmployees.length > 0 && (
-                            <>
-                                {additionalEmployees.map((item, idx) => (
-                                    <Box 
-                                        key={idx}
-                                        sx={{ 
-                                            mt: 1,
-                                            display: 'flex',
-                                            justifyContent: 'flex-end',
-                                            alignItems: 'center'
-                                        }}
-                                    >
-                                        <Typography 
-                                            variant="body1" 
-                                            color="primary.main"
-                                            onClick={() => scrollToEmployee(item.employee.id)}
-                                            sx={{ 
-                                                fontSize: '0.875rem',
-                                                fontWeight: 600,
-                                                cursor: 'pointer',
-                                                px: 1.5,
-                                                py: 0.5,
-                                                borderRadius: 1,
-                                                transition: 'background-color 0.2s ease',
-                                                '&:hover': {
-                                                    backgroundColor: 'primary.light',
-                                                    color: 'primary.contrastText'
-                                                }
-                                            }}
-                                        >
-                                            Gemeinsam mit: {item.employee.first_name} {item.employee.last_name}
-                                        </Typography>
-                                    </Box>
-                                ))}
-                            </>
-                        )}
                     </Box>
                 </Box>
             </CardContent>
