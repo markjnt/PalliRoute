@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Box, Typography, Chip } from '@mui/material';
-import { Employee, OnCallAssignment, DutyType, OnCallArea } from '../../../types/models';
+import { Employee, OnCallAssignment, DutyType, OnCallArea, EmployeeCapacity } from '../../../types/models';
 import { EmployeeTableRow } from './EmployeeTableRow';
 import { EmployeeDutyDialog } from './EmployeeDutyDialog';
 import { DemandRow } from './DemandRow';
@@ -12,6 +12,7 @@ interface EmployeeTableProps {
   dates: Date[];
   assignments: OnCallAssignment[];
   viewMode: 'month' | 'week';
+  allEmployeesCapacity?: { month: number; year: number; capacities: Record<number, EmployeeCapacity> };
   onCreateAssignment: (data: {
     employee_id: number;
     date: string;
@@ -30,6 +31,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   dates,
   assignments,
   viewMode,
+  allEmployeesCapacity,
   onCreateAssignment,
   onUpdateAssignment,
   onDeleteAssignment,
@@ -350,6 +352,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
         employee={selectedEmployee}
         date={selectedDate}
         assignments={selectedAssignments}
+        allEmployeesCapacity={allEmployeesCapacity}
         onClose={handleDialogClose}
         onDutyToggle={handleDutyToggle}
       />

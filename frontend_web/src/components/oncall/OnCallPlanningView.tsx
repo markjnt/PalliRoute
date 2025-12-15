@@ -273,6 +273,7 @@ export const OnCallPlanningView: React.FC = () => {
               dates={actualDates}
               assignments={assignments}
               viewMode={viewMode}
+              allEmployeesCapacity={allEmployeesCapacity}
               onCreateAssignment={handleCreateAssignment}
               onUpdateAssignment={handleUpdateAssignment}
               onDeleteAssignment={handleDeleteAssignment}

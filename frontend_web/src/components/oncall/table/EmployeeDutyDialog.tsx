@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -8,13 +8,11 @@ import {
   Typography,
   Box,
   Chip,
-  ToggleButton,
-  ToggleButtonGroup,
 } from '@mui/material';
 import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { DutyType, OnCallArea, Employee, OnCallAssignment } from '../../../types/models';
+import { DutyType, OnCallArea, Employee, OnCallAssignment, EmployeeCapacity } from '../../../types/models';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../../utils/oncall/constants';
 import { getDutyColor } from '../../../utils/oncall/colorUtils';
 import { isWeekend } from '../../../utils/oncall/dateUtils';
@@ -24,6 +22,7 @@ interface EmployeeDutyDialogProps {
   employee: Employee | null;
   date: Date | null;
   assignments: OnCallAssignment[];
+  allEmployeesCapacity?: { month: number; year: number; capacities: Record<number, EmployeeCapacity> };
   onClose: () => void;
   onDutyToggle: (dutyType: DutyType, area?: OnCallArea) => void;
 }
@@ -33,6 +32,7 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
   employee,
   date,
   assignments,
+  allEmployeesCapacity,
   onClose,
   onDutyToggle,
 }) => {
@@ -50,6 +50,22 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
     });
     return map;
   }, [assignments]);
+
+  // Get remaining capacity for an employee for this duty type
+  const getRemainingCapacity = (dutyType: DutyType): number => {
+    if (!allEmployeesCapacity || !allEmployeesCapacity.capacities || !employee?.id) return -1;
+    const capacity = allEmployeesCapacity.capacities[employee.id];
+    if (!capacity?.capacities) return -1;
+    
+    // Für RB Pflege Wochenende Tag/Nacht wird eine gemeinsame Kapazität verwendet.
+    let capacityKey: DutyType | 'rb_nursing_weekend' = dutyType;
+    if (dutyType === 'rb_nursing_weekend_day' || dutyType === 'rb_nursing_weekend_night') {
+      capacityKey = 'rb_nursing_weekend';
+    }
+
+    const dutyCapacity = capacity.capacities[capacityKey];
+    return dutyCapacity?.remaining ?? -1;
+  };
 
   const handleDutyToggle = (dutyType: DutyType, area?: OnCallArea) => {
     onDutyToggle(dutyType, area);
@@ -89,6 +105,9 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
             // Use getDutyColor with isSelected to get lighter colors when not selected
             const dutyColor = getDutyColor(duty.type, duty.area, isSelected);
             const fullColor = getDutyColor(duty.type, duty.area, true);
+            const remaining = getRemainingCapacity(duty.type);
+            // Show red if remaining is 0 or if no data available (remaining === -1)
+            const hasNoCapacity = remaining === 0 || remaining === -1;
 
             // Filter based on employee function
             const shouldShow =
@@ -136,15 +155,26 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
                     }}
                   />
                 </Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: isSelected ? 'text.primary' : 'text.secondary',
-                    fontWeight: isSelected ? 600 : 400,
-                  }}
-                >
-                  {isSelected ? 'Aktiv' : 'Nicht zugewiesen'}
-                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: isSelected ? 'text.primary' : 'text.secondary',
+                      fontWeight: isSelected ? 600 : 400,
+                    }}
+                  >
+                    {isSelected ? 'Aktiv' : 'Nicht zugewiesen'}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: hasNoCapacity ? 'error.main' : 'text.secondary',
+                      fontWeight: hasNoCapacity ? 600 : 400,
+                    }}
+                  >
+                    Verbleibend: {remaining >= 0 ? remaining : 0}
+                  </Typography>
+                </Box>
               </Box>
             );
           })}
