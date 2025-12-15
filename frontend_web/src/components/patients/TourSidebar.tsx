@@ -29,7 +29,8 @@ import {
     Schedule as ScheduleIcon,
     ExpandMore as ExpandMoreIcon,
     RadioButtonChecked as RadioButtonCheckedIcon,
-    PictureAsPdf as PictureAsPdfIcon
+    PictureAsPdf as PictureAsPdfIcon,
+    WarningAmber as WarningIcon
 } from '@mui/icons-material';
 import { Employee } from '../../types/models';
 import { Weekday } from '../../stores/useWeekdayStore';
@@ -76,6 +77,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const { notification, setNotification, closeNotification } = useNotificationStore();
     const { lastPatientImportTime, setLastPatientImportTime } = useLastUpdateStore();
+    const [showStaleImportDialog, setShowStaleImportDialog] = useState(false);
+    const [staleWarningShown, setStaleWarningShown] = useState(false);
 
     // Format last update time for display
     const formatLastUpdateTime = (time: Date | null): string => {
@@ -128,6 +131,28 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
             setLastPatientImportTime(new Date(lastImportTimeData.last_import_time));
         }
     }, [lastImportTimeData, setLastPatientImportTime]);
+
+    // Show warning dialog if last import is older than 2 hours
+    useEffect(() => {
+        const effectiveTime =
+            lastImportTimeData?.last_import_time
+                ? new Date(lastImportTimeData.last_import_time)
+                : lastPatientImportTime || null;
+
+        if (!effectiveTime || staleWarningShown) {
+            return;
+        }
+
+        const now = new Date();
+        const diffMs = now.getTime() - effectiveTime.getTime();
+        // Schwelle: 2 Stunden
+        const twoHoursMs = 2 * 60 * 60 * 1000;
+
+        if (diffMs > twoHoursMs) {
+            setShowStaleImportDialog(true);
+            setStaleWarningShown(true);
+        }
+    }, [lastImportTimeData, lastPatientImportTime, staleWarningShown]);
 
     // Update available calendar weeks when API data changes
     useEffect(() => {
@@ -565,7 +590,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         onClick={handleImport}
                         disabled={!employees.length || patientImportMutation.isPending}
                     >
-                        {patientImportMutation.isPending ? 'Importiere...' : `Excel Import${(lastImportTimeData?.last_import_time || lastPatientImportTime) ? ` (${formatLastUpdateTime(lastImportTimeData?.last_import_time ? new Date(lastImportTimeData.last_import_time) : lastPatientImportTime)})` : ''}`}
+                        {patientImportMutation.isPending ? 'Importiere...' : `PalliDOC Import${(lastImportTimeData?.last_import_time || lastPatientImportTime) ? ` (${formatLastUpdateTime(lastImportTimeData?.last_import_time ? new Date(lastImportTimeData.last_import_time) : lastPatientImportTime)})` : ''}`}
                     </Button>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -610,7 +635,40 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                     filteredResults={filteredResults}
                 />
             </Box>
-
+            
+            {/* Dialog: Warnung bei altem Import mit Möglichkeit zum direkten PalliDOC Import */}
+            <Dialog
+                open={showStaleImportDialog}
+                onClose={() => setShowStaleImportDialog(false)}
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WarningIcon color="warning" />
+                    PalliDOC-Import ist veraltet
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Der letzte PalliDOC-Import liegt mehr als zwei Stunden zurück.
+                        Möchten Sie jetzt einen PalliDOC-Import starten, um mit aktuellen Daten zu arbeiten?
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowStaleImportDialog(false)}>
+                        Später
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={async () => {
+                            setShowStaleImportDialog(false);
+                            await handleImport();
+                        }}
+                        autoFocus
+                        disabled={patientImportMutation.isPending || !employees.length}
+                    >
+                        PalliDOC-Import jetzt starten
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
         </Box>
     );

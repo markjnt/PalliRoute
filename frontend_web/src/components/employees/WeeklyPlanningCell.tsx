@@ -6,7 +6,6 @@ import {
     Chip,
     Tooltip,
     Alert,
-    Avatar,
 } from '@mui/material';
 import { Warning, PersonAdd } from '@mui/icons-material';
 import { ReplacementMenu } from './ReplacementMenu';
@@ -306,16 +305,6 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                 {/* Replacement Display - Only for weekdays */}
                 {!isWeekend && (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: 0.5 }}>
-                        <Typography 
-                            variant="caption" 
-                            sx={{ 
-                                fontSize: '0.65rem', 
-                                color: 'text.secondary',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            Vertretung:
-                        </Typography>
                         {replacementEmployee ? (
                             <Tooltip 
                                 title="Vertretung ändern"
@@ -323,7 +312,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                                 placement="top"
                             >
                                 <Chip
-                                    label={`${replacementEmployee.first_name} ${replacementEmployee.last_name}`}
+                                    label={`V. ${replacementEmployee.last_name}`}
                                     size="small"
                                     onClick={handleReplacementMenuOpen}
                                     sx={{
