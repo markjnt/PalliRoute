@@ -84,7 +84,12 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           }}
         >
           {/* Empty cell for KW column */}
-          <Box />
+          <Box
+            sx={{
+              minWidth: '40px',
+              px: 1,
+            }}
+          />
           {WEEK_DAYS.map((day) => (
             <Box
               key={day}

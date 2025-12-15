@@ -205,8 +205,8 @@ class ExcelImportService:
         """
         Import employees from Excel file with dynamic planning management
         Expected columns: Vorname, Nachname, Strasse, PLZ, Ort, Funktion, Stellenumfang, Gebiet, Alias
-        Optional columns: Rufbereitschaft Pflege unter der Woche, Rufbereitschaft Pflege Wochenende Tag,
-                         Rufbereitschaft Pflege Wochenende Nacht, Rufbereitschaft Ärzte unter der Woche,
+        Optional columns: Rufbereitschaft Pflege unter der Woche, Rufbereitschaft Pflege Wochenende,
+                         Rufbereitschaft Ärzte unter der Woche,
                          Rufbereitschaft Ärzte Wochenende, Wochenenddienste Pflege
         
         Note: Existing employees are updated, new employees are added, and employees not in the Excel file are removed.
@@ -284,20 +284,14 @@ class ExcelImportService:
                             oncall_nursing_weekday = int(float(row['Rufbereitschaft Pflege unter der Woche']))
                         except (ValueError, TypeError):
                             raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege unter der Woche' in Zeile {idx + 2}. Erwartet: Zahl")
-                    
-                    oncall_nursing_weekend_day = None
-                    if 'Rufbereitschaft Pflege Wochenende Tag' in df.columns and pd.notna(row['Rufbereitschaft Pflege Wochenende Tag']):
+
+                    # Neue gemeinsame Spalte für Wochenende (Tag + Nacht zusammen)
+                    oncall_nursing_weekend = None
+                    if 'Rufbereitschaft Pflege Wochenende' in df.columns and pd.notna(row['Rufbereitschaft Pflege Wochenende']):
                         try:
-                            oncall_nursing_weekend_day = int(float(row['Rufbereitschaft Pflege Wochenende Tag']))
+                            oncall_nursing_weekend = int(float(row['Rufbereitschaft Pflege Wochenende']))
                         except (ValueError, TypeError):
-                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege Wochenende Tag' in Zeile {idx + 2}. Erwartet: Zahl")
-                    
-                    oncall_nursing_weekend_night = None
-                    if 'Rufbereitschaft Pflege Wochenende Nacht' in df.columns and pd.notna(row['Rufbereitschaft Pflege Wochenende Nacht']):
-                        try:
-                            oncall_nursing_weekend_night = int(float(row['Rufbereitschaft Pflege Wochenende Nacht']))
-                        except (ValueError, TypeError):
-                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege Wochenende Nacht' in Zeile {idx + 2}. Erwartet: Zahl")
+                            raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege Wochenende' in Zeile {idx + 2}. Erwartet: Zahl")
                     
                     oncall_doctors_weekday = None
                     if 'Rufbereitschaft Ärzte unter der Woche' in df.columns and pd.notna(row['Rufbereitschaft Ärzte unter der Woche']):
@@ -345,8 +339,7 @@ class ExcelImportService:
                         existing_employee.area = area
                         existing_employee.alias = alias
                         existing_employee.oncall_nursing_weekday = oncall_nursing_weekday
-                        existing_employee.oncall_nursing_weekend_day = oncall_nursing_weekend_day
-                        existing_employee.oncall_nursing_weekend_night = oncall_nursing_weekend_night
+                        existing_employee.oncall_nursing_weekend = oncall_nursing_weekend
                         existing_employee.oncall_doctors_weekday = oncall_doctors_weekday
                         existing_employee.oncall_doctors_weekend = oncall_doctors_weekend
                         existing_employee.weekend_services_nursing = weekend_services_nursing
@@ -367,12 +360,12 @@ class ExcelImportService:
                             area=area,
                             alias=alias,
                             oncall_nursing_weekday=oncall_nursing_weekday,
-                            oncall_nursing_weekend_day=oncall_nursing_weekend_day,
-                            oncall_nursing_weekend_night=oncall_nursing_weekend_night,
                             oncall_doctors_weekday=oncall_doctors_weekday,
                             oncall_doctors_weekend=oncall_doctors_weekend,
                             weekend_services_nursing=weekend_services_nursing
                         )
+                        # Gemeinsame Weekend-Kapazität setzen (Property kümmert sich um interne Felder)
+                        employee.oncall_nursing_weekend = oncall_nursing_weekend
                         added_employees.append(employee)
                         db.session.add(employee)
                         print(f"Added new employee: {first_name} {last_name}")

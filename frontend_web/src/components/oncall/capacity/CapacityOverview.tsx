@@ -1,20 +1,18 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Typography, CircularProgress, Chip } from '@mui/material';
+import React, { useMemo } from 'react';
+import { Box, CircularProgress } from '@mui/material';
 import { Employee } from '../../../types/models';
-import { formatMonthYear } from '../../../utils/oncall/dateUtils';
 import { EmployeeCapacityCard } from './EmployeeCapacityCard';
 import { useAllEmployeesCapacity } from '../../../services/queries/useOnCallAssignments';
-import { employeeTypeColors } from '../../../utils/colors';
+
+type FilterType = 'all' | 'pflege' | 'arzt';
 
 interface CapacityOverviewProps {
   employees: Employee[];
   currentDate: Date;
+  activeFilter?: FilterType;
 }
 
-type FilterType = 'all' | 'pflege' | 'arzt';
-
-export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, currentDate }) => {
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, currentDate, activeFilter = 'all' }) => {
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
   
@@ -95,107 +93,7 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, c
   }, [employees, activeFilter, capacitiesMap]);
 
   return (
-    <Box
-      sx={{
-        mt: 5,
-        pt: 5,
-        borderTop: '1px solid',
-        borderColor: 'rgba(0, 0, 0, 0.08)',
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3.5 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 600,
-            fontSize: '1.25rem',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Kapazitätsübersicht
-        </Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            fontSize: '0.875rem',
-            fontWeight: 500,
-          }}
-        >
-          {formatMonthYear(currentDate)}
-        </Typography>
-      </Box>
-
-      {/* Filter Chips */}
-      <Box sx={{ mb: 3.5, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-        <Chip
-          label="Alle"
-          onClick={() => setActiveFilter('all')}
-          sx={{
-            fontWeight: activeFilter === 'all' ? 600 : 500,
-            fontSize: '0.875rem',
-            height: 32,
-            borderRadius: 2.5,
-            backgroundColor: activeFilter === 'all' ? 'primary.main' : 'rgba(0, 0, 0, 0.04)',
-            color: activeFilter === 'all' ? 'white' : 'text.primary',
-            border: activeFilter === 'all' ? 'none' : '1px solid',
-            borderColor: 'rgba(0, 0, 0, 0.1)',
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              backgroundColor: activeFilter === 'all' ? 'primary.dark' : 'rgba(0, 0, 0, 0.08)',
-              transform: 'translateY(-1px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-            },
-          }}
-        />
-        <Chip
-          label="Pflege"
-          onClick={() => setActiveFilter('pflege')}
-          sx={{
-            fontWeight: activeFilter === 'pflege' ? 600 : 500,
-            fontSize: '0.875rem',
-            height: 32,
-            borderRadius: 2.5,
-            backgroundColor: activeFilter === 'pflege' ? employeeTypeColors.default : 'rgba(0, 0, 0, 0.04)',
-            color: activeFilter === 'pflege' ? 'white' : 'text.primary',
-            border: activeFilter === 'pflege' ? 'none' : '1px solid',
-            borderColor: 'rgba(0, 0, 0, 0.1)',
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              backgroundColor: activeFilter === 'pflege' ? employeeTypeColors.default : 'rgba(0, 0, 0, 0.08)',
-              transform: 'translateY(-1px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-            },
-          }}
-        />
-        <Chip
-          label="Ärzte"
-          onClick={() => setActiveFilter('arzt')}
-          sx={{
-            fontWeight: activeFilter === 'arzt' ? 600 : 500,
-            fontSize: '0.875rem',
-            height: 32,
-            borderRadius: 2.5,
-            backgroundColor: activeFilter === 'arzt' ? employeeTypeColors.Arzt : 'rgba(0, 0, 0, 0.04)',
-            color: activeFilter === 'arzt' ? 'white' : 'text.primary',
-            border: activeFilter === 'arzt' ? 'none' : '1px solid',
-            borderColor: 'rgba(0, 0, 0, 0.1)',
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              backgroundColor: activeFilter === 'arzt' ? employeeTypeColors.Arzt : 'rgba(0, 0, 0, 0.08)',
-              transform: 'translateY(-1px)',
-            },
-            '&:active': {
-              transform: 'translateY(0)',
-            },
-          }}
-        />
-      </Box>
-
+    <Box sx={{ pt: 2 }}>
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
           <CircularProgress

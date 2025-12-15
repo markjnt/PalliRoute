@@ -27,8 +27,8 @@ export interface Employee {
     area: Area;
     alias?: string;
     oncall_nursing_weekday?: number;
-    oncall_nursing_weekend_day?: number;
-    oncall_nursing_weekend_night?: number;
+    // Neue gemeinsame Kapazität für Wochenende (Tag + Nacht zusammen)
+    oncall_nursing_weekend?: number;
     oncall_doctors_weekday?: number;
     oncall_doctors_weekend?: number;
     weekend_services_nursing?: number;
@@ -151,12 +151,8 @@ export interface EmployeeCapacity {
             assigned: number;
             remaining: number;
         };
-        rb_nursing_weekend_day: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-        rb_nursing_weekend_night: {
+        // Gemeinsame Kapazität für RB Pflege Wochenende (Tag + Nacht zusammen)
+        rb_nursing_weekend: {
             limit: number;
             assigned: number;
             remaining: number;
@@ -172,6 +168,14 @@ export interface EmployeeCapacity {
             remaining: number;
         };
         aw_nursing: {
+            limit: number;
+            assigned: number;
+            remaining: number;
+        };
+        // Optional für zukünftige Erweiterungen / Backwards-Kompatibilität:
+        // Falls das Backend zusätzliche Kapazitäts-Typen liefert, sollen diese
+        // hier nicht zu Typfehlern führen.
+        [key: string]: {
             limit: number;
             assigned: number;
             remaining: number;

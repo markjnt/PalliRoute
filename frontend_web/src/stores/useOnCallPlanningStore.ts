@@ -1,11 +1,14 @@
 import { create } from 'zustand';
 
 export type ViewMode = 'month' | 'week';
+export type DisplayType = 'calendar' | 'table';
 
 interface OnCallPlanningStore {
     viewMode: ViewMode;
+    displayType: DisplayType;  // 'calendar' or 'table'
     currentDate: Date;  // Current month/week being viewed
     setViewMode: (mode: ViewMode) => void;
+    setDisplayType: (type: DisplayType) => void;
     setCurrentDate: (date: Date) => void;
     goToPrevious: () => void;
     goToNext: () => void;
@@ -14,10 +17,15 @@ interface OnCallPlanningStore {
 
 export const useOnCallPlanningStore = create<OnCallPlanningStore>()((set, get) => ({
     viewMode: 'month',
+    displayType: 'calendar',
     currentDate: new Date(),
     
     setViewMode: (mode: ViewMode) => {
         set({ viewMode: mode });
+    },
+    
+    setDisplayType: (type: DisplayType) => {
+        set({ displayType: type });
     },
     
     setCurrentDate: (date: Date) => {

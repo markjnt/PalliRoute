@@ -72,6 +72,7 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
     if (key.includes('doctors')) return <DoctorIcon sx={{ fontSize: '0.85rem' }} />;
     if (key.includes('weekend_day')) return <DayIcon sx={{ fontSize: '0.85rem' }} />;
     if (key.includes('weekend_night')) return <NightIcon sx={{ fontSize: '0.85rem' }} />;
+    if (key.includes('rb_nursing_weekend')) return <NursingIcon sx={{ fontSize: '0.85rem' }} />;
     return <NursingIcon sx={{ fontSize: '0.85rem' }} />;
   };
 
@@ -83,8 +84,8 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
       'rb_nursing_weekday': 'RB Wochentag',
       'rb_doctors_weekday': 'RB Wochentag',
       'aw_nursing': 'AW',
-      'rb_nursing_weekend_day': 'RB Wochenende Tag',
-      'rb_nursing_weekend_night': 'RB Wochenende Nacht',
+      // Gemeinsame Kapazität für Wochenende (Tag + Nacht)
+      'rb_nursing_weekend': 'RB Wochenende (Tag & Nacht)',
       'rb_doctors_weekend': 'RB Wochenende',
     };
 

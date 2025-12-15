@@ -8,6 +8,9 @@ import {
   DateRange as DateRangeIcon,
   ArrowBack as ArrowBackIcon,
   AutoAwesome as AutoAwesomeIcon,
+  TableChart as TableChartIcon,
+  CalendarToday as CalendarTodayIcon,
+  BarChart as BarChartIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useOnCallPlanningStore } from '../../../stores/useOnCallPlanningStore';
@@ -19,10 +22,11 @@ import type { AutoPlanningSettings } from '../dialogs/AutoPlanningDialog';
 interface CalendarHeaderProps {
   actualDates: Date[];
   onAutoPlanningStart?: (settings: AutoPlanningSettings) => void;
+  onCapacityOverviewOpen?: () => void;
 }
 
-export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onAutoPlanningStart }) => {
-  const { viewMode, currentDate, setViewMode, setCurrentDate, goToPrevious, goToNext, goToToday } = useOnCallPlanningStore();
+export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onAutoPlanningStart, onCapacityOverviewOpen }) => {
+  const { viewMode, displayType, currentDate, setViewMode, setDisplayType, setCurrentDate, goToPrevious, goToNext, goToToday } = useOnCallPlanningStore();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [autoPlanningOpen, setAutoPlanningOpen] = useState(false);
   const navigate = useNavigate();
@@ -108,6 +112,73 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onA
         >
           Automatische Planung
         </Button>
+
+        <Button
+          variant="outlined"
+          startIcon={<BarChartIcon sx={{ fontSize: 18 }} />}
+          onClick={() => onCapacityOverviewOpen?.()}
+          size="small"
+          sx={{
+            textTransform: 'none',
+            fontWeight: 600,
+            px: 2.5,
+            py: 1,
+            borderRadius: 2.5,
+            borderColor: 'divider',
+            color: 'text.primary',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+              borderColor: 'primary.main',
+              transform: 'translateY(-1px)',
+            },
+            '&:active': {
+              transform: 'translateY(0)',
+            },
+          }}
+        >
+          Kapazitäten
+        </Button>
+
+        <ToggleButtonGroup
+          value={displayType}
+          exclusive
+          onChange={(_, newType) => newType && setDisplayType(newType)}
+          size="small"
+          sx={{
+            ml: 0.5,
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+            borderRadius: 2.5,
+            padding: 0.5,
+            '& .MuiToggleButton-root': {
+              border: 'none',
+              borderRadius: 2,
+              px: 1.5,
+              py: 0.75,
+              minWidth: 40,
+              color: 'text.secondary',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+              },
+              '&.Mui-selected': {
+                backgroundColor: 'white',
+                color: 'primary.main',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                '&:hover': {
+                  backgroundColor: 'white',
+                },
+              },
+            },
+          }}
+        >
+          <ToggleButton value="calendar">
+            <CalendarTodayIcon sx={{ fontSize: 18 }} />
+          </ToggleButton>
+          <ToggleButton value="table">
+            <TableChartIcon sx={{ fontSize: 18 }} />
+          </ToggleButton>
+        </ToggleButtonGroup>
 
         <ToggleButtonGroup
           value={viewMode}

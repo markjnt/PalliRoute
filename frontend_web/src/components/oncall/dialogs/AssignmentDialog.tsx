@@ -125,7 +125,13 @@ export const AssignmentDialog: React.FC<AssignmentDialogProps> = ({
     const capacity = allEmployeesCapacity.capacities[employeeId];
     if (!capacity?.capacities) return -1;
     
-    const dutyCapacity = capacity.capacities[selectedDuty.type];
+    // Für RB Pflege Wochenende Tag/Nacht wird eine gemeinsame Kapazität verwendet.
+    let capacityKey: DutyType | 'rb_nursing_weekend' = selectedDuty.type;
+    if (selectedDuty.type === 'rb_nursing_weekend_day' || selectedDuty.type === 'rb_nursing_weekend_night') {
+      capacityKey = 'rb_nursing_weekend';
+    }
+
+    const dutyCapacity = capacity.capacities[capacityKey];
     return dutyCapacity?.remaining ?? -1;
   };
 

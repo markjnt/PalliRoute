@@ -14,17 +14,19 @@ import { OnCallAssignmentsQueryParams } from '../../services/api/oncallAssignmen
 import { CalendarHeader } from './calendar/CalendarHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
 import { AssignmentDialog } from './dialogs/AssignmentDialog';
-import { CapacityOverview } from './capacity/CapacityOverview';
+import { CapacityOverviewDialog } from './dialogs/CapacityOverviewDialog';
+import { EmployeeTable } from './table/EmployeeTable';
 import { formatDate, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
 import { isWeekend } from '../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../utils/oncall/constants';
 import type { AutoPlanningSettings } from './dialogs/AutoPlanningDialog';
 
 export const OnCallPlanningView: React.FC = () => {
-  const { viewMode, currentDate } = useOnCallPlanningStore();
+  const { viewMode, displayType, currentDate } = useOnCallPlanningStore();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDuty, setSelectedDuty] = useState<{ type: DutyType; area?: OnCallArea } | null>(null);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [capacityDialogOpen, setCapacityDialogOpen] = useState(false);
 
   // Get dates to display
   const displayDates = useMemo(() => {
@@ -175,6 +177,36 @@ export const OnCallPlanningView: React.FC = () => {
     ? getAvailableEmployees(selectedDuty.type, selectedDuty.area)
     : [];
 
+  // Wrapper functions for table view
+  const handleCreateAssignment = useCallback(
+    async (data: {
+      employee_id: number;
+      date: string;
+      duty_type: DutyType;
+      area?: OnCallArea;
+    }) => {
+      await createAssignment.mutateAsync(data);
+    },
+    [createAssignment]
+  );
+
+  const handleUpdateAssignment = useCallback(
+    async (data: {
+      id: number;
+      assignmentData: { employee_id: number };
+    }) => {
+      await updateAssignment.mutateAsync(data);
+    },
+    [updateAssignment]
+  );
+
+  const handleDeleteAssignment = useCallback(
+    async (id: number) => {
+      await deleteAssignment.mutateAsync(id);
+    },
+    [deleteAssignment]
+  );
+
   return (
     <Box
       sx={{
@@ -189,29 +221,31 @@ export const OnCallPlanningView: React.FC = () => {
           p: 4,
         }}
       >
-        <CalendarHeader actualDates={actualDates} onAutoPlanningStart={handleAutoPlanningStart} />
+        <CalendarHeader 
+          actualDates={actualDates} 
+          onAutoPlanningStart={handleAutoPlanningStart}
+          onCapacityOverviewOpen={() => setCapacityDialogOpen(true)}
+        />
 
-        <Box
-          sx={{
-            backgroundColor: 'background.paper',
-            borderRadius: 3,
-            p: 3,
-            boxShadow: 'none',
-            border: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <CalendarGrid
-            viewMode={viewMode}
-            currentDate={currentDate}
-            assignmentsMap={assignmentsMap}
-            onDutyClick={handleDutyClick}
-          />
-        </Box>
-
-        <CapacityOverview employees={employees} currentDate={currentDate} />
-      </Box>
-
+        {displayType === 'calendar' ? (
+          <>
+            <Box
+              sx={{
+                backgroundColor: 'background.paper',
+                borderRadius: 3,
+                p: 3,
+                boxShadow: 'none',
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <CalendarGrid
+                viewMode={viewMode}
+                currentDate={currentDate}
+                assignmentsMap={assignmentsMap}
+                onDutyClick={handleDutyClick}
+              />
+            </Box>
             <AssignmentDialog
               open={assignmentDialogOpen}
               selectedDate={selectedDate}
@@ -222,6 +256,37 @@ export const OnCallPlanningView: React.FC = () => {
               onClose={handleDialogClose}
               onEmployeeChange={handleEmployeeChange}
             />
+          </>
+        ) : (
+          <Box
+            sx={{
+              backgroundColor: 'background.paper',
+              borderRadius: 3,
+              p: 3,
+              boxShadow: 'none',
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <EmployeeTable
+              employees={employees}
+              dates={actualDates}
+              assignments={assignments}
+              viewMode={viewMode}
+              onCreateAssignment={handleCreateAssignment}
+              onUpdateAssignment={handleUpdateAssignment}
+              onDeleteAssignment={handleDeleteAssignment}
+            />
+          </Box>
+        )}
+
+        <CapacityOverviewDialog
+          open={capacityDialogOpen}
+          employees={employees}
+          currentDate={currentDate}
+          onClose={() => setCapacityDialogOpen(false)}
+        />
+      </Box>
     </Box>
   );
 };

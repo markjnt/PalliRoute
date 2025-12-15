@@ -238,7 +238,9 @@ def _get_employee_capacity_data(employee, month, year):
 
     
     # Create capacities using only the values from employee model
-    # Map duty types to employee model fields
+    # Important: For RB Pflege Wochenende werden Tag- und Nachtdienste
+    # gemeinsam in einer Kapazität gezählt (insgesamt), auch wenn es
+    # zwei unterschiedliche Schichten gibt.
     capacities = {}
     
     # RB Pflege Wochentag (Nord + Süd zusammen)
@@ -251,24 +253,18 @@ def _get_employee_capacity_data(employee, month, year):
             'remaining': max(0, limit - assigned)
         }
     
-    # RB Pflege Wochenende Tag (Nord + Süd zusammen)
-    if employee.oncall_nursing_weekend_day or assignment_counts.get('rb_nursing_weekend_day', 0) > 0:
-        limit = employee.oncall_nursing_weekend_day or 0
-        assigned = assignment_counts.get('rb_nursing_weekend_day', 0)
-        capacities['rb_nursing_weekend_day'] = {
-            'limit': limit,
-            'assigned': assigned,
-            'remaining': max(0, limit - assigned)
-        }
-    
-    # RB Pflege Wochenende Nacht (Nord + Süd zusammen)
-    if employee.oncall_nursing_weekend_night or assignment_counts.get('rb_nursing_weekend_night', 0) > 0:
-        limit = employee.oncall_nursing_weekend_night or 0
-        assigned = assignment_counts.get('rb_nursing_weekend_night', 0)
-        capacities['rb_nursing_weekend_night'] = {
-            'limit': limit,
-            'assigned': assigned,
-            'remaining': max(0, limit - assigned)
+    # RB Pflege Wochenende (Tag + Nacht gemeinsam, Nord + Süd zusammen)
+    # Limit kommt aus der neuen gemeinsamen Feldlogik des Employee-Modells
+    weekend_limit = employee.oncall_nursing_weekend or 0
+    weekend_assigned = (
+        assignment_counts.get('rb_nursing_weekend_day', 0)
+        + assignment_counts.get('rb_nursing_weekend_night', 0)
+    )
+    if weekend_limit or weekend_assigned > 0:
+        capacities['rb_nursing_weekend'] = {
+            'limit': weekend_limit,
+            'assigned': weekend_assigned,
+            'remaining': max(0, weekend_limit - weekend_assigned)
         }
     
     # RB Ärzte Wochentag (Nord + Süd zusammen)

@@ -34,7 +34,7 @@ export const CalendarDay: React.FC<CalendarDayProps> = ({ date, assignments, onD
         border: isTodayDate ? '2px solid' : '1px solid',
         borderColor: isTodayDate ? 'primary.main' : 'divider',
         borderRadius: 2,
-        backgroundColor: isWeekendDay ? 'action.hover' : 'background.paper',
+        backgroundColor: isWeekendDay ? 'rgba(255, 152, 0, 0.08)' : 'background.paper',
         p: 1.5,
         cursor: 'pointer',
         transition: 'all 0.2s ease',
