@@ -43,7 +43,8 @@ class Config:
     
     # Scheduler configuration
     AUTO_IMPORT_ENABLED = os.environ.get('AUTO_IMPORT_ENABLED', 'true').lower() == 'true'
-    AUTO_IMPORT_INTERVAL_MINUTES = int(os.environ.get('AUTO_IMPORT_INTERVAL_MINUTES', '30'))
+    # Feste Importzeiten, kommasepariert im Format HH:MM, z.B. "08:00,12:30,16:00"
+    AUTO_IMPORT_TIMES = os.environ.get('AUTO_IMPORT_TIMES', '')
     BACKEND_API_URL = os.environ.get('BACKEND_API_URL', 'http://backend-api:9000')
 
     # Aplano API configuration

@@ -26,7 +26,7 @@ services:
       - /path/to/xlsx/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
     environment:
       - AUTO_IMPORT_ENABLED=true
-      - AUTO_IMPORT_INTERVAL_MINUTES=30
+      - AUTO_IMPORT_TIMES=08:00,12:30,16:00
       - BACKEND_API_URL=http://backend-api:9000
     restart: unless-stopped
     networks:

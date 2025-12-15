@@ -28,7 +28,7 @@ cp docker-compose.example.yml docker-compose.yml
 
 **Backend Scheduler (automatisch konfiguriert):**
 - `AUTO_IMPORT_ENABLED`: Automatischer Import aktiviert (Standard: true)
-- `AUTO_IMPORT_INTERVAL_MINUTES`: Import-Intervall in Minuten (Standard: 30)
+- `AUTO_IMPORT_TIMES`: Feste Importzeiten im Format HH:MM, kommasepariert (z.B. `08:00,12:30,16:00`)
 - `BACKEND_API_URL`: URL zum Backend API (Standard: http://backend-api:9000)
 
 ```yaml
@@ -42,7 +42,7 @@ environment:
 # Backend Scheduler (automatisch konfiguriert)
 environment:
   - AUTO_IMPORT_ENABLED=true
-  - AUTO_IMPORT_INTERVAL_MINUTES=30
+  - AUTO_IMPORT_TIMES=08:00,12:30,16:00
   - BACKEND_API_URL=http://backend-api:9000
 ```
 

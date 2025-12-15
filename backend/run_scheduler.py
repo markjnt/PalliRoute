@@ -37,27 +37,49 @@ class SimpleScheduler:
         if not config.AUTO_IMPORT_ENABLED:
             print("INFO: Auto import is disabled in configuration")
             return
-            
-        # Get interval from config
-        interval_minutes = config.AUTO_IMPORT_INTERVAL_MINUTES
-        
-        # Add the import job
-        if interval_minutes == 1:
-            minute_pattern = '*'
-        else:
-            minute_pattern = f'*/{interval_minutes}'
-            
-        self.scheduler.add_job(
-            func=self._scheduled_import,
-            trigger=CronTrigger(minute=minute_pattern, hour='8-16'),
-            id='auto_import_job',
-            name='Automatic Patient Import',
-            replace_existing=True
-        )
+
+        # Get fixed times from environment / config (comma separated HH:MM, e.g. "08:00,12:30,16:00")
+        times_str = os.environ.get('AUTO_IMPORT_TIMES', getattr(config, 'AUTO_IMPORT_TIMES', '') or '')
+        times_str = times_str.strip()
+
+        if not times_str:
+            print("ERROR: No fixed import times configured. Set AUTO_IMPORT_TIMES in .env, e.g. '08:00,12:30,16:00'")
+            return
+
+        times = []
+        for part in times_str.split(','):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                hour_str, minute_str = part.split(':')
+                hour = int(hour_str)
+                minute = int(minute_str)
+                if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                    raise ValueError
+                times.append((hour, minute))
+            except ValueError:
+                print(f"WARNING: Invalid time format in AUTO_IMPORT_TIMES entry '{part}', expected HH:MM")
+
+        if not times:
+            print("ERROR: No valid fixed import times found in AUTO_IMPORT_TIMES. No jobs scheduled.")
+            return
+
+        # Add one job per configured time
+        for hour, minute in times:
+            job_id = f"auto_import_{hour:02d}{minute:02d}"
+            self.scheduler.add_job(
+                func=self._scheduled_import,
+                trigger=CronTrigger(hour=hour, minute=minute),
+                id=job_id,
+                name=f"Automatic Patient Import at {hour:02d}:{minute:02d}",
+                replace_existing=True
+            )
         
         self.scheduler.start()
         self.is_running = True
-        print(f"INFO: Scheduler started - automatic import will run every {interval_minutes} minute(s) between 8 AM and 4:30 PM")
+        times_readable = ', '.join(f"{h:02d}:{m:02d}" for h, m in times)
+        print(f"INFO: Scheduler started - automatic import will run at fixed times: {times_readable}")
         
     def stop(self):
         if self.scheduler and self.is_running:
@@ -68,12 +90,6 @@ class SimpleScheduler:
     def _scheduled_import(self):
         """Execute the automatic import job"""
         try:
-            # Check if current time is after 16:30 (4:30 PM)
-            current_time = datetime.now()
-            if current_time.hour > 16 or (current_time.hour == 16 and current_time.minute > 30):
-                print(f"INFO: Current time {current_time.strftime('%H:%M')} is after 16:30, skipping import")
-                return
-            
             # Get directory path from config
             config = Config()
             directory_path = config.PATIENTS_IMPORT_PATH or '/scheduler/data/excel_import/Export_PalliDoc'
