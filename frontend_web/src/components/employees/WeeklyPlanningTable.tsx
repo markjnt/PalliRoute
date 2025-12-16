@@ -67,6 +67,18 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
     // Check if planning week is selected
     const isPlanningWeekSelected = selectedPlanningWeek !== null;
 
+    // Get all planning entries as memoized array (to avoid recalculation in every cell)
+    const allPlanningData = React.useMemo((): any[] => {
+        if (Array.isArray(planningEntries)) {
+            return planningEntries;
+        } else if (planningEntries && Array.isArray((planningEntries as any).data)) {
+            return (planningEntries as any).data;
+        } else if (planningEntries && (planningEntries as any).data) {
+            return [(planningEntries as any).data];
+        }
+        return [];
+    }, [planningEntries]);
+
     const filteredEmployees = React.useMemo(() => {
         let base = employees;
 
@@ -114,8 +126,40 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
         return base;
     }, [employees, currentArea, employeeFilter]);
 
-    // Sort employees: first by function, then by area (Nord/Süd), then alphabetically
-    const sortedEmployees = React.useMemo(() => {
+    // Helper function to count occurrences for an employee across the week
+    const getEmployeeWeekStats = (employeeId: number) => {
+        const employeePlanning = allPlanningData.filter(
+            (entry: any) => entry.employee_id === employeeId
+        );
+        
+        let conflictCount = 0;
+        let tourCount = 0;
+        let absenceCount = 0;
+        
+        employeePlanning.forEach((entry: any) => {
+            // Count conflicts (has_conflicts === true)
+            if (entry.has_conflicts) {
+                conflictCount++;
+            }
+            
+            // Count tours (custom_text contains "Tour" or "AW")
+            const customText = entry.custom_text || '';
+            if (customText.includes('Tour') || customText.includes('AW')) {
+                tourCount++;
+            }
+            
+            // Count absences (available === false)
+            if (entry.available === false) {
+                absenceCount++;
+            }
+        });
+        
+        return { conflictCount, tourCount, absenceCount };
+    };
+
+    // Helper function for original sorting (function, area, alphabetical)
+    // Returns a comparison value: negative if a < b, positive if a > b, 0 if equal
+    const compareOriginalSort = (a: Employee, b: Employee): number => {
         const functionPriority: Record<string, number> = {
             'Pflegekraft': 1,
             'PDL': 2,
@@ -123,51 +167,68 @@ export const WeeklyPlanningTable: React.FC<WeeklyPlanningTableProps> = ({
             'Arzt': 4,
             'Honorararzt': 5,
         };
-
-        return [...filteredEmployees].sort((a, b) => {
-            // First sort by function priority
-            const aPriority = functionPriority[a.function] || 999;
-            const bPriority = functionPriority[b.function] || 999;
-            
-            if (aPriority !== bPriority) {
-                return aPriority - bPriority;
-            }
-            
-            // Then sort by area (Nordkreis first, then Südkreis)
-            const getAreaOrder = (area?: string) => {
-                if (!area) return 2;
-                if (area.includes('Nordkreis')) return 0;
-                if (area.includes('Südkreis')) return 1;
-                return 2;
-            };
-            
-            const areaOrderA = getAreaOrder(a.area);
-            const areaOrderB = getAreaOrder(b.area);
-            
-            if (areaOrderA !== areaOrderB) {
-                return areaOrderA - areaOrderB;
-            }
-            
-            // Finally sort alphabetically by last name, then first name
-            const aName = `${a.last_name} ${a.first_name}`.toLowerCase();
-            const bName = `${b.last_name} ${b.first_name}`.toLowerCase();
-            
-            return aName.localeCompare(bName);
-        });
-    }, [filteredEmployees]);
-
-
-    // Get all planning entries as memoized array (to avoid recalculation in every cell)
-    const allPlanningData = React.useMemo((): any[] => {
-        if (Array.isArray(planningEntries)) {
-            return planningEntries;
-        } else if (planningEntries && Array.isArray((planningEntries as any).data)) {
-            return (planningEntries as any).data;
-        } else if (planningEntries && (planningEntries as any).data) {
-            return [(planningEntries as any).data];
+        
+        const getAreaOrder = (area?: string) => {
+            if (!area) return 2;
+            if (area.includes('Nordkreis')) return 0;
+            if (area.includes('Südkreis')) return 1;
+            return 2;
+        };
+        
+        // Sort by function priority
+        const aPriority = functionPriority[a.function] || 999;
+        const bPriority = functionPriority[b.function] || 999;
+        
+        if (aPriority !== bPriority) {
+            return aPriority - bPriority;
         }
-        return [];
-    }, [planningEntries]);
+        
+        // Sort by area (Nordkreis first, then Südkreis)
+        const areaOrderA = getAreaOrder(a.area);
+        const areaOrderB = getAreaOrder(b.area);
+        
+        if (areaOrderA !== areaOrderB) {
+            return areaOrderA - areaOrderB;
+        }
+        
+        // Finally sort alphabetically by last name, then first name
+        const aName = `${a.last_name} ${a.first_name}`.toLowerCase();
+        const bName = `${b.last_name} ${b.first_name}`.toLowerCase();
+        
+        return aName.localeCompare(bName);
+    };
+
+    // Sort employees: first by conflicts, then tours, then absences, with original sorting (function, area, alphabetical) as tie-breaker within tours and absences
+    const sortedEmployees = React.useMemo(() => {
+        return [...filteredEmployees].sort((a, b) => {
+            const aStats = getEmployeeWeekStats(a.id || 0);
+            const bStats = getEmployeeWeekStats(b.id || 0);
+            
+            // 1. Sort by conflict count (descending - most conflicts first)
+            if (aStats.conflictCount !== bStats.conflictCount) {
+                return bStats.conflictCount - aStats.conflictCount;
+            }
+            
+            // 2. If conflicts are equal, sort by tour count (descending - most tours first)
+            if (aStats.tourCount !== bStats.tourCount) {
+                return bStats.tourCount - aStats.tourCount;
+            }
+            
+            // Within same tour count, sort by function, area, alphabetical
+            const tourTieBreak = compareOriginalSort(a, b);
+            if (tourTieBreak !== 0) {
+                return tourTieBreak;
+            }
+            
+            // 3. If still equal, sort by absence count (descending - most absences first)
+            if (aStats.absenceCount !== bStats.absenceCount) {
+                return bStats.absenceCount - aStats.absenceCount;
+            }
+            
+            // Within same absence count, sort by function, area, alphabetical
+            return compareOriginalSort(a, b);
+        });
+    }, [filteredEmployees, allPlanningData]);
 
     return (
         <Box sx={{ width: '100%', height: '100%', overflow: 'auto' }}>
