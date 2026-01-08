@@ -1,12 +1,14 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { useOnCallPlanningStore } from '../../stores/useOnCallPlanningStore';
+import { useNotificationStore } from '../../stores/useNotificationStore';
 import {
   useOnCallAssignments,
   useCreateOnCallAssignment,
   useUpdateOnCallAssignment,
   useDeleteOnCallAssignment,
   useAllEmployeesCapacity,
+  useAutoPlan,
 } from '../../services/queries/useOnCallAssignments';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { OnCallAssignment, DutyType, OnCallArea, Employee } from '../../types/models';
@@ -15,6 +17,7 @@ import { CalendarHeader } from './calendar/CalendarHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
 import { AssignmentDialog } from './dialogs/AssignmentDialog';
 import { CapacityOverviewDialog } from './dialogs/CapacityOverviewDialog';
+import { AutoPlanningDialog } from './dialogs/AutoPlanningDialog';
 import { EmployeeTable } from './table/EmployeeTable';
 import { formatDate, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
 import { isWeekend } from '../../utils/oncall/dateUtils';
@@ -23,10 +26,12 @@ import type { AutoPlanningSettings } from './dialogs/AutoPlanningDialog';
 
 export const OnCallPlanningView: React.FC = () => {
   const { viewMode, displayType, currentDate } = useOnCallPlanningStore();
+  const { notification, closeNotification, setNotification } = useNotificationStore();
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedDuty, setSelectedDuty] = useState<{ type: DutyType; area?: OnCallArea } | null>(null);
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [capacityDialogOpen, setCapacityDialogOpen] = useState(false);
+  const [autoPlanningDialogOpen, setAutoPlanningDialogOpen] = useState(false);
 
   // Get dates to display
   const displayDates = useMemo(() => {
@@ -59,6 +64,7 @@ export const OnCallPlanningView: React.FC = () => {
   const createAssignment = useCreateOnCallAssignment();
   const updateAssignment = useUpdateOnCallAssignment();
   const deleteAssignment = useDeleteOnCallAssignment();
+  const autoPlan = useAutoPlan();
 
   // Create a map of assignments by date and duty
   const assignmentsMap = useMemo(() => {
@@ -148,34 +154,35 @@ export const OnCallPlanningView: React.FC = () => {
     setSelectedDuty(null);
   }, []);
 
-  const handleAutoPlanningStart = useCallback((settings: AutoPlanningSettings) => {
-    // TODO: Implement auto planning logic
-    console.log('Auto planning started with settings:', settings);
-    // This will be implemented when backend API is ready
-  }, []);
-
-  if (assignmentsLoading || employeesLoading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '400px',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  const currentAssignment = selectedDate && selectedDuty
-    ? getAssignment(selectedDate, selectedDuty.type, selectedDuty.area)
-    : undefined;
-
-  const availableEmployees = selectedDuty
-    ? getAvailableEmployees(selectedDuty.type, selectedDuty.area)
-    : [];
+  const handleAutoPlanningStart = useCallback(async (settings: AutoPlanningSettings) => {
+    try {
+      // Calculate date range based on current view
+      const startDate = actualDates.length > 0 ? formatDate(actualDates[0]) : undefined;
+      const endDate = actualDates.length > 0 ? formatDate(actualDates[actualDates.length - 1]) : undefined;
+      
+      await autoPlan.mutateAsync({
+        existing_assignments_handling: settings.existingAssignmentsHandling,
+        allow_overplanning: settings.allowOverplanning,
+        include_aplano: settings.includeAplano,
+        start_date: startDate,
+        end_date: endDate,
+      });
+      
+      // Show success notification
+      setNotification('Automatische Planung erfolgreich abgeschlossen', 'success');
+      
+      // Close dialog only after successful completion
+      setAutoPlanningDialogOpen(false);
+    } catch (error: any) {
+      console.error('Failed to start auto planning:', error);
+      
+      // Show error notification
+      const errorMessage = error?.response?.data?.error || error?.message || 'Fehler bei der automatischen Planung';
+      setNotification(errorMessage, 'error');
+      
+      // Dialog stays open on error so user can retry
+    }
+  }, [actualDates, autoPlan, setNotification]);
 
   // Wrapper functions for table view
   const handleCreateAssignment = useCallback(
@@ -207,6 +214,29 @@ export const OnCallPlanningView: React.FC = () => {
     [deleteAssignment]
   );
 
+  if (assignmentsLoading || employeesLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '400px',
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  const currentAssignment = selectedDate && selectedDuty
+    ? getAssignment(selectedDate, selectedDuty.type, selectedDuty.area)
+    : undefined;
+
+  const availableEmployees = selectedDuty
+    ? getAvailableEmployees(selectedDuty.type, selectedDuty.area)
+    : [];
+
   return (
     <Box
       sx={{
@@ -223,7 +253,7 @@ export const OnCallPlanningView: React.FC = () => {
       >
         <CalendarHeader 
           actualDates={actualDates} 
-          onAutoPlanningStart={handleAutoPlanningStart}
+          onAutoPlanningOpen={() => setAutoPlanningDialogOpen(true)}
           onCapacityOverviewOpen={() => setCapacityDialogOpen(true)}
         />
 
@@ -287,6 +317,31 @@ export const OnCallPlanningView: React.FC = () => {
           currentDate={currentDate}
           onClose={() => setCapacityDialogOpen(false)}
         />
+
+        <AutoPlanningDialog
+          open={autoPlanningDialogOpen}
+          onClose={() => setAutoPlanningDialogOpen(false)}
+          onStart={handleAutoPlanningStart}
+          currentDate={currentDate}
+          isLoading={autoPlan.isPending}
+        />
+
+        {/* Notification Snackbar */}
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={6000}
+          onClose={closeNotification}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={closeNotification} 
+            severity={notification.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </Box>
   );

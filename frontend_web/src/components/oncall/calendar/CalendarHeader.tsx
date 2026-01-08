@@ -16,26 +16,17 @@ import { useNavigate } from 'react-router-dom';
 import { useOnCallPlanningStore } from '../../../stores/useOnCallPlanningStore';
 import { formatMonthYear, formatWeekWithKW } from '../../../utils/oncall/dateUtils';
 import { DatePickerDialog } from '../dialogs/DatePickerDialog';
-import { AutoPlanningDialog } from '../dialogs/AutoPlanningDialog';
-import type { AutoPlanningSettings } from '../dialogs/AutoPlanningDialog';
 
 interface CalendarHeaderProps {
   actualDates: Date[];
-  onAutoPlanningStart?: (settings: AutoPlanningSettings) => void;
+  onAutoPlanningOpen?: () => void;
   onCapacityOverviewOpen?: () => void;
 }
 
-export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onAutoPlanningStart, onCapacityOverviewOpen }) => {
+export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onAutoPlanningOpen, onCapacityOverviewOpen }) => {
   const { viewMode, displayType, currentDate, setViewMode, setDisplayType, setCurrentDate, goToPrevious, goToNext, goToToday } = useOnCallPlanningStore();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [autoPlanningOpen, setAutoPlanningOpen] = useState(false);
   const navigate = useNavigate();
-
-  const handleAutoPlanningStart = (settings: AutoPlanningSettings) => {
-    if (onAutoPlanningStart) {
-      onAutoPlanningStart(settings);
-    }
-  };
 
   return (
     <Box
@@ -86,7 +77,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onA
         <Button
           variant="contained"
           startIcon={<AutoAwesomeIcon sx={{ fontSize: 18 }} />}
-          onClick={() => setAutoPlanningOpen(true)}
+          onClick={() => onAutoPlanningOpen?.()}
           size="small"
           sx={{
             textTransform: 'none',
@@ -321,13 +312,6 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onA
         viewMode={viewMode}
         currentDate={currentDate}
         onSelectDate={setCurrentDate}
-      />
-
-      <AutoPlanningDialog
-        open={autoPlanningOpen}
-        onClose={() => setAutoPlanningOpen(false)}
-        onStart={handleAutoPlanningStart}
-        currentDate={currentDate}
       />
     </Box>
   );

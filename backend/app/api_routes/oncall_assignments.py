@@ -449,4 +449,49 @@ def _remove_employee_from_weekend_routes(assignment_date: date, assignment_area:
     
     db.session.commit()
 
+@oncall_assignments_bp.route('/auto-plan', methods=['POST'])
+def auto_plan_rb_aw():
+    """Automatic planning for RB and AW assignments"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Extract settings
+        existing_assignments_handling = data.get('existing_assignments_handling', 'respect')
+        allow_overplanning = data.get('allow_overplanning', False)
+        include_aplano = data.get('include_aplano', True)
+        
+        # Validate settings
+        if existing_assignments_handling not in ['overwrite', 'respect']:
+            return jsonify({'error': 'Invalid existing_assignments_handling. Must be "overwrite" or "respect"'}), 400
+        
+        # Get date range from request (optional, defaults to current month)
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        if end_date:
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        # TODO: Implement actual planning logic here
+        # For now, just return success with the received settings
+        return jsonify({
+            'message': 'Auto planning endpoint received settings',
+            'settings': {
+                'existing_assignments_handling': existing_assignments_handling,
+                'allow_overplanning': allow_overplanning,
+                'include_aplano': include_aplano,
+                'start_date': start_date.isoformat() if start_date else None,
+                'end_date': end_date.isoformat() if end_date else None,
+            }
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 

@@ -81,5 +81,22 @@ export const oncallAssignmentsApi = {
         }
     },
 
+    // Auto plan RB and AW assignments
+    async autoPlan(data: {
+        existing_assignments_handling: 'overwrite' | 'respect';
+        allow_overplanning: boolean;
+        include_aplano: boolean;
+        start_date?: string;
+        end_date?: string;
+    }): Promise<{ message: string; settings: any }> {
+        try {
+            const response = await api.post('/oncall-assignments/auto-plan', data);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to start auto planning:', error);
+            throw error;
+        }
+    },
+
 };
 

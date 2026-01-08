@@ -117,4 +117,31 @@ export const useAllEmployeesCapacity = (month?: number, year?: number) => {
   });
 };
 
+// Hook to trigger auto planning
+export const useAutoPlan = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data: {
+      existing_assignments_handling: 'overwrite' | 'respect';
+      allow_overplanning: boolean;
+      include_aplano: boolean;
+      start_date?: string;
+      end_date?: string;
+    }) => oncallAssignmentsApi.autoPlan(data),
+    onSuccess: () => {
+      // Invalidate all assignment lists to refetch after planning
+      queryClient.invalidateQueries({ queryKey: oncallAssignmentKeys.lists() });
+      
+      // Invalidate all capacity queries
+      queryClient.invalidateQueries({ 
+        queryKey: [...oncallAssignmentKeys.all, 'capacity'] 
+      });
+      
+      // Invalidate route queries (planning might affect routes)
+      queryClient.invalidateQueries({ queryKey: routeKeys.lists() });
+    },
+  });
+};
+
 

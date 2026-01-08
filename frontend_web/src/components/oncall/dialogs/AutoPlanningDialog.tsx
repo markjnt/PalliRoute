@@ -13,6 +13,7 @@ import {
   RadioGroup,
   FormControl,
   Paper,
+  CircularProgress,
 } from '@mui/material';
 import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
 
@@ -29,6 +30,7 @@ interface AutoPlanningDialogProps {
   onClose: () => void;
   onStart: (settings: AutoPlanningSettings) => void;
   currentDate: Date;
+  isLoading?: boolean;
 }
 
 export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
@@ -36,6 +38,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
   onClose,
   onStart,
   currentDate,
+  isLoading = false,
 }) => {
   const [settings, setSettings] = useState<AutoPlanningSettings>({
     existingAssignmentsHandling: 'respect',
@@ -60,7 +63,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
 
   const handleStart = () => {
     onStart(settings);
-    onClose();
+    // Don't close immediately - let parent handle closing after async operation
   };
 
   const handleCancel = () => {
@@ -70,9 +73,10 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={isLoading ? undefined : onClose}
       maxWidth="md"
       fullWidth
+      disableEscapeKeyDown={isLoading}
       PaperProps={{
         sx: {
           borderRadius: 4,
@@ -278,6 +282,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
       >
         <Button
           onClick={handleCancel}
+          disabled={isLoading}
           sx={{
             textTransform: 'none',
             fontWeight: 500,
@@ -295,7 +300,14 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
         <Button
           onClick={handleStart}
           variant="contained"
-          startIcon={<AutoAwesomeIcon sx={{ fontSize: 18 }} />}
+          disabled={isLoading}
+          startIcon={
+            isLoading ? (
+              <CircularProgress size={18} sx={{ color: 'white' }} />
+            ) : (
+              <AutoAwesomeIcon sx={{ fontSize: 18 }} />
+            )
+          }
           sx={{
             textTransform: 'none',
             fontWeight: 600,
@@ -307,12 +319,13 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
               boxShadow: '0 4px 12px rgba(25, 118, 210, 0.4)',
             },
             '&:disabled': {
-              backgroundColor: 'rgba(0, 0, 0, 0.12)',
-              color: 'rgba(0, 0, 0, 0.26)',
+              backgroundColor: 'primary.main',
+              color: 'white',
+              opacity: 0.7,
             },
           }}
         >
-          Planung starten (bald verfügbar)
+          {isLoading ? 'Planung läuft...' : 'Planung starten'}
         </Button>
       </DialogActions>
     </Dialog>
