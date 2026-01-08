@@ -144,4 +144,26 @@ export const useAutoPlan = () => {
   });
 };
 
+// Hook to reset planning
+export const useResetPlanning = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data: { start_date: string; end_date: string }) => 
+      oncallAssignmentsApi.resetPlanning(data.start_date, data.end_date),
+    onSuccess: () => {
+      // Invalidate all assignment lists to refetch after reset
+      queryClient.invalidateQueries({ queryKey: oncallAssignmentKeys.lists() });
+      
+      // Invalidate all capacity queries
+      queryClient.invalidateQueries({ 
+        queryKey: [...oncallAssignmentKeys.all, 'capacity'] 
+      });
+      
+      // Invalidate route queries (reset might affect routes)
+      queryClient.invalidateQueries({ queryKey: routeKeys.lists() });
+    },
+  });
+};
+
 

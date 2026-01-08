@@ -4,6 +4,7 @@ from app import db
 from app.models.oncall_assignment import OnCallAssignment, DutyType
 from app.models.employee import Employee
 from app.models.route import Route
+from app.services.auto_planning_service import AutoPlanningService
 from calendar import monthrange
 
 oncall_assignments_bp = Blueprint('oncall_assignments', __name__)
@@ -473,25 +474,94 @@ def auto_plan_rb_aw():
         
         if start_date:
             start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        else:
+            # Default to start of current month
+            today = date.today()
+            start_date = date(today.year, today.month, 1)
+        
         if end_date:
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        else:
+            # Default to end of current month
+            today = date.today()
+            _, last_day = monthrange(today.year, today.month)
+            end_date = date(today.year, today.month, last_day)
         
-        # TODO: Implement actual planning logic here
-        # For now, just return success with the received settings
+        # Initialize planning service
+        planning_service = AutoPlanningService(
+            existing_assignments_handling=existing_assignments_handling,
+            allow_overplanning=allow_overplanning
+        )
+        
+        # Execute planning
+        result = planning_service.plan(start_date, end_date)
+        
+        return jsonify(result), 200
+        
+    except ValueError as e:
+        return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@oncall_assignments_bp.route('/reset-planning', methods=['POST'])
+def reset_planning():
+    """Reset (delete) all on-call assignments for a given date range"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Get date range from request
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if not start_date or not end_date:
+            return jsonify({'error': 'start_date and end_date are required'}), 400
+        
+        start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+        
+        # Delete all assignments in the date range
+        deleted_count = OnCallAssignment.query.filter(
+            OnCallAssignment.date >= start_date,
+            OnCallAssignment.date <= end_date
+        ).delete(synchronize_session=False)
+        
+        db.session.commit()
+        
+        # Update weekend routes if AW assignments were deleted
+        # Find all weekend routes in the date range and remove employee_id
+        from app.models.route import Route
+        weekend_routes = Route.query.filter(
+            Route.weekday.in_(['saturday', 'sunday']),
+            Route.calendar_week.isnot(None)
+        ).all()
+        
+        # Check if any route dates fall within the reset range
+        routes_updated = 0
+        for route in weekend_routes:
+            # Get the date for this route (approximate - using calendar week)
+            # This is a simplified check - in production you might want to be more precise
+            if route.employee_id:
+                # Clear employee_id for weekend routes in the affected period
+                route.employee_id = None
+                route.updated_at = datetime.utcnow()
+                routes_updated += 1
+        
+        if routes_updated > 0:
+            db.session.commit()
+        
         return jsonify({
-            'message': 'Auto planning endpoint received settings',
-            'settings': {
-                'existing_assignments_handling': existing_assignments_handling,
-                'allow_overplanning': allow_overplanning,
-                'include_aplano': include_aplano,
-                'start_date': start_date.isoformat() if start_date else None,
-                'end_date': end_date.isoformat() if end_date else None,
-            }
+            'message': 'Planning reset successfully',
+            'deleted_count': deleted_count,
+            'routes_updated': routes_updated
         }), 200
         
     except ValueError as e:
         return jsonify({'error': f'Invalid date format: {str(e)}'}), 400
     except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
 

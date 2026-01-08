@@ -16,6 +16,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
+import { formatMonthYear } from '../../../utils/oncall/dateUtils';
 
 export interface AutoPlanningSettings {
   // Existing assignments handling
@@ -29,17 +30,29 @@ interface AutoPlanningDialogProps {
   open: boolean;
   onClose: () => void;
   onStart: (settings: AutoPlanningSettings) => void;
+  onReset?: () => void;
   currentDate: Date;
   isLoading?: boolean;
+  isResetting?: boolean;
+  viewMode?: 'month' | 'week';
 }
 
 export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
   open,
   onClose,
   onStart,
+  onReset,
   currentDate,
   isLoading = false,
+  isResetting = false,
+  viewMode = 'month',
 }) => {
+  // Calculate month range for planning (always full month)
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  const monthName = formatMonthYear(currentDate);
   const [settings, setSettings] = useState<AutoPlanningSettings>({
     existingAssignmentsHandling: 'respect',
     allowOverplanning: false,
@@ -109,7 +122,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
             <AutoAwesomeIcon sx={{ color: 'white', fontSize: 20 }} />
           </Box>
           <Typography variant="h5" sx={{ fontWeight: 600, letterSpacing: '-0.02em' }}>
-            Automatische Planung
+            Automatische Planung für {monthName}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, ml: 6.5 }}>
@@ -257,7 +270,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
               label={
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
-                    Aplano berücksichtigen
+                    Aplano berücksichtigen (bald verfügbar)
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
                     Abwesenheiten und weitere Informationen aus Aplano werden berücksichtigt
@@ -278,55 +291,79 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
           backgroundColor: 'white',
           borderTop: '1px solid',
           borderColor: 'rgba(0, 0, 0, 0.06)',
+          display: 'flex',
+          justifyContent: 'space-between',
         }}
       >
         <Button
-          onClick={handleCancel}
-          disabled={isLoading}
+          onClick={onReset}
+          disabled={isLoading || isResetting || !onReset}
           sx={{
             textTransform: 'none',
             fontWeight: 500,
             px: 3,
             py: 1,
             borderRadius: 2,
-            color: 'text.secondary',
+            color: 'error.main',
             '&:hover': {
-              backgroundColor: 'rgba(0, 0, 0, 0.04)',
-            },
-          }}
-        >
-          Abbrechen
-        </Button>
-        <Button
-          onClick={handleStart}
-          variant="contained"
-          disabled={isLoading}
-          startIcon={
-            isLoading ? (
-              <CircularProgress size={18} sx={{ color: 'white' }} />
-            ) : (
-              <AutoAwesomeIcon sx={{ fontSize: 18 }} />
-            )
-          }
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-            px: 3,
-            py: 1,
-            borderRadius: 2,
-            boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)',
-            '&:hover': {
-              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.4)',
+              backgroundColor: 'rgba(211, 47, 47, 0.08)',
             },
             '&:disabled': {
-              backgroundColor: 'primary.main',
-              color: 'white',
-              opacity: 0.7,
+              color: 'rgba(0, 0, 0, 0.26)',
             },
           }}
         >
-          {isLoading ? 'Planung läuft...' : 'Planung starten'}
+          {isResetting ? 'Zurücksetzen...' : 'Planung zurücksetzen'}
         </Button>
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Button
+            onClick={handleCancel}
+            disabled={isLoading || isResetting}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              color: 'text.secondary',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
+            }}
+          >
+            Abbrechen
+          </Button>
+          <Button
+            onClick={handleStart}
+            variant="contained"
+            disabled={isLoading || isResetting}
+            startIcon={
+              isLoading ? (
+                <CircularProgress size={18} sx={{ color: 'white' }} />
+              ) : (
+                <AutoAwesomeIcon sx={{ fontSize: 18 }} />
+              )
+            }
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)',
+              '&:hover': {
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.4)',
+              },
+              '&:disabled': {
+                backgroundColor: 'primary.main',
+                color: 'white',
+                opacity: 0.7,
+              },
+            }}
+          >
+            {isLoading ? 'Planung läuft...' : 'Planung starten'}
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

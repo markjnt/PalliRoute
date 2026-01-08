@@ -9,6 +9,7 @@ import {
   useDeleteOnCallAssignment,
   useAllEmployeesCapacity,
   useAutoPlan,
+  useResetPlanning,
 } from '../../services/queries/useOnCallAssignments';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { OnCallAssignment, DutyType, OnCallArea, Employee } from '../../types/models';
@@ -65,6 +66,7 @@ export const OnCallPlanningView: React.FC = () => {
   const updateAssignment = useUpdateOnCallAssignment();
   const deleteAssignment = useDeleteOnCallAssignment();
   const autoPlan = useAutoPlan();
+  const resetPlanning = useResetPlanning();
 
   // Create a map of assignments by date and duty
   const assignmentsMap = useMemo(() => {
@@ -156,9 +158,13 @@ export const OnCallPlanningView: React.FC = () => {
 
   const handleAutoPlanningStart = useCallback(async (settings: AutoPlanningSettings) => {
     try {
-      // Calculate date range based on current view
-      const startDate = actualDates.length > 0 ? formatDate(actualDates[0]) : undefined;
-      const endDate = actualDates.length > 0 ? formatDate(actualDates[actualDates.length - 1]) : undefined;
+      // Always use the entire month of currentDate, regardless of view mode
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      const startDate = formatDate(firstDayOfMonth);
+      const endDate = formatDate(lastDayOfMonth);
       
       await autoPlan.mutateAsync({
         existing_assignments_handling: settings.existingAssignmentsHandling,
@@ -182,7 +188,36 @@ export const OnCallPlanningView: React.FC = () => {
       
       // Dialog stays open on error so user can retry
     }
-  }, [actualDates, autoPlan, setNotification]);
+  }, [currentDate, autoPlan, setNotification]);
+
+  const handleResetPlanning = useCallback(async () => {
+    try {
+      // Calculate month range (same as planning)
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDayOfMonth = new Date(year, month, 1);
+      const lastDayOfMonth = new Date(year, month + 1, 0);
+      const startDate = formatDate(firstDayOfMonth);
+      const endDate = formatDate(lastDayOfMonth);
+      
+      await resetPlanning.mutateAsync({
+        start_date: startDate,
+        end_date: endDate,
+      });
+      
+      // Show success notification
+      setNotification('Planung erfolgreich zurückgesetzt', 'success');
+      
+      // Close dialog after successful reset
+      setAutoPlanningDialogOpen(false);
+    } catch (error: any) {
+      console.error('Failed to reset planning:', error);
+      
+      // Show error notification
+      const errorMessage = error?.response?.data?.error || error?.message || 'Fehler beim Zurücksetzen der Planung';
+      setNotification(errorMessage, 'error');
+    }
+  }, [currentDate, resetPlanning, setNotification]);
 
   // Wrapper functions for table view
   const handleCreateAssignment = useCallback(
@@ -322,8 +357,11 @@ export const OnCallPlanningView: React.FC = () => {
           open={autoPlanningDialogOpen}
           onClose={() => setAutoPlanningDialogOpen(false)}
           onStart={handleAutoPlanningStart}
+          onReset={handleResetPlanning}
           currentDate={currentDate}
           isLoading={autoPlan.isPending}
+          isResetting={resetPlanning.isPending}
+          viewMode={viewMode}
         />
 
         {/* Notification Snackbar */}

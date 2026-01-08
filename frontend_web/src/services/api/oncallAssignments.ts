@@ -98,5 +98,19 @@ export const oncallAssignmentsApi = {
         }
     },
 
+    // Reset planning for a date range
+    async resetPlanning(start_date: string, end_date: string): Promise<{ message: string; deleted_count: number }> {
+        try {
+            const response = await api.post('/oncall-assignments/reset-planning', {
+                start_date,
+                end_date,
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to reset planning:', error);
+            throw error;
+        }
+    },
+
 };
 
