@@ -15,5 +15,5 @@ else
 fi
 
 echo "Starting Gunicorn..."
-exec gunicorn --bind=0.0.0.0:9000 run:app --workers=8 --timeout=300
+exec gunicorn --bind=0.0.0.0:9000 run:app --workers=8 --timeout=30 --keep-alive=0
 
