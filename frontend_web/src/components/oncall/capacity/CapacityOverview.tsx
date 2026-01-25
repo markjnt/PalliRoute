@@ -1,40 +1,40 @@
 import React, { useMemo } from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import { Employee } from '../../../types/models';
+import { Employee, EmployeeCapacity } from '../../../types/models';
 import { EmployeeCapacityCard } from './EmployeeCapacityCard';
-import { useAllEmployeesCapacity } from '../../../services/queries/useOnCallAssignments';
 
 type FilterType = 'all' | 'pflege' | 'arzt';
 
 interface CapacityOverviewProps {
   employees: Employee[];
+  employeeCapacities: EmployeeCapacity[];
   currentDate: Date;
   activeFilter?: FilterType;
 }
 
-export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, currentDate, activeFilter = 'all' }) => {
-  const month = currentDate.getMonth() + 1;
-  const year = currentDate.getFullYear();
-  
-  const { data: allCapacities, isLoading } = useAllEmployeesCapacity(month, year);
-  
+export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ 
+  employees, 
+  employeeCapacities, 
+  currentDate, 
+  activeFilter = 'all' 
+}) => {
   // Create a map of capacities by employee ID
   const capacitiesMap = useMemo(() => {
-    if (!allCapacities?.capacities) return new Map();
-    return new Map(Object.entries(allCapacities.capacities).map(([id, capacity]) => [Number(id), capacity]));
-  }, [allCapacities]);
+    const map = new Map<number, EmployeeCapacity[]>();
+    employeeCapacities.forEach((capacity) => {
+      const existing = map.get(capacity.employee_id) || [];
+      map.set(capacity.employee_id, [...existing, capacity]);
+    });
+    return map;
+  }, [employeeCapacities]);
 
   // Check if employee has exceeded capacity
   const hasExceededCapacity = (employee: Employee): boolean => {
-    const capacity = capacitiesMap.get(employee.id || 0);
-    if (!capacity?.capacities) return false;
+    const capacities = capacitiesMap.get(employee.id || 0);
+    if (!capacities || capacities.length === 0) return false;
     
-    // Check if any capacity has assigned > limit
-    // This includes cases where limit = 0 and assigned > 0 (e.g., "1 von 0 vergeben")
-    const capacityValues = Object.values(capacity.capacities) as Array<{ limit: number; assigned: number; remaining: number }>;
-    return capacityValues.some(
-      (cap) => cap.assigned > cap.limit
-    );
+    // Check if any capacity has assigned > max_count
+    return capacities.some(cap => (cap.assigned ?? 0) > cap.max_count);
   };
 
   // Filter and sort employees
@@ -94,36 +94,26 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({ employees, c
 
   return (
     <Box sx={{ pt: 2 }}>
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress
-            sx={{
-              color: 'primary.main',
-            }}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(4, 1fr)',
+          },
+          gap: 2.5,
+        }}
+      >
+        {filteredAndSortedEmployees.map((employee) => (
+          <EmployeeCapacityCard
+            key={employee.id}
+            employee={employee}
+            capacities={capacitiesMap.get(employee.id || 0) || []}
           />
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-              lg: 'repeat(4, 1fr)',
-            },
-            gap: 2.5,
-          }}
-        >
-          {filteredAndSortedEmployees.map((employee) => (
-            <EmployeeCapacityCard
-              key={employee.id}
-              employee={employee}
-              capacity={capacitiesMap.get(employee.id || 0)}
-            />
-          ))}
-        </Box>
-      )}
+        ))}
+      </Box>
     </Box>
   );
 };

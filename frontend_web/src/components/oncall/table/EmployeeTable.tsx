@@ -1,18 +1,20 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { Box, Typography, Chip } from '@mui/material';
-import { Employee, OnCallAssignment, DutyType, OnCallArea, EmployeeCapacity } from '../../../types/models';
+import { Employee, Assignment, DutyType, OnCallArea, EmployeeCapacity, ShiftDefinition } from '../../../types/models';
 import { EmployeeTableRow } from './EmployeeTableRow';
 import { EmployeeDutyDialog } from './EmployeeDutyDialog';
 import { DemandRow } from './DemandRow';
 import { formatDate, isWeekend } from '../../../utils/oncall/dateUtils';
 import { WEEK_DAYS } from '../../../utils/oncall/constants';
+import { shiftDefinitionToDutyType, findShiftDefinition } from '../../../utils/oncall/shiftMapping';
 
 interface EmployeeTableProps {
   employees: Employee[];
   dates: Date[];
-  assignments: OnCallAssignment[];
+  assignments: Assignment[];
   viewMode: 'month' | 'week';
-  allEmployeesCapacity?: { month: number; year: number; capacities: Record<number, EmployeeCapacity> };
+  employeeCapacities?: EmployeeCapacity[];
+  shiftDefinitions: ShiftDefinition[];
   onCreateAssignment: (data: {
     employee_id: number;
     date: string;
@@ -31,7 +33,8 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   dates,
   assignments,
   viewMode,
-  allEmployeesCapacity,
+  employeeCapacities,
+  shiftDefinitions,
   onCreateAssignment,
   onUpdateAssignment,
   onDeleteAssignment,
@@ -122,18 +125,21 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
 
   const handleDutyToggle = useCallback(
     async (dutyType: DutyType, area?: OnCallArea) => {
-      if (!selectedEmployee || !selectedDate) return;
+      if (!selectedEmployee || !selectedDate || shiftDefinitions.length === 0) return;
 
       const dateStr = formatDate(selectedDate);
       
       // Find existing assignment for this employee, date, and duty
-      const existing = assignments.find(
-        (a) =>
-          a.employee_id === selectedEmployee.id &&
-          a.date === dateStr &&
-          a.duty_type === dutyType &&
-          a.area === area
-      );
+      const existing = assignments.find((a) => {
+        if (!a.shift_instance || !a.shift_definition || a.employee_id !== selectedEmployee.id) {
+          return false;
+        }
+        if (a.shift_instance.date !== dateStr) {
+          return false;
+        }
+        const dutyMapping = shiftDefinitionToDutyType(a.shift_definition);
+        return dutyMapping?.dutyType === dutyType && dutyMapping?.area === area;
+      });
 
       if (existing?.id) {
         // Delete assignment
@@ -148,7 +154,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
         });
       }
     },
-    [selectedEmployee, selectedDate, assignments, onCreateAssignment, onDeleteAssignment]
+    [selectedEmployee, selectedDate, assignments, onCreateAssignment, onDeleteAssignment, shiftDefinitions]
   );
 
   const handleDialogClose = useCallback(() => {
@@ -161,9 +167,12 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   const selectedAssignments = useMemo(() => {
     if (!selectedEmployee || !selectedDate) return [];
     const dateStr = formatDate(selectedDate);
-    return assignments.filter(
-      (a) => a.employee_id === selectedEmployee.id && a.date === dateStr
-    );
+    return assignments.filter((a) => {
+      if (!a.shift_instance || a.employee_id !== selectedEmployee.id) {
+        return false;
+      }
+      return a.shift_instance.date === dateStr;
+    });
   }, [selectedEmployee, selectedDate, assignments]);
 
   // Calculate grid columns based on number of dates
@@ -352,7 +361,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
         employee={selectedEmployee}
         date={selectedDate}
         assignments={selectedAssignments}
-        allEmployeesCapacity={allEmployeesCapacity}
+        employeeCapacities={employeeCapacities}
         onClose={handleDialogClose}
         onDutyToggle={handleDutyToggle}
       />

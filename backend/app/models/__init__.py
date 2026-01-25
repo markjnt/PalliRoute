@@ -5,5 +5,5 @@ from . import appointment
 from . import route
 from . import employee_planning
 from . import system_info
-from . import oncall_assignment
+from . import scheduling
 

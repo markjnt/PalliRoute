@@ -13,18 +13,30 @@ import { employeeTypeColors } from '../../../utils/colors';
 
 interface EmployeeCapacityCardProps {
   employee: Employee;
-  capacity?: EmployeeCapacity;
+  capacities: EmployeeCapacity[];
 }
 
-export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ employee, capacity }) => {
-  if (!capacity) {
+export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ employee, capacities }) => {
+  if (!capacities || capacities.length === 0) {
     return null;
   }
 
-  // Show capacities with limit > 0, or capacities with limit = 0 but assigned > 0 (employee is assigned)
-  const capacities = Object.entries(capacity.capacities).filter(([_, cap]) => cap.limit > 0 || cap.assigned > 0);
+  // Map capacity_type to display format
+  const formatCapacityType = (capacityType: string): string => {
+    const typeMap: Record<string, string> = {
+      'RB_NURSING_WEEKDAY': 'RB_NURSING_WEEKDAY',
+      'RB_NURSING_WEEKEND': 'RB_NURSING_WEEKEND',
+      'RB_DOCTORS_WEEKDAY': 'RB_DOCTORS_WEEKDAY',
+      'RB_DOCTORS_WEEKEND': 'RB_DOCTORS_WEEKEND',
+      'AW_NURSING': 'AW_NURSING',
+    };
+    return typeMap[capacityType] || capacityType;
+  };
 
-  if (capacities.length === 0) {
+  // Filter capacities with max_count > 0
+  const activeCapacities = capacities.filter(cap => cap.max_count > 0);
+
+  if (activeCapacities.length === 0) {
     return null;
   }
 
@@ -66,44 +78,24 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
 
   const functionInfo = getFunctionInfo(employee.function);
 
-  // Get icon for duty type
-  const getDutyIcon = (key: string) => {
-    if (key.includes('aw_nursing')) return <AWIcon sx={{ fontSize: '0.85rem' }} />;
-    if (key.includes('doctors')) return <DoctorIcon sx={{ fontSize: '0.85rem' }} />;
-    if (key.includes('weekend_day')) return <DayIcon sx={{ fontSize: '0.85rem' }} />;
-    if (key.includes('weekend_night')) return <NightIcon sx={{ fontSize: '0.85rem' }} />;
-    if (key.includes('rb_nursing_weekend')) return <NursingIcon sx={{ fontSize: '0.85rem' }} />;
+  // Get icon for capacity type
+  const getDutyIcon = (capacityType: string) => {
+    if (capacityType.includes('AW')) return <AWIcon sx={{ fontSize: '0.85rem' }} />;
+    if (capacityType.includes('DOCTORS')) return <DoctorIcon sx={{ fontSize: '0.85rem' }} />;
+    if (capacityType.includes('WEEKEND')) return <NursingIcon sx={{ fontSize: '0.85rem' }} />;
     return <NursingIcon sx={{ fontSize: '0.85rem' }} />;
   };
 
-  // Format duty name in German (without "Arzt" or "Pflege" as function is already visible)
-  // Note: Keys no longer include area, as capacities are aggregated across all areas
-  const formatDutyName = (key: string): string => {
-    // Map specific duty types to German names
+  // Format capacity type name in German
+  const formatDutyName = (capacityType: string): string => {
     const dutyNameMap: Record<string, string> = {
-      'rb_nursing_weekday': 'RB Wochentag',
-      'rb_doctors_weekday': 'RB Wochentag',
-      'aw_nursing': 'AW',
-      // Gemeinsame Kapazität für Wochenende (Tag + Nacht)
-      'rb_nursing_weekend': 'RB Wochenende (Tag & Nacht)',
-      'rb_doctors_weekend': 'RB Wochenende',
+      'RB_NURSING_WEEKDAY': 'RB Pflege Wochentag',
+      'RB_NURSING_WEEKEND': 'RB Pflege Wochenende',
+      'RB_DOCTORS_WEEKDAY': 'RB Ärzte Wochentag',
+      'RB_DOCTORS_WEEKEND': 'RB Ärzte Wochenende',
+      'AW_NURSING': 'AW Pflege',
     };
-
-    // Check for exact match first
-    if (dutyNameMap[key]) {
-      return dutyNameMap[key];
-    }
-
-    // Fallback: basic replacement without "Pflege" or "Ärzte"
-    let name = key.replace(/_/g, ' ').replace('rb ', 'RB ').replace('aw ', 'AW ');
-    name = name.replace('nursing weekday', 'Wochentag');
-    name = name.replace('nursing weekend day', 'Wochenende Tag');
-    name = name.replace('nursing weekend night', 'Wochenende Nacht');
-    name = name.replace('doctors weekday', 'Wochentag');
-    name = name.replace('doctors weekend', 'Wochenende');
-    name = name.replace('nursing', '');
-    name = name.replace('doctors', '');
-    return name.trim();
+    return dutyNameMap[capacityType] || capacityType;
   };
 
   return (
@@ -179,20 +171,16 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
         />
       </Box>
 
-      {capacities.map(([key, cap]) => {
-        // If limit is 0 but assigned > 0, show as 100% (over capacity)
-        const percentage = cap.limit > 0 
-          ? (cap.assigned / cap.limit) * 100 
-          : cap.assigned > 0 
-            ? 100 
-            : 0;
+      {activeCapacities.map((capacity) => {
+        // Use assigned and remaining from backend
+        const assigned = capacity.assigned ?? 0;
+        const remaining = capacity.remaining ?? (capacity.max_count - assigned);
+        const percentage = capacity.max_count > 0 
+          ? (assigned / capacity.max_count) * 100 
+          : 0;
         
-        // Determine color based on remaining capacity:
-        // - If assigned > limit (over capacity): error (red)
-        // - If remaining = 0: warning (yellow/orange)
-        // - If remaining > 0: success (green)
-        const isOverCapacity = cap.assigned > cap.limit;
-        const hasNoRemaining = cap.remaining === 0;
+        const isOverCapacity = assigned > capacity.max_count;
+        const hasNoRemaining = remaining === 0;
         const color = isOverCapacity 
           ? 'error' 
           : hasNoRemaining 
@@ -200,7 +188,7 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
             : 'success';
 
         return (
-          <Box key={key} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
+          <Box key={capacity.id} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
             <Box
               sx={{
                 display: 'flex',
@@ -217,7 +205,7 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                   flex: 1,
                 }}
               >
-                {getDutyIcon(key)}
+                {getDutyIcon(capacity.capacity_type)}
                 <Typography
                   variant="caption"
                   color="text.secondary"
@@ -226,11 +214,11 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                     fontWeight: 500,
                   }}
                 >
-                  {formatDutyName(key)}
+                  {formatDutyName(capacity.capacity_type)}
                 </Typography>
               </Box>
               <Chip
-                label={`${cap.assigned}/${cap.limit}`}
+                label={`${assigned}/${capacity.max_count}`}
                 color={color}
                 size="small"
                 sx={{
@@ -271,7 +259,7 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                 fontWeight: isOverCapacity || hasNoRemaining ? 600 : 500,
               }}
             >
-              Verbleibend: {cap.remaining}
+              Verbleibend: {remaining}
             </Typography>
           </Box>
         );

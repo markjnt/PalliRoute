@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { Box, Typography, Divider } from '@mui/material';
-import { OnCallAssignment, DutyType, OnCallArea } from '../../../types/models';
+import { Assignment, DutyType, OnCallArea } from '../../../types/models';
 import { isToday, isWeekend } from '../../../utils/oncall/dateUtils';
 import { DutyChip } from './DutyChip';
 
 interface CalendarDayProps {
   date: Date;
-  assignments: Array<{ duty: { type: DutyType; label: string; area?: OnCallArea; shortLabel: string }; assignment?: OnCallAssignment }>;
+  assignments: Array<{ duty: { type: DutyType; label: string; area?: OnCallArea; shortLabel: string }; assignment?: Assignment }>;
   onDutyClick: (date: Date, duty: { type: DutyType; area?: OnCallArea }) => void;
 }
 

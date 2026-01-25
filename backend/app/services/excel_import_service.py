@@ -11,7 +11,7 @@ from ..models.patient import Patient
 from ..models.appointment import Appointment, VISIT_TYPE_DURATIONS
 from ..models.route import Route
 from ..models.employee_planning import EmployeePlanning
-from ..models.oncall_assignment import OnCallAssignment
+from ..models.scheduling import Assignment, ShiftInstance, ShiftDefinition, EmployeeCapacity
 from .. import db
 import json
 from .route_planner import RoutePlanner
@@ -277,40 +277,37 @@ class ExcelImportService:
                     elif 'Aliasse' in df.columns and pd.notna(row['Aliasse']):
                         alias = str(row['Aliasse']).strip()
 
-                    # Handle Rufbereitschaft fields (optional, integer values)
-                    oncall_nursing_weekday = None
+                    # Note: RB/AW capacity fields are now managed via EmployeeCapacity model
+                    # These fields are read but not directly set on Employee anymore
+                    # Capacity data should be imported separately via the scheduling API
+                    capacity_data = {}
                     if 'Rufbereitschaft Pflege unter der Woche' in df.columns and pd.notna(row['Rufbereitschaft Pflege unter der Woche']):
                         try:
-                            oncall_nursing_weekday = int(float(row['Rufbereitschaft Pflege unter der Woche']))
+                            capacity_data['rb_nursing_weekday'] = int(float(row['Rufbereitschaft Pflege unter der Woche']))
                         except (ValueError, TypeError):
                             raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege unter der Woche' in Zeile {idx + 2}. Erwartet: Zahl")
-
-                    # Neue gemeinsame Spalte für Wochenende (Tag + Nacht zusammen)
-                    oncall_nursing_weekend = None
+                    
                     if 'Rufbereitschaft Pflege Wochenende' in df.columns and pd.notna(row['Rufbereitschaft Pflege Wochenende']):
                         try:
-                            oncall_nursing_weekend = int(float(row['Rufbereitschaft Pflege Wochenende']))
+                            capacity_data['rb_nursing_weekend'] = int(float(row['Rufbereitschaft Pflege Wochenende']))
                         except (ValueError, TypeError):
                             raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Pflege Wochenende' in Zeile {idx + 2}. Erwartet: Zahl")
                     
-                    oncall_doctors_weekday = None
                     if 'Rufbereitschaft Ärzte unter der Woche' in df.columns and pd.notna(row['Rufbereitschaft Ärzte unter der Woche']):
                         try:
-                            oncall_doctors_weekday = int(float(row['Rufbereitschaft Ärzte unter der Woche']))
+                            capacity_data['rb_doctors_weekday'] = int(float(row['Rufbereitschaft Ärzte unter der Woche']))
                         except (ValueError, TypeError):
                             raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Ärzte unter der Woche' in Zeile {idx + 2}. Erwartet: Zahl")
                     
-                    oncall_doctors_weekend = None
                     if 'Rufbereitschaft Ärzte Wochenende' in df.columns and pd.notna(row['Rufbereitschaft Ärzte Wochenende']):
                         try:
-                            oncall_doctors_weekend = int(float(row['Rufbereitschaft Ärzte Wochenende']))
+                            capacity_data['rb_doctors_weekend'] = int(float(row['Rufbereitschaft Ärzte Wochenende']))
                         except (ValueError, TypeError):
                             raise ValueError(f"Ungültiger Wert für 'Rufbereitschaft Ärzte Wochenende' in Zeile {idx + 2}. Erwartet: Zahl")
                     
-                    weekend_services_nursing = None
                     if 'Wochenenddienste Pflege' in df.columns and pd.notna(row['Wochenenddienste Pflege']):
                         try:
-                            weekend_services_nursing = int(float(row['Wochenenddienste Pflege']))
+                            capacity_data['aw_nursing'] = int(float(row['Wochenenddienste Pflege']))
                         except (ValueError, TypeError):
                             raise ValueError(f"Ungültiger Wert für 'Wochenenddienste Pflege' in Zeile {idx + 2}. Erwartet: Zahl")
 
@@ -338,12 +335,7 @@ class ExcelImportService:
                         existing_employee.work_hours = work_hours
                         existing_employee.area = area
                         existing_employee.alias = alias
-                        existing_employee.oncall_nursing_weekday = oncall_nursing_weekday
-                        existing_employee.oncall_nursing_weekend = oncall_nursing_weekend
-                        existing_employee.oncall_doctors_weekday = oncall_doctors_weekday
-                        existing_employee.oncall_doctors_weekend = oncall_doctors_weekend
-                        existing_employee.weekend_services_nursing = weekend_services_nursing
-                        updated_employees.append(existing_employee)
+                        updated_employees.append((existing_employee, capacity_data))
                         print(f"Updated employee: {first_name} {last_name}")
                     else:
                         # Create new employee
@@ -358,15 +350,9 @@ class ExcelImportService:
                             function=function,
                             work_hours=work_hours,
                             area=area,
-                            alias=alias,
-                            oncall_nursing_weekday=oncall_nursing_weekday,
-                            oncall_doctors_weekday=oncall_doctors_weekday,
-                            oncall_doctors_weekend=oncall_doctors_weekend,
-                            weekend_services_nursing=weekend_services_nursing
+                            alias=alias
                         )
-                        # Gemeinsame Weekend-Kapazität setzen (Property kümmert sich um interne Felder)
-                        employee.oncall_nursing_weekend = oncall_nursing_weekend
-                        added_employees.append(employee)
+                        added_employees.append((employee, capacity_data))
                         db.session.add(employee)
                         print(f"Added new employee: {first_name} {last_name}")
                         
@@ -401,16 +387,50 @@ class ExcelImportService:
             
             db.session.commit()
             
-            # 5. Create planning entries for new employees only
+            # 5. Import capacity data for all employees (new and updated)
+            print("\nStep 5: Importing capacity data...")
+            capacity_mapping = {
+                'rb_nursing_weekday': 'RB_NURSING_WEEKDAY',
+                'rb_nursing_weekend': 'RB_NURSING_WEEKEND',
+                'rb_doctors_weekday': 'RB_DOCTORS_WEEKDAY',
+                'rb_doctors_weekend': 'RB_DOCTORS_WEEKEND',
+                'aw_nursing': 'AW_NURSING'
+            }
+            
+            for employee_tuple in added_employees + updated_employees:
+                employee, capacity_data = employee_tuple
+                for capacity_key, capacity_type in capacity_mapping.items():
+                    if capacity_key in capacity_data and capacity_data[capacity_key] is not None:
+                        # Check if capacity already exists
+                        existing_capacity = EmployeeCapacity.query.filter_by(
+                            employee_id=employee.id,
+                            capacity_type=capacity_type
+                        ).first()
+                        
+                        if existing_capacity:
+                            existing_capacity.max_count = capacity_data[capacity_key]
+                        else:
+                            capacity = EmployeeCapacity(
+                                employee_id=employee.id,
+                                capacity_type=capacity_type,
+                                max_count=capacity_data[capacity_key]
+                            )
+                            db.session.add(capacity)
+            
+            db.session.commit()
+            print(f"Imported capacity data for {len(added_employees) + len(updated_employees)} employees")
+            
+            # 6. Create planning entries for new employees only
             if added_employees:
-                print(f"Creating planning entries for {len(added_employees)} new employees...")
-                ExcelImportService._create_planning_entries_for_employees(added_employees)
+                print(f"\nStep 6: Creating planning entries for {len(added_employees)} new employees...")
+                new_employees_only = [emp for emp, _ in added_employees]
+                ExcelImportService._create_planning_entries_for_employees(new_employees_only)
             
             print(f"Import complete: {len(added_employees)} added, {len(updated_employees)} updated, {len(removed_employees)} removed")
             
             return {
-                'added': added_employees,
-                'updated': updated_employees,
+                'added': [emp for emp, _ in added_employees],
+                'updated': [emp for emp, _ in updated_employees],
                 'removed': removed_employees
             }
 
@@ -1060,19 +1080,33 @@ class ExcelImportService:
                 # Calculate date from calendar week and weekday
                 route_date = date.fromisocalendar(current_year, route.calendar_week, iso_weekday)
                 
-                # Find matching AW assignment
-                assignment = OnCallAssignment.query.filter(
-                    OnCallAssignment.duty_type == 'aw_nursing',
-                    OnCallAssignment.area == assignment_area,
-                    OnCallAssignment.date == route_date,
-                    OnCallAssignment.calendar_week == route.calendar_week
+                # Find matching AW assignment using new model structure
+                # AW = category="AW", role="NURSING", time_of_day="NONE"
+                shift_def = ShiftDefinition.query.filter_by(
+                    category='AW',
+                    role='NURSING',
+                    area=assignment_area,
+                    time_of_day='NONE'
                 ).first()
                 
-                if assignment:
-                    route.employee_id = assignment.employee_id
-                    route.updated_at = datetime.utcnow()
-                    updated_count += 1
-                    print(f"    Updated route for area {route.area} on {route.weekday} (KW {route.calendar_week}) with employee_id {assignment.employee_id}")
+                if shift_def:
+                    # Find shift instance for this date
+                    shift_instance = ShiftInstance.query.filter_by(
+                        shift_definition_id=shift_def.id,
+                        date=route_date
+                    ).first()
+                    
+                    if shift_instance:
+                        # Find assignment for this shift instance
+                        assignment = Assignment.query.filter_by(
+                            shift_instance_id=shift_instance.id
+                        ).first()
+                        
+                        if assignment:
+                            route.employee_id = assignment.employee_id
+                            route.updated_at = datetime.utcnow()
+                            updated_count += 1
+                            print(f"    Updated route for area {route.area} on {route.weekday} (KW {route.calendar_week}) with employee_id {assignment.employee_id}")
             except Exception as e:
                 print(f"    Error updating route {route.id} for area {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
                 continue

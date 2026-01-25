@@ -26,12 +26,7 @@ export interface Employee {
     work_hours: number;
     area: Area;
     alias?: string;
-    oncall_nursing_weekday?: number;
-    // Neue gemeinsame Kapazität für Wochenende (Tag + Nacht zusammen)
-    oncall_nursing_weekend?: number;
-    oncall_doctors_weekday?: number;
-    oncall_doctors_weekend?: number;
-    weekend_services_nursing?: number;
+    // Old capacity fields removed - now managed via EmployeeCapacity model
     created_at?: string;
     updated_at?: string;
 }
@@ -125,60 +120,60 @@ export type DutyType =
 
 export type OnCallArea = 'Nord' | 'Süd' | 'Mitte';
 
-export interface OnCallAssignment {
-    id?: number;
-    employee_id: number;
-    date: string;  // ISO date string (YYYY-MM-DD)
-    duty_type: DutyType;
-    area?: OnCallArea;
-    calendar_week?: number;
-    created_at?: string;
-    updated_at?: string;
-    employee?: Employee;  // Populated when fetched with employee details
+// New scheduling models
+export type ShiftCategory = 'RB_WEEKDAY' | 'RB_WEEKEND' | 'AW';
+export type ShiftRole = 'NURSING' | 'DOCTOR';
+export type ShiftTimeOfDay = 'DAY' | 'NIGHT' | 'NONE';
+export type ShiftArea = 'Nord' | 'Süd' | 'Mitte';
+export type CapacityType = 'RB_NURSING_WEEKDAY' | 'RB_NURSING_WEEKEND' | 'RB_DOCTORS_WEEKDAY' | 'RB_DOCTORS_WEEKEND' | 'AW_NURSING';
+export type AssignmentSource = 'SOLVER' | 'MANUAL';
+
+export interface ShiftDefinition {
+    id: number;
+    category: ShiftCategory;
+    role: ShiftRole;
+    area: ShiftArea;
+    time_of_day: ShiftTimeOfDay;
+    is_weekday: boolean;
+    is_weekend: boolean;
 }
 
-export interface OnCallAssignmentFormData extends Omit<OnCallAssignment, 'id' | 'created_at' | 'updated_at' | 'employee' | 'calendar_week'> {
+export interface ShiftInstance {
+    id: number;
+    date: string;  // ISO date string (YYYY-MM-DD)
+    calendar_week: number;
+    month: string;  // Format: "YYYY-MM"
+    shift_definition_id: number;
+    shift_definition?: ShiftDefinition;  // Populated when fetched with details
 }
 
 export interface EmployeeCapacity {
+    id: number;
     employee_id: number;
-    employee_name: string;
-    month: number;
-    year: number;
-    capacities: {
-        rb_nursing_weekday: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-        // Gemeinsame Kapazität für RB Pflege Wochenende (Tag + Nacht zusammen)
-        rb_nursing_weekend: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-        rb_doctors_weekday: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-        rb_doctors_weekend: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-        aw_nursing: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-        // Optional für zukünftige Erweiterungen / Backwards-Kompatibilität:
-        // Falls das Backend zusätzliche Kapazitäts-Typen liefert, sollen diese
-        // hier nicht zu Typfehlern führen.
-        [key: string]: {
-            limit: number;
-            assigned: number;
-            remaining: number;
-        };
-    };
+    capacity_type: CapacityType;
+    max_count: number;
+    assigned: number;  // Calculated from assignments (for a specific month)
+    remaining: number;  // Calculated: max_count - assigned
+    employee?: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        function: string;
+    };  // Populated when fetched with employee details
+}
+
+export interface Assignment {
+    id: number;
+    employee_id: number;
+    shift_instance_id: number;
+    source: AssignmentSource;
+    employee?: {
+        id: number;
+        first_name: string;
+        last_name: string;
+        function: string;
+        area: Area;
+    };  // Populated when fetched with employee details
+    shift_instance?: ShiftInstance;  // Populated when fetched with details
+    shift_definition?: ShiftDefinition;  // Populated when shift_instance is included
 } 

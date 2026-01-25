@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Chip, Avatar } from '@mui/material';
-import { Employee, OnCallAssignment } from '../../../types/models';
+import { Employee, Assignment } from '../../../types/models';
 import { EmployeeTableCell } from './EmployeeTableCell';
 import { employeeTypeColors } from '../../../utils/colors';
 import { isWeekend } from '../../../utils/oncall/dateUtils';
@@ -8,7 +8,7 @@ import { isWeekend } from '../../../utils/oncall/dateUtils';
 interface EmployeeTableRowProps {
   employee: Employee;
   dates: Date[];
-  assignments: OnCallAssignment[];
+  assignments: Assignment[];
   onCellClick: (date: Date) => void;
 }
 

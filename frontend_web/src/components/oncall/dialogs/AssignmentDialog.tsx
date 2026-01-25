@@ -16,7 +16,7 @@ import {
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
 } from '@mui/icons-material';
-import { DutyType, OnCallArea, Employee, OnCallAssignment, EmployeeCapacity } from '../../../types/models';
+import { DutyType, OnCallArea, Employee, Assignment, EmployeeCapacity, ShiftDefinition } from '../../../types/models';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../../utils/oncall/constants';
 import { getDutyColor } from '../../../utils/oncall/colorUtils';
 import { employeeTypeColors } from '../../../utils/colors';
@@ -25,9 +25,10 @@ interface AssignmentDialogProps {
   open: boolean;
   selectedDate: Date | null;
   selectedDuty: { type: DutyType; area?: OnCallArea } | null;
-  assignment: OnCallAssignment | undefined;
+  assignment: Assignment | undefined;
   availableEmployees: Employee[];
-  allEmployeesCapacity?: { month: number; year: number; capacities: Record<number, EmployeeCapacity> };
+  employeeCapacities?: EmployeeCapacity[];
+  shiftDefinitions: ShiftDefinition[];
   onClose: () => void;
   onEmployeeChange: (employeeId: number | '') => void;
 }
@@ -38,7 +39,8 @@ export const AssignmentDialog: React.FC<AssignmentDialogProps> = ({
   selectedDuty,
   assignment,
   availableEmployees,
-  allEmployeesCapacity,
+  employeeCapacities = [],
+  shiftDefinitions,
   onClose,
   onEmployeeChange,
 }) => {
@@ -121,18 +123,35 @@ export const AssignmentDialog: React.FC<AssignmentDialogProps> = ({
 
   // Get remaining capacity for an employee for this duty type
   const getRemainingCapacity = (employeeId: number): number => {
-    if (!allEmployeesCapacity || !allEmployeesCapacity.capacities) return -1;
-    const capacity = allEmployeesCapacity.capacities[employeeId];
-    if (!capacity?.capacities) return -1;
+    if (!employeeCapacities || employeeCapacities.length === 0) return -1;
     
-    // Für RB Pflege Wochenende Tag/Nacht wird eine gemeinsame Kapazität verwendet.
-    let capacityKey: DutyType | 'rb_nursing_weekend' = selectedDuty.type;
-    if (selectedDuty.type === 'rb_nursing_weekend_day' || selectedDuty.type === 'rb_nursing_weekend_night') {
-      capacityKey = 'rb_nursing_weekend';
+    // Find capacity for this employee
+    const employeeCapacity = employeeCapacities.find(cap => cap.employee_id === employeeId);
+    if (!employeeCapacity) return -1;
+    
+    // Map duty type to capacity type
+    let capacityType: string;
+    if (selectedDuty.type === 'rb_nursing_weekday') {
+      capacityType = 'RB_NURSING_WEEKDAY';
+    } else if (selectedDuty.type === 'rb_nursing_weekend_day' || selectedDuty.type === 'rb_nursing_weekend_night') {
+      capacityType = 'RB_NURSING_WEEKEND';
+    } else if (selectedDuty.type === 'rb_doctors_weekday') {
+      capacityType = 'RB_DOCTORS_WEEKDAY';
+    } else if (selectedDuty.type === 'rb_doctors_weekend') {
+      capacityType = 'RB_DOCTORS_WEEKEND';
+    } else if (selectedDuty.type === 'aw_nursing') {
+      capacityType = 'AW_NURSING';
+    } else {
+      return -1;
     }
-
-    const dutyCapacity = capacity.capacities[capacityKey];
-    return dutyCapacity?.remaining ?? -1;
+    
+    // Find matching capacity entry
+    const matchingCapacity = employeeCapacities.find(
+      cap => cap.employee_id === employeeId && cap.capacity_type === capacityType
+    );
+    
+    // Return remaining count from backend (already calculated)
+    return matchingCapacity?.remaining ?? -1;
   };
 
   // Get function info for chip

@@ -1,13 +1,14 @@
 import React, { useCallback, useMemo } from 'react';
 import { Box, Typography, Chip, Tooltip, Divider } from '@mui/material';
-import { OnCallAssignment, DutyType, OnCallArea } from '../../../types/models';
+import { Assignment, DutyType, OnCallArea } from '../../../types/models';
 import { formatDate, isWeekend } from '../../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../../utils/oncall/constants';
 import { getDutyColor } from '../../../utils/oncall/colorUtils';
+import { shiftDefinitionToDutyType } from '../../../utils/oncall/shiftMapping';
 
 interface DemandRowProps {
   dates: Date[];
-  assignments: OnCallAssignment[];
+  assignments: Assignment[];
   viewMode: 'month' | 'week';
   gridTemplateColumns: string;
   employeeColumnWidth: number;
@@ -25,9 +26,12 @@ export const DemandRow: React.FC<DemandRowProps> = ({
   // Check if a duty is assigned for a specific date
   const isDutyAssigned = useCallback((date: Date, dutyType: DutyType, area?: OnCallArea): boolean => {
     const dateStr = formatDate(date);
-    return assignments.some(
-      (a) => a.date === dateStr && a.duty_type === dutyType && a.area === area
-    );
+    return assignments.some((a) => {
+      if (!a.shift_instance || !a.shift_definition) return false;
+      if (a.shift_instance.date !== dateStr) return false;
+      const dutyMapping = shiftDefinitionToDutyType(a.shift_definition);
+      return dutyMapping?.dutyType === dutyType && dutyMapping?.area === area;
+    });
   }, [assignments]);
 
 

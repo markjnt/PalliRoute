@@ -11,7 +11,7 @@ import {
 import {
   Close as CloseIcon,
 } from '@mui/icons-material';
-import { Employee } from '../../../types/models';
+import { Employee, EmployeeCapacity } from '../../../types/models';
 import { CapacityOverview } from '../capacity/CapacityOverview';
 import { formatMonthYear } from '../../../utils/oncall/dateUtils';
 import { employeeTypeColors } from '../../../utils/colors';
@@ -21,6 +21,7 @@ type FilterType = 'all' | 'pflege' | 'arzt';
 interface CapacityOverviewDialogProps {
   open: boolean;
   employees: Employee[];
+  employeeCapacities: EmployeeCapacity[];
   currentDate: Date;
   onClose: () => void;
 }
@@ -28,6 +29,7 @@ interface CapacityOverviewDialogProps {
 export const CapacityOverviewDialog: React.FC<CapacityOverviewDialogProps> = ({
   open,
   employees,
+  employeeCapacities,
   currentDate,
   onClose,
 }) => {
@@ -173,7 +175,7 @@ export const CapacityOverviewDialog: React.FC<CapacityOverviewDialogProps> = ({
           pb: 3,
         }}
       >
-        <CapacityOverview employees={employees} currentDate={currentDate} activeFilter={activeFilter} />
+        <CapacityOverview employees={employees} employeeCapacities={employeeCapacities} currentDate={currentDate} activeFilter={activeFilter} />
       </DialogContent>
     </Dialog>
   );

@@ -3,17 +3,18 @@ import { Box, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { useOnCallPlanningStore } from '../../stores/useOnCallPlanningStore';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import {
-  useOnCallAssignments,
-  useCreateOnCallAssignment,
-  useUpdateOnCallAssignment,
-  useDeleteOnCallAssignment,
-  useAllEmployeesCapacity,
+  useAssignments,
+  useCreateAssignment,
+  useUpdateAssignment,
+  useDeleteAssignment,
+  useEmployeeCapacities,
   useAutoPlan,
   useResetPlanning,
-} from '../../services/queries/useOnCallAssignments';
+  useShiftDefinitions,
+} from '../../services/queries/useScheduling';
 import { useEmployees } from '../../services/queries/useEmployees';
-import { OnCallAssignment, DutyType, OnCallArea, Employee } from '../../types/models';
-import { OnCallAssignmentsQueryParams } from '../../services/api/oncallAssignments';
+import { Assignment, DutyType, OnCallArea, Employee, ShiftDefinition, AssignmentSource } from '../../types/models';
+import { AssignmentsQueryParams, CreateAssignmentData } from '../../services/api/scheduling';
 import { CalendarHeader } from './calendar/CalendarHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
 import { AssignmentDialog } from './dialogs/AssignmentDialog';
@@ -23,6 +24,7 @@ import { EmployeeTable } from './table/EmployeeTable';
 import { formatDate, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
 import { isWeekend } from '../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../utils/oncall/constants';
+import { findShiftDefinition, shiftDefinitionToDutyType } from '../../utils/oncall/shiftMapping';
 import type { AutoPlanningSettings } from './dialogs/AutoPlanningDialog';
 
 export const OnCallPlanningView: React.FC = () => {
@@ -51,28 +53,40 @@ export const OnCallPlanningView: React.FC = () => {
   }, [displayDates]);
 
   // Build query params
-  const queryParams: OnCallAssignmentsQueryParams = useMemo(() => {
+  const queryParams: AssignmentsQueryParams = useMemo(() => {
     if (actualDates.length === 0) return {};
     const startDate = formatDate(actualDates[0]);
     const endDate = formatDate(actualDates[actualDates.length - 1]);
     return { start_date: startDate, end_date: endDate };
   }, [actualDates]);
 
+  // Fetch shift definitions (needed for mapping)
+  const { data: shiftDefinitions = [], isLoading: shiftDefinitionsLoading } = useShiftDefinitions();
+  
   // Fetch data
-  const { data: assignments = [], isLoading: assignmentsLoading } = useOnCallAssignments(queryParams);
+  const { data: assignments = [], isLoading: assignmentsLoading } = useAssignments(queryParams);
   const { data: employees = [], isLoading: employeesLoading } = useEmployees();
-  const { data: allEmployeesCapacity } = useAllEmployeesCapacity(currentDate.getMonth() + 1, currentDate.getFullYear());
-  const createAssignment = useCreateOnCallAssignment();
-  const updateAssignment = useUpdateOnCallAssignment();
-  const deleteAssignment = useDeleteOnCallAssignment();
+  
+  // Fetch employee capacities (month parameter is optional, used for calculating assigned/remaining)
+  const monthString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  const { data: employeeCapacities = [] } = useEmployeeCapacities({ month: monthString });
+  
+  const createAssignment = useCreateAssignment();
+  const updateAssignment = useUpdateAssignment();
+  const deleteAssignment = useDeleteAssignment();
   const autoPlan = useAutoPlan();
   const resetPlanning = useResetPlanning();
 
-  // Create a map of assignments by date and duty
+  // Create a map of assignments by date, shift definition (via duty type + area)
   const assignmentsMap = useMemo(() => {
-    const map = new Map<string, OnCallAssignment>();
+    const map = new Map<string, Assignment>();
     assignments.forEach((assignment) => {
-      const key = `${assignment.date}_${assignment.duty_type}_${assignment.area || ''}`;
+      if (!assignment.shift_definition || !assignment.shift_instance) return;
+      
+      const dutyTypeMapping = shiftDefinitionToDutyType(assignment.shift_definition);
+      if (!dutyTypeMapping) return;
+      
+      const key = `${assignment.shift_instance.date}_${dutyTypeMapping.dutyType}_${dutyTypeMapping.area || ''}`;
       map.set(key, assignment);
     });
     return map;
@@ -80,7 +94,7 @@ export const OnCallPlanningView: React.FC = () => {
 
   // Get assignment for a specific date, duty type, and area
   const getAssignment = useCallback(
-    (date: Date, dutyType: DutyType, area?: OnCallArea): OnCallAssignment | undefined => {
+    (date: Date, dutyType: DutyType, area?: OnCallArea): Assignment | undefined => {
       const key = `${formatDate(date)}_${dutyType}_${area || ''}`;
       return assignmentsMap.get(key);
     },
@@ -115,7 +129,7 @@ export const OnCallPlanningView: React.FC = () => {
   // Handle employee selection
   const handleEmployeeChange = useCallback(
     async (employeeId: number | '') => {
-      if (!selectedDate || !selectedDuty) return;
+      if (!selectedDate || !selectedDuty || shiftDefinitions.length === 0) return;
 
       const dateStr = formatDate(selectedDate);
       const existing = getAssignment(selectedDate, selectedDuty.type, selectedDuty.area);
@@ -130,16 +144,23 @@ export const OnCallPlanningView: React.FC = () => {
           // Update existing
           await updateAssignment.mutateAsync({
             id: existing.id,
-            assignmentData: { employee_id: employeeId as number },
+            data: { employee_id: employeeId as number },
           });
         } else {
-          // Create new
+          // Create new - find shift definition first
+          const shiftDef = findShiftDefinition(shiftDefinitions, selectedDuty.type, selectedDuty.area || 'Nord');
+          if (!shiftDef) {
+            setNotification('Schicht-Definition nicht gefunden', 'error');
+            return;
+          }
+          
+          // Use type assertion for union type (second option)
           await createAssignment.mutateAsync({
-            employee_id: employeeId as number,
+            shift_definition_id: shiftDef.id,
             date: dateStr,
-            duty_type: selectedDuty.type,
-            area: selectedDuty.area,
-          });
+            employee_id: employeeId as number,
+            source: 'MANUAL',
+          } as Extract<CreateAssignmentData, { shift_definition_id: number }>);
         }
       }
 
@@ -147,7 +168,7 @@ export const OnCallPlanningView: React.FC = () => {
       setSelectedDate(null);
       setSelectedDuty(null);
     },
-    [selectedDate, selectedDuty, getAssignment, createAssignment, updateAssignment, deleteAssignment]
+    [selectedDate, selectedDuty, getAssignment, createAssignment, updateAssignment, deleteAssignment, shiftDefinitions, setNotification]
   );
 
   const handleDialogClose = useCallback(() => {
@@ -167,11 +188,11 @@ export const OnCallPlanningView: React.FC = () => {
       const endDate = formatDate(lastDayOfMonth);
       
       await autoPlan.mutateAsync({
+        start_date: startDate,
+        end_date: endDate,
         existing_assignments_handling: settings.existingAssignmentsHandling,
         allow_overplanning: settings.allowOverplanning,
         include_aplano: settings.includeAplano,
-        start_date: startDate,
-        end_date: endDate,
       });
       
       // Show success notification
@@ -190,6 +211,7 @@ export const OnCallPlanningView: React.FC = () => {
     }
   }, [currentDate, autoPlan, setNotification]);
 
+  // Reset planning for a date range
   const handleResetPlanning = useCallback(async () => {
     try {
       // Calculate month range (same as planning)
@@ -227,9 +249,21 @@ export const OnCallPlanningView: React.FC = () => {
       duty_type: DutyType;
       area?: OnCallArea;
     }) => {
-      await createAssignment.mutateAsync(data);
+      const shiftDef = findShiftDefinition(shiftDefinitions, data.duty_type, data.area || 'Nord');
+      if (!shiftDef) {
+        setNotification('Schicht-Definition nicht gefunden', 'error');
+        return;
+      }
+      
+      // Use type assertion for union type (second option)
+      await createAssignment.mutateAsync({
+        shift_definition_id: shiftDef.id,
+        date: data.date,
+        employee_id: data.employee_id,
+        source: 'MANUAL',
+      } as Extract<CreateAssignmentData, { shift_definition_id: number }>);
     },
-    [createAssignment]
+    [createAssignment, shiftDefinitions, setNotification]
   );
 
   const handleUpdateAssignment = useCallback(
@@ -237,7 +271,10 @@ export const OnCallPlanningView: React.FC = () => {
       id: number;
       assignmentData: { employee_id: number };
     }) => {
-      await updateAssignment.mutateAsync(data);
+      await updateAssignment.mutateAsync({
+        id: data.id,
+        data: { employee_id: data.assignmentData.employee_id },
+      });
     },
     [updateAssignment]
   );
@@ -249,7 +286,7 @@ export const OnCallPlanningView: React.FC = () => {
     [deleteAssignment]
   );
 
-  if (assignmentsLoading || employeesLoading) {
+  if (assignmentsLoading || employeesLoading || shiftDefinitionsLoading) {
     return (
       <Box
         sx={{
@@ -317,7 +354,8 @@ export const OnCallPlanningView: React.FC = () => {
               selectedDuty={selectedDuty}
               assignment={currentAssignment}
               availableEmployees={availableEmployees}
-              allEmployeesCapacity={allEmployeesCapacity}
+              employeeCapacities={employeeCapacities}
+              shiftDefinitions={shiftDefinitions}
               onClose={handleDialogClose}
               onEmployeeChange={handleEmployeeChange}
             />
@@ -338,7 +376,8 @@ export const OnCallPlanningView: React.FC = () => {
               dates={actualDates}
               assignments={assignments}
               viewMode={viewMode}
-              allEmployeesCapacity={allEmployeesCapacity}
+              employeeCapacities={employeeCapacities}
+              shiftDefinitions={shiftDefinitions}
               onCreateAssignment={handleCreateAssignment}
               onUpdateAssignment={handleUpdateAssignment}
               onDeleteAssignment={handleDeleteAssignment}
@@ -349,6 +388,7 @@ export const OnCallPlanningView: React.FC = () => {
         <CapacityOverviewDialog
           open={capacityDialogOpen}
           employees={employees}
+          employeeCapacities={employeeCapacities}
           currentDate={currentDate}
           onClose={() => setCapacityDialogOpen(false)}
         />

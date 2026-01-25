@@ -1,15 +1,16 @@
 import React, { useMemo } from 'react';
 import { Box, Typography, Chip, Tooltip } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
-import { OnCallAssignment, DutyType, OnCallArea } from '../../../types/models';
+import { Assignment, DutyType, OnCallArea } from '../../../types/models';
 import { getDutyColor } from '../../../utils/oncall/colorUtils';
 import { isWeekend, isToday, formatDate } from '../../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../../utils/oncall/constants';
+import { shiftDefinitionToDutyType } from '../../../utils/oncall/shiftMapping';
 
 interface EmployeeTableCellProps {
   date: Date;
   employeeId: number;
-  assignments: OnCallAssignment[];
+  assignments: Assignment[];
   onClick: () => void;
 }
 
@@ -26,16 +27,22 @@ export const EmployeeTableCell: React.FC<EmployeeTableCellProps> = ({
   // Filter assignments for this employee and date
   const employeeAssignments = useMemo(() => {
     const dateStr = formatDate(date);
-    return assignments.filter(
-      (assignment) => assignment.employee_id === employeeId && assignment.date === dateStr
-    );
+    return assignments.filter((assignment) => {
+      if (!assignment.shift_instance || assignment.employee_id !== employeeId) {
+        return false;
+      }
+      return assignment.shift_instance.date === dateStr;
+    });
   }, [assignments, employeeId, date]);
 
   // Group assignments by duty
   const dutyAssignments = useMemo(() => {
-    const map = new Map<string, OnCallAssignment>();
+    const map = new Map<string, Assignment>();
     employeeAssignments.forEach((assignment) => {
-      const key = `${assignment.duty_type}_${assignment.area || ''}`;
+      if (!assignment.shift_definition) return;
+      const dutyMapping = shiftDefinitionToDutyType(assignment.shift_definition);
+      if (!dutyMapping) return;
+      const key = `${dutyMapping.dutyType}_${dutyMapping.area || ''}`;
       map.set(key, assignment);
     });
     return map;

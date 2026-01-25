@@ -7,12 +7,12 @@ import {
   WbSunny as DayIcon,
   Nightlight as NightIcon,
 } from '@mui/icons-material';
-import { OnCallAssignment, DutyType } from '../../../types/models';
+import { Assignment, DutyType } from '../../../types/models';
 import { getDutyColor } from '../../../utils/oncall/colorUtils';
 
 interface DutyChipProps {
   duty: { type: DutyType; label: string; area?: string; shortLabel: string };
-  assignment?: OnCallAssignment;
+  assignment?: Assignment;
   onClick: () => void;
 }
 

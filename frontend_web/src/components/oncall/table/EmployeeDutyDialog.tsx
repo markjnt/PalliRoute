@@ -12,17 +12,18 @@ import {
 import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { DutyType, OnCallArea, Employee, OnCallAssignment, EmployeeCapacity } from '../../../types/models';
+import { DutyType, OnCallArea, Employee, Assignment, EmployeeCapacity } from '../../../types/models';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../../utils/oncall/constants';
 import { getDutyColor } from '../../../utils/oncall/colorUtils';
 import { isWeekend } from '../../../utils/oncall/dateUtils';
+import { shiftDefinitionToDutyType } from '../../../utils/oncall/shiftMapping';
 
 interface EmployeeDutyDialogProps {
   open: boolean;
   employee: Employee | null;
   date: Date | null;
-  assignments: OnCallAssignment[];
-  allEmployeesCapacity?: { month: number; year: number; capacities: Record<number, EmployeeCapacity> };
+  assignments: Assignment[];
+  employeeCapacities?: EmployeeCapacity[];
   onClose: () => void;
   onDutyToggle: (dutyType: DutyType, area?: OnCallArea) => void;
 }
@@ -32,7 +33,7 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
   employee,
   date,
   assignments,
-  allEmployeesCapacity,
+  employeeCapacities,
   onClose,
   onDutyToggle,
 }) => {
@@ -43,9 +44,12 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
 
   // Create a map of selected duties for quick lookup
   const selectedDutiesMap = useMemo(() => {
-    const map = new Map<string, OnCallAssignment>();
+    const map = new Map<string, Assignment>();
     assignments.forEach((assignment) => {
-      const key = `${assignment.duty_type}_${assignment.area || ''}`;
+      if (!assignment.shift_definition) return;
+      const dutyMapping = shiftDefinitionToDutyType(assignment.shift_definition);
+      if (!dutyMapping) return;
+      const key = `${dutyMapping.dutyType}_${dutyMapping.area || ''}`;
       map.set(key, assignment);
     });
     return map;
@@ -53,18 +57,30 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
 
   // Get remaining capacity for an employee for this duty type
   const getRemainingCapacity = (dutyType: DutyType): number => {
-    if (!allEmployeesCapacity || !allEmployeesCapacity.capacities || !employee?.id) return -1;
-    const capacity = allEmployeesCapacity.capacities[employee.id];
-    if (!capacity?.capacities) return -1;
+    if (!employeeCapacities || !employee?.id) return -1;
     
-    // Für RB Pflege Wochenende Tag/Nacht wird eine gemeinsame Kapazität verwendet.
-    let capacityKey: DutyType | 'rb_nursing_weekend' = dutyType;
-    if (dutyType === 'rb_nursing_weekend_day' || dutyType === 'rb_nursing_weekend_night') {
-      capacityKey = 'rb_nursing_weekend';
+    // Map duty type to capacity type
+    let capacityType: string;
+    if (dutyType === 'rb_nursing_weekday') {
+      capacityType = 'RB_NURSING_WEEKDAY';
+    } else if (dutyType === 'rb_nursing_weekend_day' || dutyType === 'rb_nursing_weekend_night') {
+      capacityType = 'RB_NURSING_WEEKEND';
+    } else if (dutyType === 'rb_doctors_weekday') {
+      capacityType = 'RB_DOCTORS_WEEKDAY';
+    } else if (dutyType === 'rb_doctors_weekend') {
+      capacityType = 'RB_DOCTORS_WEEKEND';
+    } else if (dutyType === 'aw_nursing') {
+      capacityType = 'AW_NURSING';
+    } else {
+      return -1;
     }
-
-    const dutyCapacity = capacity.capacities[capacityKey];
-    return dutyCapacity?.remaining ?? -1;
+    
+    const matchingCapacity = employeeCapacities.find(
+      cap => cap.employee_id === employee.id && cap.capacity_type === capacityType
+    );
+    
+    // Return remaining count from backend (already calculated)
+    return matchingCapacity?.remaining ?? -1;
   };
 
   const handleDutyToggle = (dutyType: DutyType, area?: OnCallArea) => {

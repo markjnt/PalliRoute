@@ -23,7 +23,7 @@ export interface AutoPlanningSettings {
   existingAssignmentsHandling: 'overwrite' | 'respect';
   // Constraints
   allowOverplanning: boolean;
-  includeAplano: boolean;
+  includeAplano: boolean; // Include Aplano sync before planning
 }
 
 interface AutoPlanningDialogProps {

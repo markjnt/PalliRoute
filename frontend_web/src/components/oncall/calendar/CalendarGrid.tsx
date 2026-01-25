@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
-import { OnCallAssignment, DutyType, OnCallArea } from '../../../types/models';
+import { Assignment, DutyType, OnCallArea } from '../../../types/models';
 import { getCalendarDays, getWeekDays, isWeekend, formatDate, getCalendarWeek } from '../../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES, WEEK_DAYS } from '../../../utils/oncall/constants';
 import { CalendarDay } from './CalendarDay';
@@ -8,7 +8,7 @@ import { CalendarDay } from './CalendarDay';
 interface CalendarGridProps {
   viewMode: 'month' | 'week';
   currentDate: Date;
-  assignmentsMap: Map<string, OnCallAssignment>;
+  assignmentsMap: Map<string, Assignment>;
   onDutyClick: (date: Date, duty: { type: DutyType; area?: OnCallArea }) => void;
 }
 
