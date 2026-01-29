@@ -12,7 +12,8 @@ interface DemandRowProps {
   viewMode: 'month' | 'week';
   gridTemplateColumns: string;
   employeeColumnWidth: number;
-  stickyTop: number;
+  /** Wenn gesetzt: eigene sticky-Position. Wenn nicht gesetzt: Teil eines übergeordneten Sticky-Blocks. */
+  stickyTop?: number;
 }
 
 export const DemandRow: React.FC<DemandRowProps> = ({
@@ -23,6 +24,7 @@ export const DemandRow: React.FC<DemandRowProps> = ({
   employeeColumnWidth,
   stickyTop,
 }) => {
+  const isSticky = stickyTop !== undefined;
   // Check if a duty is assigned for a specific date
   const isDutyAssigned = useCallback((date: Date, dutyType: DutyType, area?: OnCallArea): boolean => {
     const dateStr = formatDate(date);
@@ -40,16 +42,18 @@ export const DemandRow: React.FC<DemandRowProps> = ({
       sx={{
         display: 'grid',
         gridTemplateColumns,
-        position: 'sticky',
-        top: stickyTop,
+        ...(isSticky && {
+          position: 'sticky' as const,
+          top: stickyTop,
+          zIndex: 1,
+        }),
         backgroundColor: 'background.paper',
-        zIndex: 1,
         minWidth: 'fit-content',
         borderBottom: '1px solid',
         borderColor: 'divider',
       }}
     >
-      {/* Employee column header for Bedarf */}
+      {/* Employee column header for Bedarf – sticky links, fester Hintergrund */}
       <Box
         sx={{
           px: viewMode === 'month' ? 1 : 1.5,
@@ -57,9 +61,10 @@ export const DemandRow: React.FC<DemandRowProps> = ({
           position: 'sticky',
           left: 0,
           backgroundColor: 'background.paper',
-          zIndex: 3,
+          zIndex: 2,
           borderRight: '1px solid',
           borderColor: 'divider',
+          boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
           display: 'flex',
           alignItems: 'center',
         }}

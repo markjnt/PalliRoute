@@ -179,34 +179,33 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   // Use 1fr for all columns to distribute space evenly, with fixed employee column
   const employeeColumnWidth = viewMode === 'month' ? 180 : 250;
   const gridTemplateColumns = `${employeeColumnWidth}px repeat(${dates.length}, 1fr)`;
-  
-  // Calculate sticky top position for demand row (below header)
-  // Same spacing for both views
-  const demandRowStickyTop = 60;
 
   return (
-    <Box 
-      sx={{ 
-        width: '100%',
-        maxWidth: '100%',
-        overflowX: 'auto',
-      }}
-    >
-      {/* Header */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns,
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'background.paper',
-          zIndex: 2,
-          minWidth: 'fit-content',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        {/* Employee column header */}
+    <Box sx={{ width: '100%', height: '100%' }}>
+      {/* Wie WeeklyPlanningTable: ein Sticky-Block für Wochentage + Demand Row; Scroll ist im OnCallPlanningView-Container */}
+      <Box sx={{ minWidth: 'fit-content' }}>
+        {/* Sticky-Header: Header-Zeile + Bedarfszeile gemeinsam, top: 0 – dann scrollt nichts davon */}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2,
+            backgroundColor: 'background.paper',
+          }}
+        >
+          {/* Zeile 1: Wochentage / Mitarbeiter-Header */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns,
+              minWidth: 'fit-content',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+        {/* Employee column header – sticky links */}
         <Box
           sx={{
             px: viewMode === 'month' ? 1 : 1.5,
@@ -217,6 +216,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
             zIndex: 3,
             borderRight: '1px solid',
             borderColor: 'divider',
+            boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
           }}
         >
           <Typography
@@ -330,29 +330,30 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
             </Box>
           );
         })}
-      </Box>
+          </Box>
 
-      {/* Bedarfszeile */}
-      <DemandRow
-        dates={dates}
-        assignments={assignments}
-        viewMode={viewMode}
-        gridTemplateColumns={gridTemplateColumns}
-        employeeColumnWidth={employeeColumnWidth}
-        stickyTop={demandRowStickyTop}
-      />
-
-      {/* Table rows */}
-      <Box>
-        {sortedEmployees.map((employee) => (
-          <EmployeeTableRow
-            key={employee.id}
-            employee={employee}
+          {/* Zeile 2: Bedarf – Teil des Sticky-Blocks, kein eigenes sticky */}
+          <DemandRow
             dates={dates}
             assignments={assignments}
-            onCellClick={(date) => handleCellClick(employee, date)}
+            viewMode={viewMode}
+            gridTemplateColumns={gridTemplateColumns}
+            employeeColumnWidth={employeeColumnWidth}
           />
-        ))}
+        </Box>
+
+        {/* Table rows – nur diese scrollen */}
+        <Box>
+          {sortedEmployees.map((employee) => (
+            <EmployeeTableRow
+              key={employee.id}
+              employee={employee}
+              dates={dates}
+              assignments={assignments}
+              onCellClick={(date) => handleCellClick(employee, date)}
+            />
+          ))}
+        </Box>
       </Box>
 
       {/* Dialog */}

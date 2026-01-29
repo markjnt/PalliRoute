@@ -76,7 +76,7 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
         },
       }}
     >
-      {/* Employee info column */}
+      {/* Employee info column – sticky links, fester Hintergrund damit kein weißer Streifen neben Demand Row */}
       <Box
         sx={{
           display: 'flex',
@@ -90,6 +90,8 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
           zIndex: 1,
           borderRight: '1px solid',
           borderColor: 'divider',
+          boxShadow: '2px 0 4px rgba(0,0,0,0.06)',
+          minWidth: employeeColumnWidth,
         }}
       >
         <Avatar

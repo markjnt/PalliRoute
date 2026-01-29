@@ -73,14 +73,24 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
   if (viewMode === 'month') {
     return (
-      <Box>
-        {/* Weekday headers */}
+      <Box sx={{ width: '100%', pt: 3 }}>
+        {/* Weekday headers (sticky) – füllt Lücke nach oben ohne Position zu verschieben */}
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: 'auto repeat(7, 1fr)',
             gap: 1,
             mb: 1,
+            position: 'sticky',
+            top: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
+            backgroundColor: 'background.paper',
+            zIndex: 2,
+            py: 0.5,
+            mt: -3,
+            pt: 3,
           }}
         >
           {/* Empty cell for KW column */}
@@ -174,16 +184,26 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     );
   }
 
-  // Week view (unchanged)
+  // Week view
   return (
-    <Box>
-      {/* Weekday headers */}
+    <Box sx={{ width: '100%', pt: 3 }}>
+      {/* Weekday headers (sticky) – füllt Lücke nach oben ohne Position zu verschieben */}
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
           gap: 1,
           mb: 1,
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          right: 0,
+          width: '100%',
+          backgroundColor: 'background.paper',
+          zIndex: 2,
+          py: 0.5,
+          mt: -3,
+          pt: 3,
         }}
       >
         {WEEK_DAYS.map((day) => (

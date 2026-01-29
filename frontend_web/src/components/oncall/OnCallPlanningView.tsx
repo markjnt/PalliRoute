@@ -312,8 +312,10 @@ export const OnCallPlanningView: React.FC = () => {
   return (
     <Box
       sx={{
-        height: '100%',
-        overflow: 'auto',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
         backgroundColor: 'background.default',
       }}
     >
@@ -321,6 +323,10 @@ export const OnCallPlanningView: React.FC = () => {
         sx={{
           width: '100%',
           p: 4,
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0,
         }}
       >
         <CalendarHeader 
@@ -335,10 +341,15 @@ export const OnCallPlanningView: React.FC = () => {
               sx={{
                 backgroundColor: 'background.paper',
                 borderRadius: 3,
-                p: 3,
+                pt: 0,
+                px: 3,
+                pb: 3,
                 boxShadow: 'none',
                 border: '1px solid',
                 borderColor: 'divider',
+                flex: 1,
+                minHeight: 0,
+                overflow: 'auto',
               }}
             >
               <CalendarGrid
@@ -365,10 +376,15 @@ export const OnCallPlanningView: React.FC = () => {
             sx={{
               backgroundColor: 'background.paper',
               borderRadius: 3,
-              p: 3,
+              pt: 0,
+              px: 3,
+              pb: 3,
               boxShadow: 'none',
               border: '1px solid',
               borderColor: 'divider',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
             }}
           >
             <EmployeeTable
