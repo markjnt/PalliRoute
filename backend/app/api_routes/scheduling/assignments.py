@@ -362,12 +362,18 @@ def auto_plan():
         existing_handling = data.get('existing_assignments_handling', 'respect')
         allow_overplanning = data.get('allow_overplanning', False)
         include_aplano = data.get('include_aplano', False)
+        time_limit_seconds = data.get('time_limit_seconds')
         
         service = AutoPlanningService(
             existing_assignments_handling=existing_handling,
             allow_overplanning=allow_overplanning,
             include_aplano=include_aplano
         )
+        if time_limit_seconds is not None:
+            try:
+                service.time_limit_seconds = float(time_limit_seconds)
+            except (TypeError, ValueError):
+                pass
         
         result = service.plan(start_date, end_date)
         

@@ -11,6 +11,7 @@ import {
   useAutoPlan,
   useResetPlanning,
   useShiftDefinitions,
+  useGenerateShiftInstances,
 } from '../../services/queries/useScheduling';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { Assignment, DutyType, OnCallArea, Employee, ShiftDefinition, AssignmentSource } from '../../types/models';
@@ -75,6 +76,7 @@ export const OnCallPlanningView: React.FC = () => {
   const updateAssignment = useUpdateAssignment();
   const deleteAssignment = useDeleteAssignment();
   const autoPlan = useAutoPlan();
+  const generateShiftInstances = useGenerateShiftInstances();
   const resetPlanning = useResetPlanning();
 
   // Create a map of assignments by date, shift definition (via duty type + area)
@@ -186,7 +188,16 @@ export const OnCallPlanningView: React.FC = () => {
       const lastDayOfMonth = new Date(year, month + 1, 0);
       const startDate = formatDate(firstDayOfMonth);
       const endDate = formatDate(lastDayOfMonth);
-      
+      const monthParam = `${year}-${String(month + 1).padStart(2, '0')}`;
+      // Vormonat für W2/W3 (Wochenend-Rotation, Tag/Nacht-Wechsel)
+      const prevMonth = month === 0 ? 11 : month - 1;
+      const prevYear = month === 0 ? year - 1 : year;
+      const prevMonthParam = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}`;
+
+      // Zuerst Shift-Instanzen für Vormonat und Planungsmonat erzeugen (falls noch nicht vorhanden)
+      await generateShiftInstances.mutateAsync({ month: prevMonthParam });
+      await generateShiftInstances.mutateAsync({ month: monthParam });
+
       await autoPlan.mutateAsync({
         start_date: startDate,
         end_date: endDate,
@@ -194,22 +205,22 @@ export const OnCallPlanningView: React.FC = () => {
         allow_overplanning: settings.allowOverplanning,
         include_aplano: settings.includeAplano,
       });
-      
+
       // Show success notification
       setNotification('Automatische Planung erfolgreich abgeschlossen', 'success');
-      
+
       // Close dialog only after successful completion
       setAutoPlanningDialogOpen(false);
     } catch (error: any) {
       console.error('Failed to start auto planning:', error);
-      
+
       // Show error notification
       const errorMessage = error?.response?.data?.error || error?.message || 'Fehler bei der automatischen Planung';
       setNotification(errorMessage, 'error');
-      
+
       // Dialog stays open on error so user can retry
     }
-  }, [currentDate, autoPlan, setNotification]);
+  }, [currentDate, autoPlan, generateShiftInstances, setNotification]);
 
   // Reset planning for a date range
   const handleResetPlanning = useCallback(async () => {
