@@ -81,12 +81,17 @@ class PlanningContext:
     # employee_id -> e_idx, shift_instance_id -> s_idx
     employee_id_to_idx: Dict[int, int] = field(default_factory=dict)
     shift_id_to_idx: Dict[int, int] = field(default_factory=dict)
+    # (employee_id, date) pairs where employee is absent and must not be assigned
+    absent_dates: Set[Tuple[int, date]] = field(default_factory=set)
+    # employee_id -> Stundenkonto (hours balance); positive = overtime, negative = minus hours; missing/None = 0
+    time_account: Dict[int, float] = field(default_factory=dict)
 
 
 def load_planning_context(
     start_date: date,
     end_date: date,
     existing_assignments_handling: str,
+    absent_dates: Optional[Set[Tuple[int, date]]] = None,
 ) -> PlanningContext:
     """
     Load planning context for the given date range.
@@ -199,6 +204,13 @@ def load_planning_context(
             # Planungsmonat: nur bei RESPECT fixieren
             fixed_assignments.add((e_idx, s_idx))
 
+    # Stundenkonto pro planbarem Mitarbeiter (für weiche Berücksichtigung im Solver)
+    time_account: Dict[int, float] = {
+        emp.id: (float(emp.time_account) if emp.time_account is not None else 0.0)
+        for emp in all_employees
+        if emp.id in employee_id_to_idx
+    }
+
     ctx = PlanningContext(
         planning_month=planning_month,
         start_date=ctx_start,
@@ -211,5 +223,7 @@ def load_planning_context(
         fixed_assignments=fixed_assignments,
         employee_id_to_idx=employee_id_to_idx,
         shift_id_to_idx=shift_id_to_idx,
+        absent_dates=absent_dates if absent_dates is not None else set(),
+        time_account=time_account,
     )
     return ctx

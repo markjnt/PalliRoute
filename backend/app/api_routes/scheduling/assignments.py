@@ -1,8 +1,13 @@
+import re
+from io import BytesIO
+
+import pandas as pd
 from flask import request, jsonify
 from datetime import datetime, date
 from app import db
 from app.models.scheduling import Assignment, ShiftInstance, ShiftDefinition
 from app.models.employee import Employee
+from app.models.system_info import SystemInfo
 from . import scheduling_bp
 
 
@@ -329,6 +334,89 @@ def reset_planning():
             'deleted_count': deleted_count
         }), 200
     
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+def _parse_time_account_as_of_from_filename(filename):
+    """
+    Parse second date from filename like: Auswertung (29.01.2026 - 29.01.2026) 6d720
+    Returns ISO date string (YYYY-MM-DD) or None.
+    """
+    if not filename:
+        return None
+    # Match (DD.MM.YYYY - DD.MM.YYYY), take second date (groups 4,5,6)
+    m = re.search(r'\(\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*-\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*\)', filename)
+    if not m:
+        return None
+    d2, m2, y2 = int(m.group(4)), int(m.group(5)), int(m.group(6))
+    try:
+        dt = date(y2, m2, d2)
+        return dt.strftime('%Y-%m-%d')
+    except ValueError:
+        return None
+
+
+@scheduling_bp.route('/time-accounts-upload', methods=['POST'])
+def time_accounts_upload():
+    """
+    Upload Excel with columns 'Mitarbeiter' and 'Stundenkonto'.
+    Updates employee.time_account by matching full name; saves stand date from filename in system_info.
+    Filename example: Auswertung (29.01.2026 - 29.01.2026) 6d720 -> second date is used as time_account_as_of.
+    """
+    try:
+        file = request.files.get('file')
+        if not file or file.filename == '':
+            return jsonify({'error': 'Keine Datei ausgewählt'}), 400
+
+        filename = file.filename or ''
+        as_of = _parse_time_account_as_of_from_filename(filename)
+        if not as_of:
+            return jsonify({'error': 'Stand-Datum konnte nicht aus dem Dateinamen gelesen werden (Format: Auswertung (DD.MM.YYYY - DD.MM.YYYY) ...)'}), 400
+
+        buf = BytesIO(file.read())
+        df = pd.read_excel(buf, engine='openpyxl')
+        df.columns = [str(c).strip() for c in df.columns]
+
+        if 'Mitarbeiter' not in df.columns or 'Stundenkonto' not in df.columns:
+            return jsonify({
+                'error': "Excel muss die Spalten 'Mitarbeiter' und 'Stundenkonto' enthalten",
+                'columns': list(df.columns),
+            }), 400
+
+        employees = {f"{e.first_name} {e.last_name}": e for e in Employee.query.all()}
+        updated = 0
+        for _, row in df.iterrows():
+            name = str(row.get('Mitarbeiter', '')).strip()
+            if not name:
+                continue
+            emp = employees.get(name)
+            if not emp:
+                continue
+            val = row.get('Stundenkonto')
+            if pd.isna(val):
+                emp.time_account = None
+            else:
+                try:
+                    if isinstance(val, str):
+                        val = float(val.replace(',', '.').strip())
+                    else:
+                        val = float(val)
+                    emp.time_account = val
+                except (ValueError, TypeError):
+                    continue
+            updated += 1
+
+        SystemInfo.set_value('time_account_as_of', as_of)
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Stundenkonten aktualisiert',
+            'time_account_as_of': as_of,
+            'updated_count': updated,
+        }), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

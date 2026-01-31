@@ -22,6 +22,14 @@ def get_last_import_time():
         "last_import_time": last_import_time
     }), 200
 
+@bp.route('/time-account-as-of', methods=['GET'])
+@cross_origin()
+def get_time_account_as_of():
+    """Get the date of the current Stundenkonto stand (from last Excel upload)."""
+    value = SystemInfo.get_value('time_account_as_of')
+    return jsonify({'time_account_as_of': value}), 200
+
+
 @bp.route('/last-import-time', methods=['POST'])
 @cross_origin()
 def update_last_import_time():

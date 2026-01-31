@@ -103,6 +103,44 @@ def fetch_aplano_absences(calendar_week: int) -> List[Dict]:
         raise Exception(f"Error processing Aplano data: {str(e)}")
 
 
+def fetch_aplano_absences_for_month(month_start_date: date) -> List[Dict]:
+    """
+    Fetch absences from Aplano API for a given month (start date of month).
+
+    Args:
+        month_start_date: First day of the month (e.g. date(2025, 1, 1))
+
+    Returns:
+        List of absence dictionaries from Aplano API (user, startDate, endDate, type, status)
+
+    Raises:
+        Exception: If API request fails
+    """
+    if not Config.APLANO_API_KEY:
+        raise Exception("APLANO_API_KEY not configured")
+
+    month_str = month_start_date.strftime('%Y-%m-%d')
+    url = f"{Config.APLANO_API_BASE_URL}/absences"
+    params = {
+        'expand': 'true',
+        'month': month_str,
+    }
+    headers = {
+        'accept': 'application/json',
+        'Authorization': f'Bearer {Config.APLANO_API_KEY}',
+    }
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        return data.get('data', [])
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Aplano API request failed: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error processing Aplano data: {str(e)}")
+
+
 def match_employee_by_name(aplano_user_name: str, employees: List[Employee]) -> Optional[Employee]:
     """
     Match Aplano user name to Employee record by comparing full names

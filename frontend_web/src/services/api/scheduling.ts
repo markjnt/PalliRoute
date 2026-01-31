@@ -227,6 +227,14 @@ export const schedulingApi = {
         }
     },
 
+    // Upload Stundenkonto Excel (columns: Mitarbeiter, Stundenkonto); saves time_account on employees and stand date from filename
+    async uploadTimeAccounts(file: File): Promise<{ time_account_as_of: string; updated_count: number }> {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post('/scheduling/time-accounts-upload', formData);
+        return response.data;
+    },
+
     // Auto Plan
     async autoPlan(data: AutoPlanData): Promise<{ message: string; assignments_created?: number; total_planned?: number }> {
         try {

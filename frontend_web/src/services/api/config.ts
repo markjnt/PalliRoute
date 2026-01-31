@@ -20,5 +20,16 @@ export const configApi = {
             console.error('Failed to fetch last import time:', error);
             throw error;
         }
+    },
+
+    // Get Stundenkonto stand date (from last Excel upload)
+    async getTimeAccountAsOf(): Promise<{ time_account_as_of: string | null }> {
+        try {
+            const response = await api.get('/config/time-account-as-of');
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch time account as-of:', error);
+            throw error;
+        }
     }
 }; 

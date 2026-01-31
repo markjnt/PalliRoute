@@ -17,6 +17,7 @@ class Employee(db.Model):
     work_hours = db.Column(db.Float, nullable=False)  # Percentage of full-time (e.g., 100.0)
     area = db.Column(db.String(50), nullable=True)  # Area for employee
     alias = db.Column(db.String(500), nullable=True)  # Alias for employee
+    time_account = db.Column(db.Float, nullable=True)  # Stundenkonto (hours balance), e.g. +12.5 or -3.0
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -42,6 +43,7 @@ class Employee(db.Model):
             'work_hours': self.work_hours,
             'area': self.area,
             'alias': self.alias,
+            'time_account': self.time_account,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
@@ -60,4 +62,5 @@ class Employee(db.Model):
             work_hours=data.get('work_hours'),
             area=data.get('area'),
             alias=data.get('alias'),
+            time_account=data.get('time_account'),
         )

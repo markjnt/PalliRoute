@@ -15,7 +15,7 @@ import {
 } from '../../services/queries/useScheduling';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { Assignment, DutyType, OnCallArea, Employee, ShiftDefinition, AssignmentSource } from '../../types/models';
-import { AssignmentsQueryParams, CreateAssignmentData } from '../../services/api/scheduling';
+import { AssignmentsQueryParams, CreateAssignmentData, schedulingApi } from '../../services/api/scheduling';
 import { CalendarHeader } from './calendar/CalendarHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
 import { AssignmentDialog } from './dialogs/AssignmentDialog';
@@ -23,8 +23,6 @@ import { CapacityOverviewDialog } from './dialogs/CapacityOverviewDialog';
 import { AutoPlanningDialog } from './dialogs/AutoPlanningDialog';
 import { EmployeeTable } from './table/EmployeeTable';
 import { formatDate, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
-import { isWeekend } from '../../utils/oncall/dateUtils';
-import { WEEKDAY_DUTIES, WEEKEND_DUTIES } from '../../utils/oncall/constants';
 import { findShiftDefinition, shiftDefinitionToDutyType } from '../../utils/oncall/shiftMapping';
 import type { AutoPlanningSettings } from './dialogs/AutoPlanningDialog';
 
@@ -179,8 +177,13 @@ export const OnCallPlanningView: React.FC = () => {
     setSelectedDuty(null);
   }, []);
 
-  const handleAutoPlanningStart = useCallback(async (settings: AutoPlanningSettings) => {
+  const handleAutoPlanningStart = useCallback(async (settings: AutoPlanningSettings, timeAccountFile?: File | null) => {
     try {
+      // Optional: Upload Stundenkonto Excel first (writes time_account + stand date)
+      if (timeAccountFile) {
+        await schedulingApi.uploadTimeAccounts(timeAccountFile);
+      }
+
       // Always use the entire month of currentDate, regardless of view mode
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
@@ -198,13 +201,24 @@ export const OnCallPlanningView: React.FC = () => {
       await generateShiftInstances.mutateAsync({ month: prevMonthParam });
       await generateShiftInstances.mutateAsync({ month: monthParam });
 
-      await autoPlan.mutateAsync({
+      const result = await autoPlan.mutateAsync({
         start_date: startDate,
         end_date: endDate,
         existing_assignments_handling: settings.existingAssignmentsHandling,
         allow_overplanning: settings.allowOverplanning,
         include_aplano: settings.includeAplano,
       });
+
+      // Backend returns 200 with solver_status/error for business errors (e.g. Aplano unavailable)
+      const data = result as { solver_status?: string; error?: string; message?: string };
+      if (data.solver_status === 'ERROR' && data.error === 'APLANO_UNAVAILABLE') {
+        setNotification(data.message ?? 'Aplano ist nicht verfügbar.', 'error');
+        return;
+      }
+      if (data.solver_status === 'ERROR') {
+        setNotification(data.message ?? 'Fehler bei der automatischen Planung', 'error');
+        return;
+      }
 
       // Show success notification
       setNotification('Automatische Planung erfolgreich abgeschlossen', 'success');
@@ -214,7 +228,7 @@ export const OnCallPlanningView: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to start auto planning:', error);
 
-      // Show error notification
+      // Show error notification (network/server errors)
       const errorMessage = error?.response?.data?.error || error?.message || 'Fehler bei der automatischen Planung';
       setNotification(errorMessage, 'error');
 

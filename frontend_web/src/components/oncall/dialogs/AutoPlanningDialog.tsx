@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,9 +14,15 @@ import {
   FormControl,
   Paper,
   CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from '@mui/material';
-import { AutoAwesome as AutoAwesomeIcon } from '@mui/icons-material';
+import { AutoAwesome as AutoAwesomeIcon, UploadFile as UploadFileIcon } from '@mui/icons-material';
 import { formatMonthYear } from '../../../utils/oncall/dateUtils';
+import { configApi } from '../../../services/api';
 
 export interface AutoPlanningSettings {
   // Existing assignments handling
@@ -29,7 +35,7 @@ export interface AutoPlanningSettings {
 interface AutoPlanningDialogProps {
   open: boolean;
   onClose: () => void;
-  onStart: (settings: AutoPlanningSettings) => void;
+  onStart: (settings: AutoPlanningSettings, timeAccountFile?: File | null) => void;
   onReset?: () => void;
   currentDate: Date;
   isLoading?: boolean;
@@ -58,6 +64,13 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
     allowOverplanning: false,
     includeAplano: true,
   });
+  const [timeAccountFile, setTimeAccountFile] = useState<File | null>(null);
+  const [timeAccountAsOf, setTimeAccountAsOf] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    configApi.getTimeAccountAsOf().then((res) => setTimeAccountAsOf(res.time_account_as_of ?? null)).catch(() => setTimeAccountAsOf(null));
+  }, [open]);
 
   const handleExistingAssignmentsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSettings((prev) => ({
@@ -75,8 +88,13 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
   };
 
   const handleStart = () => {
-    onStart(settings);
+    onStart(settings, timeAccountFile);
     // Don't close immediately - let parent handle closing after async operation
+  };
+
+  const formatStandDate = (iso: string) => {
+    const [y, m, d] = iso.split('-');
+    return `${d}.${m}.${y}`;
   };
 
   const handleCancel = () => {
@@ -270,15 +288,86 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
               label={
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
-                    Aplano berücksichtigen (bald verfügbar)
+                    Aplano berücksichtigen
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                    Abwesenheiten und weitere Informationen aus Aplano werden berücksichtigt
+                    Abwesenheiten und Stundenkonten aus Aplano werden berücksichtigt
                   </Typography>
                 </Box>
               }
               sx={{ alignItems: 'flex-start', m: 0 }}
             />
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                borderRadius: 2,
+                backgroundColor: 'grey.50',
+                border: '1px solid',
+                borderColor: 'grey.200',
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
+                    Stundenkonto aus Aplano
+                  </Typography>
+                  {timeAccountAsOf && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      Aktueller Stand: {formatStandDate(timeAccountAsOf)}
+                    </Typography>
+                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <input
+                  accept=".xlsx,.xls"
+                  style={{ display: 'none' }}
+                  id="time-account-excel"
+                  type="file"
+                  onChange={(e) => setTimeAccountFile(e.target.files?.[0] ?? null)}
+                />
+                <label htmlFor="time-account-excel">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component="span"
+                    startIcon={<UploadFileIcon />}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Excel auswählen
+                  </Button>
+                </label>
+                {timeAccountFile && (
+                  <Typography variant="caption" color="text.secondary">
+                    {timeAccountFile.name}
+                  </Typography>
+                )}
+                  </Box>
+                </Box>
+                <Box sx={{ flexShrink: 0 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, textAlign: 'right' }}>
+                    Erforderliche Spalten (Dezimalstunden):
+                  </Typography>
+                  <Table size="small" sx={{ maxWidth: 320, '& td, & th': { py: 0.5, px: 1, fontSize: '0.75rem' }, border: '1px solid', borderColor: 'grey.300', borderRadius: 1, overflow: 'hidden' }}>
+                    <TableHead>
+                      <TableRow sx={{ backgroundColor: 'grey.200' }}>
+                        <TableCell component="th">Mitarbeiter</TableCell>
+                        <TableCell component="th">Stundenkonto</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>Max Mustermann</TableCell>
+                        <TableCell>12,5</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Anna Schmidt</TableCell>
+                        <TableCell>-3,0</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Box>
+            </Box>
           </Paper>
         </Box>
       </DialogContent>

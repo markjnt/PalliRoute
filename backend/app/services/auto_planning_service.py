@@ -3,11 +3,13 @@ Auto-Planning Service: monthly duty scheduling (on-call and weekend shifts) via 
 """
 
 import logging
-from datetime import date
-from typing import Any, Dict
+from datetime import date, datetime
+from typing import Any, Dict, Set, Tuple
 
 from app import db
+from app.models.employee import Employee
 
+from .aplano_sync import fetch_aplano_absences_for_month, match_employee_by_name
 from .auto_planning import (
     load_planning_context,
     build_model,
@@ -16,6 +18,11 @@ from .auto_planning import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class AplanoUnavailableError(Exception):
+    """Raised when Aplano absences cannot be fetched (API error, not configured, etc.)."""
+    pass
 
 
 class AutoPlanningService:
@@ -34,6 +41,7 @@ class AutoPlanningService:
         penalty_w3: int = 60,
         penalty_fairness: int = 50,
         penalty_overplanning: int = 200,
+        penalty_stundenkonto: int = 30,
     ):
         self.existing_assignments_handling = existing_assignments_handling
         self.allow_overplanning = allow_overplanning
@@ -44,14 +52,71 @@ class AutoPlanningService:
         self.penalty_w3 = penalty_w3
         self.penalty_fairness = penalty_fairness
         self.penalty_overplanning = penalty_overplanning
+        self.penalty_stundenkonto = penalty_stundenkonto
+
+    def _build_absent_dates(self, start_date: date) -> Set[Tuple[int, date]]:
+        """Fetch Aplano absences (status=active) for planning range and return (employee_id, date) set."""
+        absent_dates: Set[Tuple[int, date]] = set()
+        year, month_num = start_date.year, start_date.month
+        ctx_start = date(year, month_num, 1)
+        if month_num == 1:
+            prev_year, prev_month = year - 1, 12
+        else:
+            prev_year, prev_month = year, month_num - 1
+        prev_month_start = date(prev_year, prev_month, 1)
+
+        try:
+            raw_absences: list = []
+            raw_absences.extend(fetch_aplano_absences_for_month(prev_month_start))
+            raw_absences.extend(fetch_aplano_absences_for_month(ctx_start))
+        except Exception as e:
+            logger.warning('Failed to fetch Aplano absences: %s', e)
+            raise AplanoUnavailableError(str(e)) from e
+
+        employees = list(Employee.query.all())
+        for absence in raw_absences:
+            if absence.get('status') != 'active':
+                continue
+            user_name = absence.get('user', '')
+            start_str = absence.get('startDate', '')
+            end_str = absence.get('endDate', '')
+            if not user_name or not start_str or not end_str:
+                continue
+            try:
+                start_d = datetime.strptime(start_str, '%Y-%m-%d').date()
+                end_d = datetime.strptime(end_str, '%Y-%m-%d').date()
+            except ValueError:
+                continue
+            emp = match_employee_by_name(user_name, employees)
+            if emp is None:
+                continue
+            current = start_d
+            while current <= end_d:
+                absent_dates.add((emp.id, current))
+                current = date.fromordinal(current.toordinal() + 1)
+
+        return absent_dates
 
     def plan(self, start_date: date, end_date: date) -> Dict[str, Any]:
         """
         Run CP-SAT planning for the given date range (planning month derived from start_date).
         """
-        # Optional: sync with Aplano before planning (not yet implemented)
+        absent_dates: Set[Tuple[int, date]] = set()
         if self.include_aplano:
-            logger.warning('include_aplano is not yet implemented; proceeding without Aplano sync')
+            try:
+                absent_dates = self._build_absent_dates(start_date)
+            except AplanoUnavailableError as e:
+                result = {
+                    'message': 'Aplano ist nicht verfügbar.',
+                    'assignments_created': 0,
+                    'total_planned': 0,
+                    'solver_status': 'ERROR',
+                    'objective_value': None,
+                    'runtime_seconds': None,
+                    'error': 'APLANO_UNAVAILABLE',
+                }
+                logger.warning('Auto-planning aborted (Aplano unavailable): %s', e)
+                return result
 
         try:
             logger.info('Loading planning context...')
@@ -59,6 +124,7 @@ class AutoPlanningService:
                 start_date=start_date,
                 end_date=end_date,
                 existing_assignments_handling=self.existing_assignments_handling,
+                absent_dates=absent_dates if absent_dates else None,
             )
         except Exception as e:
             logger.exception('Failed to load planning context')
@@ -107,6 +173,7 @@ class AutoPlanningService:
                 penalty_w3=self.penalty_w3,
                 penalty_fairness=self.penalty_fairness,
                 penalty_overplanning=self.penalty_overplanning,
+                penalty_stundenkonto=self.penalty_stundenkonto,
             )
         except Exception as e:
             logger.exception('Failed to build CP-SAT model')
