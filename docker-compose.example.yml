@@ -10,7 +10,7 @@ services:
     environment:
       - SECRET_KEY=your_secret_key_here
       - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
-      - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
+      - CORS_ORIGINS=https://localhost:3000,https://localhost:3001,https://your-server-hostname:3000,https://your-server-hostname:3001,http://localhost:3000,http://localhost:3001
       - APLANO_API_KEY=your-aplano-api-key-here
     ports:
       - "9000:9000"
@@ -38,6 +38,8 @@ services:
     image: markjnt/palliroute-frontend-web
     container_name: palliroute-frontend-web
     pull_policy: always
+    volumes:
+      - ./docker/certs:/etc/nginx/certs:ro
     ports:
       - "3000:3000"
     depends_on:
@@ -50,6 +52,8 @@ services:
     image: markjnt/palliroute-frontend-pwa
     container_name: palliroute-frontend-pwa
     pull_policy: always
+    volumes:
+      - ./docker/certs:/etc/nginx/certs:ro
     ports:
       - "3001:3001"
     depends_on:

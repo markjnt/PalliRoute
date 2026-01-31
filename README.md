@@ -23,7 +23,7 @@ cp docker-compose.example.yml docker-compose.yml
 **Backend API (erforderlich):**
 - `SECRET_KEY`: Ein sicherer Schlüssel für die Flask-Anwendung
 - `GOOGLE_MAPS_API_KEY`: Ihr Google Maps API-Schlüssel für Geocoding und Routenplanung
-- `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (Comma-separated)
+- `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (kommagetrennt; für HTTPS z.B. `https://ihr-server:3000,https://ihr-server:3001`, für lokale Entwicklung zusätzlich `http://localhost:3000,http://localhost:3001`)
 - `APLANO_API_KEY`: API-Schlüssel für die Aplano-Integration
 
 **Backend Scheduler (automatisch konfiguriert):**
@@ -36,7 +36,7 @@ cp docker-compose.example.yml docker-compose.yml
 environment:
   - SECRET_KEY=your_secret_key_here
   - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
-  - CORS_ORIGINS=http://localhost:3000,http://your-local-ip:3000,http://localhost:3001,http://your-local-ip:3001
+  - CORS_ORIGINS=https://ihr-server:3000,https://ihr-server:3001,http://localhost:3000,http://localhost:3001
   - APLANO_API_KEY=your-aplano-api-key-here
 
 # Backend Scheduler (automatisch konfiguriert)
@@ -71,7 +71,20 @@ In den jeweiligen gemounteten Ordnern sollten sich die entsprechenden Excel-Date
 
 Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner aus.
 
-### 3. Container starten
+### 3. SSL-Zertifikate (HTTPS, interne Anwendung)
+
+Für HTTPS (z.B. Zugriff über VPN) müssen einmalig selbstsignierte Zertifikate erzeugt werden:
+
+```bash
+# Im Projekt-Root; SERVER_HOST = Hostname oder IP, über die die Anwendung erreichbar ist
+SERVER_HOST=192.168.1.100 ./docker/generate-certs.sh
+# oder nur localhost:
+./docker/generate-certs.sh
+```
+
+Die Zertifikate liegen danach in `docker/certs/`. Die Frontend-Container mounten diesen Ordner.
+
+### 4. Container starten
 
 Starten Sie die Container mit Docker Compose:
 
@@ -79,14 +92,14 @@ Starten Sie die Container mit Docker Compose:
 docker-compose up -d
 ```
 
-#### 3.1 Zugriff auf die Anwendung
+#### 4.1 Zugriff auf die Anwendung
 
-Die Anwendung ist anschließend unter folgenden URLs erreichbar:
-- **Frontend-Web**: `http://localhost:3000`
-- **Frontend-PWA**: `http://localhost:3001`
-- **Backend-API**: `http://localhost:9000`
+Die Anwendung ist anschließend unter folgenden URLs erreichbar (HTTPS, selbstsigniertes Zertifikat – Browser-Warnung einmal bestätigen):
+- **Frontend-Web**: `https://localhost:3000` bzw. `https://ihr-server:3000`
+- **Frontend-PWA**: `https://localhost:3001` bzw. `https://ihr-server:3001`
+- **Backend-API**: nur intern; API-Zugriff erfolgt über die Frontends unter `/api`.
 
-#### 3.2 Container verwalten
+#### 4.2 Container verwalten
 
 Zum Stoppen der Container:
 ```bash
