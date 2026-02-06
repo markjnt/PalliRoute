@@ -14,7 +14,7 @@ from ..models.employee_planning import EmployeePlanning
 from ..models.scheduling import Assignment, ShiftInstance, ShiftDefinition, EmployeeCapacity
 from .. import db
 import json
-from .route_planner import RoutePlanner
+from .route_optimizer import RouteOptimizer
 from datetime import date
 
 class ExcelImportService:
@@ -992,37 +992,37 @@ class ExcelImportService:
     @staticmethod
     def _plan_all_routes(routes: List[Route]):
         """
-        Plan all routes using the route planner
+        Optimize and plan all routes using the route optimizer
         """
-        route_planner = RoutePlanner()
+        route_optimizer = RouteOptimizer()
         planned_routes = 0
         failed_routes = 0
-        
-        # Plan ALL routes (including empty ones) for ALL calendar weeks
+
+        # Optimize ALL routes (including empty ones) for ALL calendar weeks
         weekday_routes = [r for r in routes if r.employee_id is not None]
         for route in weekday_routes:
             try:
                 route_status = "with appointments" if route.get_route_order() else "empty"
-                print(f"    Planning route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
-                route_planner.plan_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
+                print(f"    Optimizing route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
+                route_optimizer.optimize_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
                 planned_routes += 1
             except Exception as e:
-                print(f"    Failed to plan route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
+                print(f"    Failed to optimize route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
                 failed_routes += 1
-        
-        # Plan weekend routes (without employee_id)
+
+        # Optimize weekend routes (without employee_id)
         weekend_routes = [r for r in routes if r.employee_id is None]
         for route in weekend_routes:
             try:
                 route_status = "with appointments" if route.get_route_order() else "empty"
-                print(f"    Planning weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
-                route_planner.plan_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
+                print(f"    Optimizing weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
+                route_optimizer.optimize_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
                 planned_routes += 1
             except Exception as e:
-                print(f"    Failed to plan weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
+                print(f"    Failed to optimize weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
                 failed_routes += 1
-        
-        print(f"Route planning complete: {planned_routes} routes planned successfully, {failed_routes} routes failed")
+
+        print(f"Route optimization complete: {planned_routes} routes optimized successfully, {failed_routes} routes failed")
 
     @staticmethod
     def _update_weekend_routes_from_aw_assignments(calendar_weeks: List[int]):
