@@ -291,7 +291,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
                     Aplano berücksichtigen
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                    Abwesenheiten und Stundenkonten aus Aplano werden berücksichtigt
+                    Abwesenheiten aus Aplano werden berücksichtigt
                   </Typography>
                 </Box>
               }
@@ -305,6 +305,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
                 backgroundColor: 'grey.50',
                 border: '1px solid',
                 borderColor: 'grey.200',
+                display: 'none',
               }}
             >
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>

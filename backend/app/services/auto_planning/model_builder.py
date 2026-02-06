@@ -152,7 +152,6 @@ def build_model(
     penalty_overplanning: int = 200,
     penalty_area_mismatch: int = 40,
     penalty_weekend_then_monday_rb: int = 70,
-    penalty_stundenkonto: int = 30,
 ) -> PlanningModel:
     """
     Build CP-SAT model with variables and all constraints.
@@ -245,8 +244,9 @@ def build_model(
     # --- Objective: weighted sum of soft violations ---
     objective_terms: List = []
 
-    # Anreiz, Schichten zu besetzen (ohne dies wäre "niemand zuweisen" optimal)
-    fill_bonus = 1
+    # Anreiz, Schichten zu besetzen: stark über Strafen, damit immer alle Schichten
+    # gefüllt werden wenn möglich (ohne Kapazität zu überschreiten bei Überplanung AUS)
+    fill_bonus = 1000
     for (e_idx, s_idx) in pairs:
         objective_terms.append(-fill_bonus * x[(e_idx, s_idx)])
 
@@ -427,17 +427,6 @@ def build_model(
             and emp_area != shift_area
         ):
             objective_terms.append(penalty_area_mismatch * x[(e_idx, s_idx)])
-
-    # Stundenkonto (soft): prefer assigning to employees with negative balance (minus hours),
-    # penalize assigning to employees with positive balance (overtime). CP-SAT needs integer coeffs -> scale.
-    time_account = getattr(ctx, 'time_account', {})
-    if time_account and penalty_stundenkonto:
-        for (e_idx, s_idx) in pairs:
-            tc = time_account.get(employees[e_idx].id) or 0.0
-            if tc != 0:
-                coef = int(round(penalty_stundenkonto * tc))
-                if coef != 0:
-                    objective_terms.append(coef * x[(e_idx, s_idx)])
 
     # Overplanning penalty (when allow_overplanning): penalize each assignment above capacity
     if allow_overplanning:

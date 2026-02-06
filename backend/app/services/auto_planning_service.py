@@ -41,7 +41,6 @@ class AutoPlanningService:
         penalty_w3: int = 60,
         penalty_fairness: int = 50,
         penalty_overplanning: int = 200,
-        penalty_stundenkonto: int = 30,
     ):
         self.existing_assignments_handling = existing_assignments_handling
         self.allow_overplanning = allow_overplanning
@@ -52,7 +51,6 @@ class AutoPlanningService:
         self.penalty_w3 = penalty_w3
         self.penalty_fairness = penalty_fairness
         self.penalty_overplanning = penalty_overplanning
-        self.penalty_stundenkonto = penalty_stundenkonto
 
     def _build_absent_dates(self, start_date: date) -> Set[Tuple[int, date]]:
         """Fetch Aplano absences (status=active) for planning range and return (employee_id, date) set."""
@@ -173,7 +171,6 @@ class AutoPlanningService:
                 penalty_w3=self.penalty_w3,
                 penalty_fairness=self.penalty_fairness,
                 penalty_overplanning=self.penalty_overplanning,
-                penalty_stundenkonto=self.penalty_stundenkonto,
             )
         except Exception as e:
             logger.exception('Failed to build CP-SAT model')
