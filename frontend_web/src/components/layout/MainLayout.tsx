@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, IconButton, Drawer, useTheme, useMediaQuery, Snackbar, Alert, LinearProgress, CircularProgress } from '@mui/material';
 import { Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 import { useLayoutStore } from '../../stores';
 import { useAreaStore } from '../../stores/useAreaStore';
 import { useNotificationStore } from '../../stores/useNotificationStore';
+import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { EmployeeSidebar } from '../employees/EmployeeSidebar';
 import { TourPlanSidebar } from '../patients/TourSidebar';
@@ -20,6 +21,18 @@ export const MainLayout: React.FC = () => {
     // Sidebar refs for resize functionality
     const sidebarRef = React.useRef<HTMLDivElement>(null);
     const rightSidebarRef = React.useRef<HTMLDivElement>(null);
+    
+    // Weekday store for auto-selecting current day
+    const { resetToCurrentDay } = useWeekdayStore();
+    const isInitialMountRef = useRef(true);
+    
+    // Automatisch den aktuellen Tag auswählen beim Laden der Seite
+    useEffect(() => {
+        if (isInitialMountRef.current) {
+            resetToCurrentDay();
+            isInitialMountRef.current = false;
+        }
+    }, [resetToCurrentDay]);
     
     // Resize tracking refs
     const resizeRef = React.useRef<{

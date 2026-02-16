@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from datetime import datetime, date
 from app import db
-from app.models.scheduling import ShiftDefinition, ShiftInstance
+from app.models.scheduling import ShiftDefinition, ShiftInstance, Assignment
 from calendar import monthrange
 from . import scheduling_bp
 
@@ -64,6 +64,47 @@ def get_shift_instances():
         
         instances = query.all()
         
+        return jsonify([{
+            'id': inst.id,
+            'date': inst.date.isoformat(),
+            'calendar_week': inst.calendar_week,
+            'month': inst.month,
+            'shift_definition_id': inst.shift_definition_id,
+            'shift_definition': {
+                'id': inst.shift_definition.id,
+                'category': inst.shift_definition.category,
+                'role': inst.shift_definition.role,
+                'area': inst.shift_definition.area,
+                'time_of_day': inst.shift_definition.time_of_day,
+                'is_weekday': inst.shift_definition.is_weekday,
+                'is_weekend': inst.shift_definition.is_weekend
+            }
+        } for inst in instances]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@scheduling_bp.route('/shift-instances/unplanned', methods=['GET'])
+def get_unplanned_shift_instances():
+    """Get shift instances for a month that have no assignment (noch nicht verplant)."""
+    try:
+        month = request.args.get('month')
+        if not month:
+            return jsonify({'error': 'month is required (format: YYYY-MM)'}), 400
+
+        # Shift instances in this month that have no assignment
+        assigned_si_ids = db.session.query(Assignment.shift_instance_id).distinct()
+        query = (
+            db.session.query(ShiftInstance)
+            .join(ShiftDefinition)
+            .filter(
+                ShiftInstance.month == month,
+                ~ShiftInstance.id.in_(assigned_si_ids)
+            )
+            .order_by(ShiftInstance.date, ShiftInstance.id)
+        )
+        instances = query.all()
+
         return jsonify([{
             'id': inst.id,
             'date': inst.date.isoformat(),

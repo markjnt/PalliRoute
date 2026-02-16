@@ -11,6 +11,7 @@ import {
   TableChart as TableChartIcon,
   CalendarToday as CalendarTodayIcon,
   BarChart as BarChartIcon,
+  Warning as WarningIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useOnCallPlanningStore } from '../../../stores/useOnCallPlanningStore';
@@ -19,11 +20,19 @@ import { DatePickerDialog } from '../dialogs/DatePickerDialog';
 
 interface CalendarHeaderProps {
   actualDates: Date[];
+  unplannedCount?: number;
   onAutoPlanningOpen?: () => void;
+  onUnplannedOpen?: () => void;
   onCapacityOverviewOpen?: () => void;
 }
 
-export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onAutoPlanningOpen, onCapacityOverviewOpen }) => {
+export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
+  actualDates,
+  unplannedCount = 0,
+  onAutoPlanningOpen,
+  onUnplannedOpen,
+  onCapacityOverviewOpen,
+}) => {
   const { viewMode, displayType, currentDate, setViewMode, setDisplayType, setCurrentDate, goToPrevious, goToNext, goToToday } = useOnCallPlanningStore();
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const navigate = useNavigate();
@@ -74,6 +83,39 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({ actualDates, onA
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        {onUnplannedOpen && (
+          <Button
+            variant="contained"
+            startIcon={<WarningIcon sx={{ fontSize: 18 }} />}
+            onClick={unplannedCount > 0 ? onUnplannedOpen : undefined}
+            disabled={unplannedCount === 0}
+            size="small"
+            title={unplannedCount > 0 ? `${unplannedCount} Schicht(en) diesen Monat noch nicht verplant` : 'Alle Schichten dieses Monats sind verplant'}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 2.5,
+              py: 1,
+              borderRadius: 2.5,
+              backgroundColor: unplannedCount > 0 ? 'warning.main' : 'action.hover',
+              color: unplannedCount > 0 ? 'warning.contrastText' : 'text.secondary',
+              boxShadow: unplannedCount > 0 ? '0 2px 8px rgba(237, 108, 2, 0.25)' : 'none',
+              border: 'none',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: unplannedCount > 0 ? 'warning.dark' : 'rgba(0, 0, 0, 0.08)',
+                boxShadow: unplannedCount > 0 ? '0 4px 12px rgba(237, 108, 2, 0.35)' : 'none',
+                transform: 'translateY(-1px)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: unplannedCount > 0 ? '0 2px 6px rgba(237, 108, 2, 0.3)' : 'none',
+              },
+            }}
+          >
+            {unplannedCount}
+          </Button>
+        )}
         <Button
           variant="contained"
           startIcon={<AutoAwesomeIcon sx={{ fontSize: 18 }} />}

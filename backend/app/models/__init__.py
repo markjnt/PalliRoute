@@ -6,4 +6,4 @@ from . import route
 from . import employee_planning
 from . import system_info
 from . import scheduling
-
+from . import pflegeheim

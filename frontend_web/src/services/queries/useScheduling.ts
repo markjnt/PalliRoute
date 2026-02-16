@@ -9,6 +9,7 @@ import {
     schedulingApi,
     ShiftDefinitionsQueryParams,
     ShiftInstancesQueryParams,
+    UnplannedShiftInstancesQueryParams,
     EmployeeCapacitiesQueryParams,
     AssignmentsQueryParams,
     CreateShiftDefinitionData,
@@ -33,6 +34,7 @@ export const schedulingKeys = {
         all: ['scheduling', 'shift-instances'] as const,
         lists: () => [...schedulingKeys.shiftInstances.all, 'list'] as const,
         list: (params?: ShiftInstancesQueryParams) => [...schedulingKeys.shiftInstances.lists(), params] as const,
+        unplanned: (params: UnplannedShiftInstancesQueryParams) => [...schedulingKeys.shiftInstances.all, 'unplanned', params] as const,
     },
     employeeCapacities: {
         all: ['scheduling', 'employee-capacities'] as const,
@@ -72,6 +74,14 @@ export const useShiftInstances = (params?: ShiftInstancesQueryParams) => {
     return useQuery({
         queryKey: schedulingKeys.shiftInstances.list(params),
         queryFn: () => schedulingApi.getShiftInstances(params),
+    });
+};
+
+export const useUnplannedShiftInstances = (params: UnplannedShiftInstancesQueryParams | null) => {
+    return useQuery({
+        queryKey: schedulingKeys.shiftInstances.unplanned(params ?? { month: '' }),
+        queryFn: () => schedulingApi.getUnplannedShiftInstances(params!),
+        enabled: !!params?.month,
     });
 };
 
@@ -121,6 +131,7 @@ export const useCreateAssignment = () => {
         onSuccess: (newAssignment) => {
             queryClient.invalidateQueries({ queryKey: schedulingKeys.assignments.lists() });
             queryClient.invalidateQueries({ queryKey: schedulingKeys.employeeCapacities.lists() });
+            queryClient.invalidateQueries({ queryKey: schedulingKeys.shiftInstances.all });  // unplanned count updates
 
             // Invalidate route queries if this is an AW assignment (affects weekend routes)
             if (newAssignment.shift_definition?.category === 'AW') {
@@ -139,6 +150,7 @@ export const useUpdateAssignment = () => {
         onSuccess: (updatedAssignment) => {
             queryClient.invalidateQueries({ queryKey: schedulingKeys.assignments.lists() });
             queryClient.invalidateQueries({ queryKey: schedulingKeys.employeeCapacities.lists() });
+            queryClient.invalidateQueries({ queryKey: schedulingKeys.shiftInstances.all });  // unplanned count updates
 
             // Invalidate route queries if this is an AW assignment
             if (updatedAssignment.shift_definition?.category === 'AW') {
@@ -164,6 +176,7 @@ export const useDeleteAssignment = () => {
         onSuccess: (_, id, context) => {
             queryClient.invalidateQueries({ queryKey: schedulingKeys.assignments.lists() });
             queryClient.invalidateQueries({ queryKey: schedulingKeys.employeeCapacities.lists() });
+            queryClient.invalidateQueries({ queryKey: schedulingKeys.shiftInstances.all });  // unplanned count updates
 
             // Invalidate route queries if this was an AW assignment
             if (context?.wasAwAssignment) {
@@ -183,6 +196,7 @@ export const useAutoPlan = () => {
             // Invalidate all assignment lists to refetch after planning
             queryClient.invalidateQueries({ queryKey: schedulingKeys.assignments.lists() });
             queryClient.invalidateQueries({ queryKey: schedulingKeys.employeeCapacities.lists() });
+            queryClient.invalidateQueries({ queryKey: schedulingKeys.shiftInstances.all });  // unplanned count updates
             queryClient.invalidateQueries({ queryKey: routeKeys.lists() });
         },
     });
@@ -198,6 +212,7 @@ export const useResetPlanning = () => {
             // Invalidate all assignment lists to refetch after reset
             queryClient.invalidateQueries({ queryKey: schedulingKeys.assignments.lists() });
             queryClient.invalidateQueries({ queryKey: schedulingKeys.employeeCapacities.lists() });
+            queryClient.invalidateQueries({ queryKey: schedulingKeys.shiftInstances.all });  // unplanned count updates
             queryClient.invalidateQueries({ queryKey: routeKeys.lists() });
         },
     });

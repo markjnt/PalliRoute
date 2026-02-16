@@ -40,7 +40,7 @@ class AutoPlanningService:
         penalty_w2: int = 80,
         penalty_w3: int = 60,
         penalty_fairness: int = 50,
-        penalty_overplanning: int = 200,
+        penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten
     ):
         self.existing_assignments_handling = existing_assignments_handling
         self.allow_overplanning = allow_overplanning

@@ -40,7 +40,17 @@ class Config:
     )
 
     PATIENTS_IMPORT_PATH = os.path.join(xlsx_base_path, 'Export_PalliDoc') if xlsx_base_path else None
-    
+
+    pflegeheime_dir = os.path.join(xlsx_base_path, 'Pflegeheime') if xlsx_base_path else None
+    if pflegeheime_dir:
+        os.makedirs(pflegeheime_dir, exist_ok=True)
+    pflegeheime_filename = os.environ.get('PFLEGEHEIME_IMPORT_FILENAME', 'Pflegeheime.xlsx')
+    PFLEGEHEIME_IMPORT_PATH = (
+        os.path.join(pflegeheime_dir, pflegeheime_filename)
+        if pflegeheime_dir and pflegeheime_filename
+        else None
+    )
+
     # Scheduler configuration
     AUTO_IMPORT_ENABLED = os.environ.get('AUTO_IMPORT_ENABLED', 'true').lower() == 'true'
     # Feste Importzeiten, kommasepariert im Format HH:MM, z.B. "08:00,12:30,16:00"

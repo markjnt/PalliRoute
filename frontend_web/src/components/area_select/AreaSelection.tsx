@@ -61,12 +61,13 @@ const AreaSelection: React.FC<AreaSelectionProps> = ({ compact = false, onAreaCh
                 <Button
                     onClick={handleButtonClick}
                     variant="outlined"
-                    startIcon={<ChangeIcon />}
                     sx={{
                         borderRadius: '12px',
                         textTransform: 'none',
                         fontWeight: 600,
                         fontSize: '1rem',
+                        height: 40,
+                        minHeight: 40,
                         px: 2,
                         py: 1,
                         border: '1px solid rgba(0, 0, 0, 0.08)',
@@ -97,6 +98,7 @@ const AreaSelection: React.FC<AreaSelectionProps> = ({ compact = false, onAreaCh
                         },
                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
+                    startIcon={<ChangeIcon />}
                 >
                     {getAreaInitial(currentArea || '')}
                 </Button>

@@ -5,7 +5,7 @@ Build OR-Tools CP-SAT model: variables x(e,s), hard constraints H1–H7, soft co
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from ortools.sat.python import cp_model
 
@@ -47,6 +47,14 @@ def _get_shifts_for_capacity(shifts: List[ShiftInfo], planning_month: str, cap_t
         s.index for s in shifts
         if s.month == planning_month and _shift_matches_capacity(s, cap_type)
     ]
+
+
+def _get_capacity_type_for_shift(s: ShiftInfo) -> Optional[str]:
+    """Return the capacity type this shift counts toward, or None if none."""
+    for cap_type in CAPACITY_SHIFT_FILTER:
+        if _shift_matches_capacity(s, cap_type):
+            return cap_type
+    return None
 
 
 def _aw_weekend_pairs(shifts: List[ShiftInfo]) -> List[Tuple[int, int]]:
@@ -149,7 +157,7 @@ def build_model(
     penalty_w2: int = 80,
     penalty_w3: int = 60,
     penalty_fairness: int = 50,
-    penalty_overplanning: int = 200,
+    penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten
     penalty_area_mismatch: int = 40,
     penalty_weekend_then_monday_rb: int = 70,
 ) -> PlanningModel:
@@ -164,14 +172,19 @@ def build_model(
     fixed = ctx.fixed_assignments
 
     # --- Variables: x[(e_idx, s_idx)] only for compatible (role match); skip if employee absent on shift date ---
+    # 0 Kapazität in einer Kategorie = kein Zugriff auf Schichten dieser Kategorie (gilt auch bei Überplanung)
     absent_dates = getattr(ctx, 'absent_dates', set())
     x: Dict[Tuple[int, int], cp_model.IntVar] = {}
     for e in employees:
+        caps = ctx.capacity_max.get(e.id, {})
         for s in shifts:
             if e.role != s.role:
                 continue
             if (e.id, s.date) in absent_dates:
                 continue
+            cap_type = _get_capacity_type_for_shift(s)
+            if cap_type is not None and caps.get(cap_type, 0) == 0:
+                continue  # 0 heißt 0: MA darf diese Kategorie nicht überplant werden
             key = (e.index, s.index)
             x[key] = model.NewBoolVar(f'x_{e.index}_{s.index}')
     pairs = list(x.keys())
@@ -428,7 +441,7 @@ def build_model(
         ):
             objective_terms.append(penalty_area_mismatch * x[(e_idx, s_idx)])
 
-    # Overplanning penalty (when allow_overplanning): penalize each assignment above capacity
+    # Overplanning: Kapazitäten als weiche Constraints — Überschreitung bestrafen, Solver hält sie möglichst ein
     if allow_overplanning:
         for e in employees:
             eid = e.id

@@ -50,6 +50,7 @@ def create_app(config_class=Config):
     from .api_routes.config import bp as config_bp
     from .api_routes.employee_plannings import employee_planning_bp
     from .api_routes.scheduling import scheduling_bp
+    from .api_routes.pflegeheime import pflegeheime_bp
 
     app.register_blueprint(employees_bp, url_prefix='/api/employees')
     app.register_blueprint(patients_bp, url_prefix='/api/patients')
@@ -58,6 +59,7 @@ def create_app(config_class=Config):
     app.register_blueprint(config_bp, url_prefix='/api/config')
     app.register_blueprint(employee_planning_bp, url_prefix='/api/employee-planning')
     app.register_blueprint(scheduling_bp, url_prefix='/api/scheduling')
+    app.register_blueprint(pflegeheime_bp, url_prefix='/api/pflegeheime')
 
     @app.route('/health')
     def health_check():

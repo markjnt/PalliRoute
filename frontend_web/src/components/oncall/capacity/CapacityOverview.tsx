@@ -33,8 +33,11 @@ export const CapacityOverview: React.FC<CapacityOverviewProps> = ({
     const capacities = capacitiesMap.get(employee.id || 0);
     if (!capacities || capacities.length === 0) return false;
     
-    // Check if any capacity has assigned > max_count
-    return capacities.some(cap => (cap.assigned ?? 0) > cap.max_count);
+    // Check if any capacity has assigned > max_count OR if assigned > 0 but max_count = 0
+    return capacities.some(cap => {
+      const assigned = cap.assigned ?? 0;
+      return assigned > cap.max_count || (cap.max_count === 0 && assigned > 0);
+    });
   };
 
   // Filter and sort employees

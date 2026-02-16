@@ -256,6 +256,14 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
         return weekdayNames[day] || 'Unbekannt';
     }, []);
 
+    // Get current weekday
+    const getCurrentWeekday = useCallback((): Weekday => {
+        const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        return days[new Date().getDay()];
+    }, []);
+
+    const currentWeekday = getCurrentWeekday();
+
 
     // Check if selected KW matches current KW
     const currentWeek = getCurrentCalendarWeek();
@@ -423,9 +431,10 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                             minWidth: 140,
                             justifyContent: 'space-between',
                             textTransform: 'none',
-                            fontWeight: 500,
+                            fontWeight: currentWeekday === selectedWeekday ? 700 : 500,
                             borderColor: 'primary.main',
                             color: 'primary.main',
+                            position: 'relative',
                             '&:hover': {
                                 borderColor: 'primary.dark',
                                 backgroundColor: 'primary.50',
@@ -433,6 +442,23 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         }}
                     >
                         {getWeekdayName(selectedWeekday)}
+                        {/* Current day indicator */}
+                        {currentWeekday === selectedWeekday && (
+                            <Box
+                                sx={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    backgroundColor: '#007AFF',
+                                    position: 'absolute',
+                                    top: '50%',
+                                    right: 30,
+                                    transform: 'translateY(-50%)',
+                                    border: '1px solid rgba(0, 122, 255, 0.2)',
+                                    boxShadow: '0 1px 2px rgba(0, 122, 255, 0.3)',
+                                }}
+                            />
+                        )}
                     </Button>
                 </Box>
             </Box>
@@ -477,6 +503,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                                     borderRadius: 1,
                                     mb: 0.5,
                                     backgroundColor: day.isWeekend ? 'warning.50' : 'transparent',
+                                    position: 'relative',
                                     '&.Mui-selected': {
                                         backgroundColor: day.isWeekend ? 'warning.main' : 'primary.main',
                                         color: 'white',
@@ -492,11 +519,28 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                                 <ListItemText 
                                     primary={day.label}
                                     primaryTypographyProps={{
-                                        fontWeight: selectedWeekday === day.value ? 600 : 400,
+                                        fontWeight: selectedWeekday === day.value ? 600 : (currentWeekday === day.value ? 500 : 400),
                                         fontSize: '0.875rem',
                                         color: day.isWeekend && selectedWeekday !== day.value ? 'warning.dark' : 'inherit'
                                     }}
                                 />
+                                {/* Current day indicator */}
+                                {currentWeekday === day.value && (
+                                    <Box
+                                        sx={{
+                                            width: 6,
+                                            height: 6,
+                                            borderRadius: '50%',
+                                            backgroundColor: '#007AFF',
+                                            position: 'absolute',
+                                            top: '50%',
+                                            right: 8,
+                                            transform: 'translateY(-50%)',
+                                            border: '1px solid rgba(0, 122, 255, 0.2)',
+                                            boxShadow: '0 1px 2px rgba(0, 122, 255, 0.3)',
+                                        }}
+                                    />
+                                )}
                             </ListItemButton>
                         </ListItem>
                     ))}

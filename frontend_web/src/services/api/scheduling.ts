@@ -33,6 +33,10 @@ export interface ShiftInstancesQueryParams {
     area?: ShiftArea;
 }
 
+export interface UnplannedShiftInstancesQueryParams {
+    month: string;  // YYYY-MM
+}
+
 export interface EmployeeCapacitiesQueryParams {
     employee_id?: number;
     month?: string;  // YYYY-MM (optional, for calculating assigned/remaining, defaults to current month)
@@ -142,6 +146,16 @@ export const schedulingApi = {
             return response.data;
         } catch (error) {
             console.error('Failed to fetch shift instances:', error);
+            throw error;
+        }
+    },
+
+    async getUnplannedShiftInstances(params: UnplannedShiftInstancesQueryParams): Promise<ShiftInstance[]> {
+        try {
+            const response = await api.get('/scheduling/shift-instances/unplanned', { params });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch unplanned shift instances:', error);
             throw error;
         }
     },

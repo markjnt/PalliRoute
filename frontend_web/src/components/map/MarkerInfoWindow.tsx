@@ -7,7 +7,9 @@ import {
   PatientInfoContent, 
   EmployeeInfoContent, 
   WeekendPatientInfoContent, 
-  WeekendAreaInfoContent 
+  WeekendAreaInfoContent,
+  CustomMarkerInfoContent,
+  PflegeheimInfoContent,
 } from './infoWindows';
 
 interface MarkerInfoWindowProps {
@@ -62,6 +64,10 @@ export const MarkerInfoWindow: React.FC<MarkerInfoWindowProps> = ({
               />
             ) : marker.type === 'weekend_area' ? (
               <WeekendAreaInfoContent marker={marker} />
+            ) : marker.type === 'custom' ? (
+              <CustomMarkerInfoContent marker={marker} />
+            ) : marker.type === 'pflegeheim' ? (
+              <PflegeheimInfoContent marker={marker} />
             ) : (
               <EmployeeInfoContent 
                 marker={marker} 

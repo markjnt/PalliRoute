@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { Box, CircularProgress, Alert, Button } from '@mui/material';
-import { Event as EventIcon } from '@mui/icons-material';
+import { Box, CircularProgress, Alert, Button, IconButton } from '@mui/material';
+import { Event as EventIcon, AddLocation as AddLocationIcon, Delete as DeleteIcon, Business as BusinessIcon, Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
-import { MapContainerProps } from '../../types/mapTypes';
+import { MapContainerProps, MarkerData } from '../../types/mapTypes';
 import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, createWeekendAreaMarkerData, createWeekendPatientMarkerData, parseRouteOrder } from '../../utils/mapUtils';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
@@ -11,9 +11,14 @@ import { useAppointmentsByWeekday } from '../../services/queries/useAppointments
 import { useRoutes } from '../../services/queries/useRoutes';
 import { MapMarkers } from './MapMarkers';
 import { RoutePolylines } from './RoutePolylines';
+import { AddCustomMarkerDialog } from './AddCustomMarkerDialog';
+import { PflegeheimeDialog } from './PflegeheimeDialog';
 import { routeLineColors, getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
 import AreaSelection from '../area_select/AreaSelection';
+import { useCustomMarkerStore } from '../../stores/useCustomMarkerStore';
+import { usePflegeheime } from '../../services/queries/usePflegeheime';
+import { usePflegeheimeVisibilityStore } from '../../stores/usePflegeheimeVisibilityStore';
 
 /**
  * Main container component for the map that integrates all map features
@@ -24,7 +29,15 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   userArea
 }) => {
   const navigate = useNavigate();
-  
+  const customMarker = useCustomMarkerStore((s) => s.marker);
+  const setCustomMarker = useCustomMarkerStore((s) => s.setMarker);
+  const clearCustomMarker = useCustomMarkerStore((s) => s.clearMarker);
+  const [addMarkerDialogOpen, setAddMarkerDialogOpen] = useState(false);
+  const [pflegeheimeDialogOpen, setPflegeheimeDialogOpen] = useState(false);
+  const { data: pflegeheime = [] } = usePflegeheime();
+  const showPflegeheimeOnMap = usePflegeheimeVisibilityStore((s) => s.showPflegeheimeOnMap);
+  const toggleShowPflegeheimeOnMap = usePflegeheimeVisibilityStore((s) => s.toggleShowPflegeheimeOnMap);
+
   // Load Google Maps API
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -84,9 +97,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const visibleRouteIds = dayRoutes.map(r => r.id);
 
   // Marker-Berechnung mit useMemo
-  const markers = useMemo(() => {
+  const markers = useMemo((): MarkerData[] => {
     if (!isLoaded) return [];
-    const newMarkers = [];
+    const newMarkers: MarkerData[] = [];
     
     if (isWeekend) {
       // Weekend logic: Show start markers for each visible area and weekend patient markers
@@ -203,8 +216,32 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       }
     }
     
+    // Custom-Marker hinzufügen
+    if (customMarker) {
+      newMarkers.push({
+        position: new google.maps.LatLng(customMarker.lat, customMarker.lng),
+        title: customMarker.name,
+        type: 'custom',
+        customAddress: customMarker.address,
+      });
+    }
+
+    // Pflegeheim-Marker (wenn Sichtbarkeit aktiv)
+    if (showPflegeheimeOnMap && pflegeheime.length > 0) {
+      for (const p of pflegeheime) {
+        if (p.latitude != null && p.longitude != null) {
+          newMarkers.push({
+            position: new google.maps.LatLng(p.latitude, p.longitude),
+            title: p.name,
+            type: 'pflegeheim' as const,
+            customAddress: p.address ?? `${p.street}, ${p.zip_code} ${p.city}`,
+          });
+        }
+      }
+    }
+
     return newMarkers;
-  }, [isLoaded, employees, patients, appointments, routes, selectedWeekday, visibleRouteIds, isWeekend]);
+  }, [isLoaded, employees, patients, appointments, routes, selectedWeekday, visibleRouteIds, isWeekend, customMarker, showPflegeheimeOnMap, pflegeheime]);
 
   // Route-Polylines
   const routePaths = useMemo(() => {
@@ -266,15 +303,157 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
   return (
     <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      {/* Area Selection Button - positioned absolutely over the map */}
+      {/* Area Selection und Custom-Marker Buttons - links oben */}
       <Box sx={{
         position: 'absolute',
         top: 16,
         left: 16,
         zIndex: 1000,
+        display: 'flex',
+        gap: 1,
+        alignItems: 'center',
       }}>
         <AreaSelection compact={true} />
+        {customMarker ? (
+          <Button
+            onClick={clearCustomMarker}
+            variant="outlined"
+            sx={{
+              borderRadius: '12px',
+              minWidth: 40,
+              height: 40,
+              minHeight: 40,
+              px: 1.5,
+              py: 1,
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              color: '#ff5722',
+              borderColor: 'rgba(255, 87, 34, 0.3)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 87, 34, 0.15)',
+                borderColor: 'rgba(255, 87, 34, 0.5)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+              },
+            }}
+          >
+            <DeleteIcon />
+          </Button>
+        ) : (
+          <Button
+            onClick={() => setAddMarkerDialogOpen(true)}
+            variant="outlined"
+            sx={{
+              borderRadius: '12px',
+              minWidth: 40,
+              height: 40,
+              minHeight: 40,
+              px: 1.5,
+              py: 1,
+              border: '1px solid rgba(0, 0, 0, 0.08)',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              color: '#ff5722',
+              borderColor: 'rgba(255, 87, 34, 0.3)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 87, 34, 0.15)',
+                borderColor: 'rgba(255, 87, 34, 0.5)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)',
+              },
+            }}
+          >
+            <AddLocationIcon />
+          </Button>
+        )}
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'stretch',
+            borderRadius: '12px',
+            border: '1px solid rgba(56, 142, 60, 0.3)',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden',
+            '&:hover': {
+              backgroundColor: 'rgba(56, 142, 60, 0.15)',
+              borderColor: 'rgba(56, 142, 60, 0.5)',
+              boxShadow: '0 6px 16px rgba(0, 0, 0, 0.15)',
+            },
+          }}
+        >
+          <Button
+            onClick={() => setPflegeheimeDialogOpen(true)}
+            variant="outlined"
+            startIcon={<BusinessIcon />}
+            size="small"
+            sx={{
+              borderRadius: 0,
+              border: 'none',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '1rem',
+              height: 40,
+              minHeight: 40,
+              px: 2,
+              py: 1,
+              color: '#388e3c',
+              backgroundColor: 'transparent',
+              '&:hover': {
+                backgroundColor: 'rgba(56, 142, 60, 0.1)',
+                border: 'none',
+              },
+            }}
+          >
+            Pflegeheime
+          </Button>
+          <IconButton
+            onClick={toggleShowPflegeheimeOnMap}
+            size="small"
+            title={showPflegeheimeOnMap ? 'Pflegeheime auf Karte ausblenden' : 'Pflegeheime auf Karte anzeigen'}
+            sx={{
+              borderRadius: 0,
+              borderLeft: '1px solid rgba(56, 142, 60, 0.3)',
+              color: showPflegeheimeOnMap ? '#388e3c' : 'action.active',
+              width: 40,
+              height: 40,
+              '&:hover': {
+                backgroundColor: 'rgba(56, 142, 60, 0.1)',
+              },
+            }}
+          >
+            {showPflegeheimeOnMap ? <VisibilityIcon /> : <VisibilityOffIcon />}
+          </IconButton>
+        </Box>
       </Box>
+
+      <AddCustomMarkerDialog
+        open={addMarkerDialogOpen}
+        onClose={() => setAddMarkerDialogOpen(false)}
+        onSuccess={(name, address, lat, lng) => {
+          setCustomMarker({ name, address, lat, lng });
+          setAddMarkerDialogOpen(false);
+        }}
+      />
+
+      <PflegeheimeDialog
+        open={pflegeheimeDialogOpen}
+        onClose={() => setPflegeheimeDialogOpen(false)}
+      />
 
       {/* Rufbereitschaft Button - positioned absolutely over the map, top right */}
       <Box sx={{

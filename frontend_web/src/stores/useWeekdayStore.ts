@@ -22,10 +22,10 @@ export const useWeekdayStore = create<WeekdayState>()(
       // Actions
       setSelectedWeekday: (day) => set({ selectedWeekday: day }),
       resetToCurrentDay: () => {
-        const days: Weekday[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        const today = new Date().getDay() - 1; // 0 = Montag in unserem System (getDay() gibt 1 für Montag)
-        const currentDay = today >= 0 && today < 7 ? days[today] : 'monday'; // Fallback auf Montag für ungültige Tage
-        set({ selectedWeekday: currentDay });
+        const days: Weekday[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDay = days[new Date().getDay()];
+        const isBusinessDay = currentDay === 'monday' || currentDay === 'tuesday' || currentDay === 'wednesday' || currentDay === 'thursday' || currentDay === 'friday';
+        set({ selectedWeekday: isBusinessDay && currentDay ? currentDay : 'monday' });
       }
     }),
     {

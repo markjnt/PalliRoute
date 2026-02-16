@@ -173,6 +173,25 @@ def load_planning_context(
         if eid not in capacity_max:
             capacity_max[eid] = {ct: 0 for ct in capacity_types}
 
+    # Mitarbeiter ohne jegliche Kapazität aus Planung ausschließen (gilt mit und ohne Überplanung)
+    employees_with_capacity = [
+        eid for eid in employee_id_to_idx
+        if sum(capacity_max.get(eid, {}).values()) > 0
+    ]
+    # planable, employee_id_to_idx, capacity_max neu aufbauen
+    planable = []
+    employee_id_to_idx = {}
+    for emp in all_employees:
+        if emp.id not in employees_with_capacity:
+            continue
+        role = employee_role(emp)
+        if role in (ROLE_NURSING, ROLE_DOCTOR):
+            idx = len(planable)
+            area = _normalize_area(getattr(emp, 'area', None))
+            planable.append(PlanableEmployee(index=idx, id=emp.id, role=role, area=area))
+            employee_id_to_idx[emp.id] = idx
+    capacity_max = {eid: capacity_max[eid] for eid in employees_with_capacity}
+
     # Shift id -> index
     shift_id_to_idx = {s.id: s.index for s in shift_infos}
 

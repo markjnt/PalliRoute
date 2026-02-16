@@ -12,6 +12,7 @@ from ..models.appointment import Appointment, VISIT_TYPE_DURATIONS
 from ..models.route import Route
 from ..models.employee_planning import EmployeePlanning
 from ..models.scheduling import Assignment, ShiftInstance, ShiftDefinition, EmployeeCapacity
+from ..models.pflegeheim import Pflegeheim
 from .. import db
 import json
 from .route_optimizer import RouteOptimizer
@@ -437,6 +438,69 @@ class ExcelImportService:
         except Exception as e:
             db.session.rollback()
             raise Exception(f"Fehler beim Importieren der Mitarbeiter: {str(e)}")
+
+    @staticmethod
+    def import_pflegeheime(file_path) -> Dict[str, List[Any]]:
+        """
+        Import Pflegeheime from Excel file.
+        Expected columns: Name, Straße, Ort, PLZ
+        Match by name: add new, update existing, remove those not in Excel.
+        """
+        try:
+            df = pd.read_excel(file_path)
+            required_columns = ['Name', 'Straße', 'Ort', 'PLZ']
+            if not all(col in df.columns for col in required_columns):
+                missing = [col for col in required_columns if col not in df.columns]
+                raise ValueError(f"Fehlende Spalten: {', '.join(missing)}")
+
+            existing_pflegeheime = Pflegeheim.query.all()
+            existing_by_name = {p.name.strip().lower(): p for p in existing_pflegeheime}
+
+            address_tuples = []
+            for _, row in df.iterrows():
+                street = str(row['Straße']).strip()
+                zip_code = str(row['PLZ']).strip()
+                city = str(row['Ort']).strip()
+                address_tuples.append((street, zip_code, city))
+            unique_address_tuples = list(set(address_tuples))
+            geocode_results = ExcelImportService.batch_geocode_addresses(unique_address_tuples, max_workers=10)
+
+            added = []
+            updated = []
+            excel_names = set()
+
+            for idx, row in df.iterrows():
+                name = str(row['Name']).strip()
+                if not name:
+                    raise ValueError(f"Name ist leer in Zeile {idx + 2}")
+                street = str(row['Straße']).strip()
+                zip_code = str(row['PLZ']).strip()
+                city = str(row['Ort']).strip()
+                latitude, longitude = geocode_results.get((street, zip_code, city), (None, None))
+                excel_names.add(name.lower())
+
+                existing = existing_by_name.get(name.lower())
+                if existing:
+                    existing.street = street
+                    existing.zip_code = zip_code
+                    existing.city = city
+                    existing.latitude = latitude
+                    existing.longitude = longitude
+                    updated.append(existing)
+                else:
+                    new_p = Pflegeheim(name=name, street=street, zip_code=zip_code, city=city, latitude=latitude, longitude=longitude)
+                    db.session.add(new_p)
+                    added.append(new_p)
+
+            removed = [p for p in existing_pflegeheime if p.name.strip().lower() not in excel_names]
+            for p in removed:
+                db.session.delete(p)
+
+            db.session.commit()
+            return {'added': added, 'updated': updated, 'removed': removed}
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Fehler beim Importieren der Pflegeheime: {str(e)}")
 
     @staticmethod
     def _process_single_sheet(df: pd.DataFrame, sheet_name: str, employees: List[Employee]) -> Dict[str, List[Any]]:

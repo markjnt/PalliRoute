@@ -203,21 +203,22 @@ export const AssignmentDialog: React.FC<AssignmentDialogProps> = ({
       }}
     >
       <DialogTitle
+        component="div"
         sx={{
           pb: 1,
           backgroundColor: dutyColor,
           color: 'text.primary',
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+        <Box component="h2" sx={{ fontSize: '1.25rem', fontWeight: 600, m: 0, mb: 0.5 }}>
           {selectedDate.toLocaleDateString('de-DE', {
             weekday: 'long',
             day: '2-digit',
             month: 'long',
             year: 'numeric',
           })}
-        </Typography>
-        <Typography variant="subtitle1" sx={{ fontWeight: 500, opacity: 0.9 }}>
+        </Box>
+        <Typography variant="subtitle1" component="p" sx={{ fontWeight: 500, opacity: 0.9, m: 0 }}>
           {dutyLabel}
         </Typography>
       </DialogTitle>

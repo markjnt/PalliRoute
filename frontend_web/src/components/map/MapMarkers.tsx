@@ -96,6 +96,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
               label={label}
               onClick={() => setSelectedMarker({ ...marker, displayPosition })}
               opacity={opacity}
+              zIndex={marker.type === 'custom' ? 1000 : undefined}
             />
           );
         })

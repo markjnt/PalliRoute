@@ -129,11 +129,11 @@ export const DatePickerDialog: React.FC<DatePickerDialogProps> = ({
         },
       }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+      <DialogTitle component="div" sx={{ pb: 1 }}>
+        <Box component="h2" sx={{ fontSize: '1.25rem', fontWeight: 600, m: 0 }}>
           {viewMode === 'month' ? 'Monat auswählen' : 'Kalenderwoche auswählen'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        </Box>
+        <Typography variant="body2" component="p" color="text.secondary" sx={{ mt: 0.5, m: 0 }}>
           Jahr: {currentYear}
         </Typography>
       </DialogTitle>

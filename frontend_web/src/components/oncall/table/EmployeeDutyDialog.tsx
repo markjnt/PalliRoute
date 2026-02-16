@@ -99,11 +99,11 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
         },
       }}
     >
-      <DialogTitle>
-        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+      <DialogTitle component="div">
+        <Box component="h2" sx={{ fontSize: '1.25rem', fontWeight: 600, m: 0, mb: 0.5 }}>
           {employee.first_name} {employee.last_name}
-        </Typography>
-        <Typography variant="subtitle2" color="text.secondary">
+        </Box>
+        <Typography variant="subtitle2" component="p" color="text.secondary" sx={{ m: 0 }}>
           {date.toLocaleDateString('de-DE', {
             weekday: 'long',
             day: '2-digit',

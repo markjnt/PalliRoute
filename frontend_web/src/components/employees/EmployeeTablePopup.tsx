@@ -158,15 +158,17 @@ export const EmployeeTablePopup: React.FC<EmployeeTablePopupProps> = ({
                 }
             }}
         >
-            <DialogTitle sx={{ 
+            <DialogTitle
+                component="div"
+                sx={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center',
                 pb: 1
             }}>
-                <Typography variant="h6">
+                <Box component="h2" sx={{ fontSize: '1.25rem', fontWeight: 600, m: 0 }}>
                     Mitarbeiterübersicht
-                </Typography>
+                </Box>
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <Button
                         variant="contained"

@@ -33,8 +33,8 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
     return typeMap[capacityType] || capacityType;
   };
 
-  // Filter capacities with max_count > 0
-  const activeCapacities = capacities.filter(cap => cap.max_count > 0);
+  // Filter capacities: show if max_count > 0 OR if assigned > 0 (even with max_count = 0)
+  const activeCapacities = capacities.filter(cap => cap.max_count > 0 || (cap.assigned ?? 0) > 0);
 
   if (activeCapacities.length === 0) {
     return null;
@@ -174,18 +174,19 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
       {activeCapacities.map((capacity) => {
         // Use assigned and remaining from backend
         const assigned = capacity.assigned ?? 0;
-        const remaining = capacity.remaining ?? (capacity.max_count - assigned);
+        const calculatedRemaining = capacity.max_count - assigned;
+        // Always show remaining as at least 0 (never negative)
+        const remaining = Math.max(0, capacity.remaining ?? calculatedRemaining);
+        
+        // Calculate percentage: if max_count = 0 and assigned > 0, show 100% (full bar)
+        // Otherwise calculate normally, allowing > 100% when over capacity
         const percentage = capacity.max_count > 0 
           ? (assigned / capacity.max_count) * 100 
-          : 0;
+          : (assigned > 0 ? 100 : 0);
         
-        const isOverCapacity = assigned > capacity.max_count;
-        const hasNoRemaining = remaining === 0;
-        const color = isOverCapacity 
-          ? 'error' 
-          : hasNoRemaining 
-            ? 'warning' 
-            : 'success';
+        // Show as error if over capacity OR if assigned > 0 but max_count = 0
+        const isOverCapacity = assigned > capacity.max_count || (capacity.max_count === 0 && assigned > 0);
+        const color = isOverCapacity ? 'error' : 'success';
 
         return (
           <Box key={capacity.id} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
@@ -233,7 +234,7 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
             <LinearProgress
               variant="determinate"
               value={Math.min(percentage, 100)}
-              color={color === 'error' ? 'error' : color === 'warning' ? 'warning' : 'success'}
+              color={color}
               sx={{
                 height: 8,
                 borderRadius: 4,
@@ -251,12 +252,8 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                 mt: 0.75,
                 display: 'block',
                 fontSize: '0.7rem',
-                color: isOverCapacity 
-                  ? 'error.main' 
-                  : hasNoRemaining 
-                    ? 'warning.main' 
-                    : 'success.main',
-                fontWeight: isOverCapacity || hasNoRemaining ? 600 : 500,
+                color: isOverCapacity ? 'error.main' : 'success.main',
+                fontWeight: isOverCapacity ? 600 : 500,
               }}
             >
               Verbleibend: {remaining}

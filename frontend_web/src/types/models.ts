@@ -47,6 +47,32 @@ export interface EmployeeImportResponse {
     removed_employees: Employee[];
 }
 
+export interface Pflegeheim {
+    id: number;
+    name: string;
+    street: string;
+    zip_code: string;
+    city: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface PflegeheimImportResponse {
+    message: string;
+    summary: {
+        total_processed: number;
+        added: number;
+        updated: number;
+        removed: number;
+    };
+    added_pflegeheime: Pflegeheim[];
+    updated_pflegeheime: Pflegeheim[];
+    removed_pflegeheime: Pflegeheim[];
+}
+
 export type VisitType = 'HB' | 'NA' | 'TK';
 export type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 

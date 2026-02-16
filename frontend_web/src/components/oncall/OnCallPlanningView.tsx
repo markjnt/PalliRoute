@@ -12,6 +12,7 @@ import {
   useResetPlanning,
   useShiftDefinitions,
   useGenerateShiftInstances,
+  useUnplannedShiftInstances,
 } from '../../services/queries/useScheduling';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { Assignment, DutyType, OnCallArea, Employee, ShiftDefinition, AssignmentSource } from '../../types/models';
@@ -21,8 +22,9 @@ import { CalendarGrid } from './calendar/CalendarGrid';
 import { AssignmentDialog } from './dialogs/AssignmentDialog';
 import { CapacityOverviewDialog } from './dialogs/CapacityOverviewDialog';
 import { AutoPlanningDialog } from './dialogs/AutoPlanningDialog';
+import { UnplannedShiftsDialog } from './dialogs/UnplannedShiftsDialog';
 import { EmployeeTable } from './table/EmployeeTable';
-import { formatDate, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
+import { formatDate, formatMonthYear, getCalendarDays, getWeekDays } from '../../utils/oncall/dateUtils';
 import { findShiftDefinition, shiftDefinitionToDutyType } from '../../utils/oncall/shiftMapping';
 import type { AutoPlanningSettings } from './dialogs/AutoPlanningDialog';
 
@@ -34,6 +36,7 @@ export const OnCallPlanningView: React.FC = () => {
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
   const [capacityDialogOpen, setCapacityDialogOpen] = useState(false);
   const [autoPlanningDialogOpen, setAutoPlanningDialogOpen] = useState(false);
+  const [unplannedDialogOpen, setUnplannedDialogOpen] = useState(false);
 
   // Get dates to display
   const displayDates = useMemo(() => {
@@ -69,6 +72,7 @@ export const OnCallPlanningView: React.FC = () => {
   // Fetch employee capacities (month parameter is optional, used for calculating assigned/remaining)
   const monthString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
   const { data: employeeCapacities = [] } = useEmployeeCapacities({ month: monthString });
+  const { data: unplannedShifts = [], isLoading: isLoadingUnplanned } = useUnplannedShiftInstances({ month: monthString });
   
   const createAssignment = useCreateAssignment();
   const updateAssignment = useUpdateAssignment();
@@ -354,9 +358,11 @@ export const OnCallPlanningView: React.FC = () => {
           minHeight: 0,
         }}
       >
-        <CalendarHeader 
-          actualDates={actualDates} 
+        <CalendarHeader
+          actualDates={actualDates}
+          unplannedCount={unplannedShifts.length}
           onAutoPlanningOpen={() => setAutoPlanningDialogOpen(true)}
+          onUnplannedOpen={() => setUnplannedDialogOpen(true)}
           onCapacityOverviewOpen={() => setCapacityDialogOpen(true)}
         />
 
@@ -443,6 +449,25 @@ export const OnCallPlanningView: React.FC = () => {
           isLoading={autoPlan.isPending}
           isResetting={resetPlanning.isPending}
           viewMode={viewMode}
+        />
+
+        <UnplannedShiftsDialog
+          open={unplannedDialogOpen}
+          onClose={() => setUnplannedDialogOpen(false)}
+          unplannedShifts={unplannedShifts}
+          isLoadingUnplanned={isLoadingUnplanned}
+          employees={employees}
+          employeeCapacities={employeeCapacities}
+          shiftDefinitions={shiftDefinitions}
+          onAssign={async (shiftInstanceId, employeeId) => {
+            await createAssignment.mutateAsync({
+              shift_instance_id: shiftInstanceId,
+              employee_id: employeeId,
+              source: 'MANUAL',
+            });
+            setNotification('Schicht zugewiesen', 'success');
+          }}
+          monthLabel={formatMonthYear(currentDate)}
         />
 
         {/* Notification Snackbar */}
