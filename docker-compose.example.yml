@@ -5,8 +5,8 @@ services:
     pull_policy: always
     volumes:
       - ./backend/data:/backend/data
-      - /path/to/xlsx/Mitarbeiterliste:/backend/data/excel_import/Mitarbeiterliste
-      - /path/to/xlsx/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
+      - /path/to/excel_import:/backend/data/excel_import
+      - /path/to/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
     environment:
       - SECRET_KEY=your_secret_key_here
       - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
@@ -23,7 +23,8 @@ services:
     container_name: palliroute-backend-scheduler
     pull_policy: always
     volumes:
-      - /path/to/xlsx/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
+      - /path/to/excel_import:/scheduler/data/excel_import
+      - /path/to/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
     environment:
       - AUTO_IMPORT_ENABLED=true
       - AUTO_IMPORT_TIMES=08:00,12:30,16:00

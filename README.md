@@ -48,28 +48,33 @@ environment:
 
 #### 2.2 Excel-Import konfigurieren
 
-Die Excel-Dateien werden über Docker Volumes gemountet. In der `docker-compose.yml` sind bereits folgende Volumes konfiguriert:
+Es gibt **zwei** Mounts: einen für den Excel-Import-Ordner (Mitarbeiterliste, Pflegeheime) und einen für den **PalliDoc-Export**, der typischerweise woanders liegt.
+
+In der `docker-compose.yml`:
 
 ```yaml
-# Backend API (alle Volumes)
+# Backend API
 volumes:
   - ./backend/data:/backend/data
-  - /path/to/xlsx/Mitarbeiterliste:/backend/data/excel_import/Mitarbeiterliste
-  - /path/to/xlsx/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
+  - /path/to/excel_import:/backend/data/excel_import
+  - /path/to/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
 
-# Backend Scheduler (nur Excel-Import)
+# Backend Scheduler (gleiche Pfade)
 volumes:
-  - /path/to/xlsx/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
+  - /path/to/excel_import:/scheduler/data/excel_import
+  - /path/to/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
 ```
 
-**Wichtig:** Ersetzen Sie die Pfade `/path/to/xlsx/Mitarbeiterliste` und `/path/to/xlsx/Export_PalliDoc` mit den tatsächlichen Pfaden zu Ihren Excel-Dateien auf dem Host-System.
+**Pfade anpassen:**
+- `/path/to/excel_import` – Ordner mit den Unterordnern **Mitarbeiterliste** und **Pflegeheime** (mit den jeweiligen .xlsx-Dateien).
+- `/path/to/Export_PalliDoc` – Ordner mit den PalliDoc-Export-Listen (kann an beliebiger Stelle auf dem Host liegen).
 
 **Ordnerstruktur:**
-In den jeweiligen gemounteten Ordnern sollten sich die entsprechenden Excel-Dateien befinden:
-- `Mitarbeiterliste/` - hier die Mitarbeiterliste-Excel-Dateien ablegen
-- `Export_PalliDoc/` - hier die PalliDoc-Export-Listen-Excel-Dateien ablegen
 
-Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner aus.
+- Unter `excel_import/`: `Mitarbeiterliste/` (z. B. Mitarbeiterliste.xlsx), `Pflegeheime/` (z. B. Pflegeheime.xlsx).
+- Export_PalliDoc liegt getrennt; im Container wird er unter `excel_import/Export_PalliDoc` eingehängt.
+
+Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner. Es sind **keine** weiteren Mounts für die Unterordner Mitarbeiterliste oder Pflegeheime nötig – nur der übergeordnete Ordner plus der PalliDoc-Export-Ordner.
 
 ### 3. SSL-Zertifikate (HTTPS, interne Anwendung)
 
