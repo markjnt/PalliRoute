@@ -116,7 +116,7 @@ export const PflegeheimeDialog: React.FC<PflegeheimeDialogProps> = ({
                   {pflegeheime.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                        Keine Pflegeheime. Excel importieren.
+                        Keine Pflegeheime
                       </TableCell>
                     </TableRow>
                   ) : (
