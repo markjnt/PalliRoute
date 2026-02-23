@@ -51,5 +51,4 @@ yarn-error.log*
 .venv/
 
 # docker
-docker-compose.yml
 docker/certs/*.pem

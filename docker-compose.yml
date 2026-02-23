@@ -1,0 +1,103 @@
+services:
+  traefik:
+    image: traefik:v3.6.8
+    container_name: palliroute-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - HETZNER_API_KEY=${HETZNER_API_KEY}
+      - DO_AUTH_TOKEN=${DO_AUTH_TOKEN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - app-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+
+  backend-api:
+    image: markjnt/palliroute-backend-api
+    container_name: palliroute-backend-api
+    pull_policy: always
+    volumes:
+      - ./backend/data:/backend/data
+      - ${EXCEL_IMPORT_PATH}:/backend/data/excel_import
+      - ${EXPORT_PALLIDOC_PATH}:/backend/data/excel_import/Export_PalliDoc
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - APLANO_API_KEY=${APLANO_API_KEY}
+    expose:
+      - "9000"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  backend-scheduler:
+    image: markjnt/palliroute-backend-scheduler
+    container_name: palliroute-backend-scheduler
+    pull_policy: always
+    volumes:
+      - ${EXCEL_IMPORT_PATH}:/scheduler/data/excel_import
+      - ${EXPORT_PALLIDOC_PATH}:/scheduler/data/excel_import/Export_PalliDoc
+    environment:
+      - AUTO_IMPORT_ENABLED=${AUTO_IMPORT_ENABLED}
+      - AUTO_IMPORT_TIMES=${AUTO_IMPORT_TIMES}
+      - BACKEND_API_URL=http://backend-api:9000
+    restart: unless-stopped
+    networks:
+      - app-network
+    depends_on:
+      - backend-api
+
+  frontend-web:
+    image: markjnt/palliroute-frontend-web
+    container_name: palliroute-frontend-web
+    pull_policy: always
+    expose:
+      - "3000"
+    depends_on:
+      - backend-api
+      - traefik
+    restart: unless-stopped
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`${WEB_DOMAIN}`)"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.web.loadbalancer.server.port=3000"
+      - "traefik.http.services.web.loadbalancer.server.scheme=http"
+
+  frontend-pwa:
+    image: markjnt/palliroute-frontend-pwa
+    container_name: palliroute-frontend-pwa
+    pull_policy: always
+    volumes:
+      - ./docker/certs:/etc/nginx/certs:ro
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend-api
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
