@@ -4,111 +4,73 @@ PalliRoute ist ein Projekt zur automatischen Optimierung von Fahrtrouten im Gesu
 
 ## Installation und Start
 
-Die Installation und Ausführung von PalliRoute erfolgt in drei einfachen Schritten mit Docker Compose:
+Die Konfiguration erfolgt **ausschließlich über die Datei `.env`**. Die Datei `docker-compose.yml` wird nicht angepasst.
 
-### 1. docker-compose.yml Datei herunterladen
+### 1. Umgebung konfigurieren
 
-Laden Sie die Beispieldatei [`docker-compose.example.yml`](docker-compose.example.yml) herunter und benennen Sie sie um:
-
-```bash
-cp docker-compose.example.yml docker-compose.yml
-```
-
-### 2. Docker Compose anpassen
-
-Öffnen Sie die Datei `docker-compose.yml` und passen Sie die folgenden Konfigurationen an:
-
-#### 2.1 Umgebungsvariablen
-
-**Backend API (erforderlich):**
-- `SECRET_KEY`: Ein sicherer Schlüssel für die Flask-Anwendung
-- `GOOGLE_MAPS_API_KEY`: Ihr Google Maps API-Schlüssel für Geocoding und Routenplanung
-- `CORS_ORIGINS`: Erlaubte Ursprünge für CORS (kommagetrennt; für HTTPS z.B. `https://ihr-server:3000,https://ihr-server:3001`, für lokale Entwicklung zusätzlich `http://localhost:3000,http://localhost:3001`)
-- `APLANO_API_KEY`: API-Schlüssel für die Aplano-Integration
-
-**Backend Scheduler (automatisch konfiguriert):**
-- `AUTO_IMPORT_ENABLED`: Automatischer Import aktiviert (Standard: true)
-- `AUTO_IMPORT_TIMES`: Feste Importzeiten im Format HH:MM, kommasepariert (z.B. `08:00,12:30,16:00`)
-- `BACKEND_API_URL`: URL zum Backend API (Standard: http://backend-api:9000)
-
-```yaml
-# Backend-API
-environment:
-  - SECRET_KEY=your_secret_key_here
-  - GOOGLE_MAPS_API_KEY=your-google-maps-api-key-here
-  - CORS_ORIGINS=https://ihr-server:3000,https://ihr-server:3001,http://localhost:3000,http://localhost:3001
-  - APLANO_API_KEY=your-aplano-api-key-here
-
-# Backend Scheduler (automatisch konfiguriert)
-environment:
-  - AUTO_IMPORT_ENABLED=true
-  - AUTO_IMPORT_TIMES=08:00,12:30,16:00
-  - BACKEND_API_URL=http://backend-api:9000
-```
-
-#### 2.2 Excel-Import konfigurieren
-
-Es gibt **zwei** Mounts: einen für den Excel-Import-Ordner (Mitarbeiterliste, Pflegeheime) und einen für den **PalliDoc-Export**, der typischerweise woanders liegt.
-
-In der `docker-compose.yml`:
-
-```yaml
-# Backend API
-volumes:
-  - ./backend/data:/backend/data
-  - /path/to/excel_import:/backend/data/excel_import
-  - /path/to/Export_PalliDoc:/backend/data/excel_import/Export_PalliDoc
-
-# Backend Scheduler (gleiche Pfade)
-volumes:
-  - /path/to/excel_import:/scheduler/data/excel_import
-  - /path/to/Export_PalliDoc:/scheduler/data/excel_import/Export_PalliDoc
-```
-
-**Pfade anpassen:**
-- `/path/to/excel_import` – Ordner mit den Unterordnern **Mitarbeiterliste** und **Pflegeheime** (mit den jeweiligen .xlsx-Dateien).
-- `/path/to/Export_PalliDoc` – Ordner mit den PalliDoc-Export-Listen (kann an beliebiger Stelle auf dem Host liegen).
-
-**Ordnerstruktur:**
-
-- Unter `excel_import/`: `Mitarbeiterliste/` (z. B. Mitarbeiterliste.xlsx), `Pflegeheime/` (z. B. Pflegeheime.xlsx).
-- Export_PalliDoc liegt getrennt; im Container wird er unter `excel_import/Export_PalliDoc` eingehängt.
-
-Die Anwendung wählt automatisch die neueste Excel-Datei aus dem jeweiligen Ordner. Es sind **keine** weiteren Mounts für die Unterordner Mitarbeiterliste oder Pflegeheime nötig – nur der übergeordnete Ordner plus der PalliDoc-Export-Ordner.
-
-### 3. SSL-Zertifikate (HTTPS, interne Anwendung)
-
-Für HTTPS (z.B. Zugriff über VPN) müssen einmalig selbstsignierte Zertifikate erzeugt werden:
+Kopieren Sie die Beispieldatei für Umgebungsvariablen und passen Sie die Werte an:
 
 ```bash
-# Im Projekt-Root; SERVER_HOST = Hostname oder IP, über die die Anwendung erreichbar ist
-SERVER_HOST=192.168.1.100 ./docker/generate-certs.sh
-# oder nur localhost:
-./docker/generate-certs.sh
+cp .env.example .env
 ```
 
-Die Zertifikate liegen danach in `docker/certs/`. Die Frontend-Container mounten diesen Ordner.
+Bearbeiten Sie die Datei **`.env`** (im gleichen Ordner wie `docker-compose.yml`). Alle Einstellungen werden dort vorgenommen:
+
+| Variable | Beschreibung |
+|----------|--------------|
+| **WEB_DOMAIN** | Domain für das Web-Frontend (z. B. `web.palliroute.de`). DNS A-Record muss auf den Server zeigen. |
+| **PWA_DOMAIN** | Domain für das PWA-Frontend (z. B. `pwa.palliroute.de`). Wird für die spätere Umstellung auf Traefik/Domain vorgehalten; PWA ist aktuell weiter über Port 3001 erreichbar. |
+| **LETSENCRYPT_EMAIL** | E-Mail für Let’s Encrypt (Zertifikate, z. B. Ablaufwarnungen). |
+| **CORS_ORIGINS** | Erlaubte Ursprünge für CORS, kommagetrennt. Web- und PWA-Domain einbeziehen (z. B. `https://web.palliroute.de,https://pwa.palliroute.de,http://localhost:3000,http://localhost:3001`). |
+| **SECRET_KEY** | Geheimer Schlüssel für die Flask-Anwendung. |
+| **GOOGLE_MAPS_API_KEY** | Google Maps API-Schlüssel für Geocoding und Routenplanung. |
+| **APLANO_API_KEY** | API-Schlüssel für die Aplano-Integration. |
+| **AUTO_IMPORT_ENABLED** | Automatischer Import (z. B. `true`). |
+| **AUTO_IMPORT_TIMES** | Importzeiten im Format HH:MM, kommasepariert (z. B. `08:00,12:30,16:00`). |
+| **EXCEL_IMPORT_PATH** | Pfad zum Ordner mit **Mitarbeiterliste** und **Pflegeheime** (absolut oder relativ zum Projektroot). |
+| **EXPORT_PALLIDOC_PATH** | Pfad zum PalliDoc-Export-Ordner (absolut oder relativ zum Projektroot). |
+
+**Ordnerstruktur für den Import:**
+
+- Unter `EXCEL_IMPORT_PATH`: z. B. `Mitarbeiterliste/Mitarbeiterliste.xlsx`, `Pflegeheime/Pflegeheime.xlsx`.
+- `EXPORT_PALLIDOC_PATH` kann an beliebiger Stelle liegen; im Container wird er unter `excel_import/Export_PalliDoc` eingehängt.
+
+### 2. SSL-Zertifikate (optional)
+
+- **Web-Frontend (über Domain):** Traefik holt und verlängert Let’s-Encrypt-Zertifikate automatisch. Es ist kein manueller Schritt nötig.
+- **PWA-Frontend (Zugriff z. B. über IP:3001 mit HTTPS):** Für selbstsignierte Zertifikate einmalig ausführen:
+
+```bash
+SERVER_HOST=ihre-server-ip ./docker/generate-certs.sh
+```
+
+Die Zertifikate liegen danach in `docker/certs/` und werden vom PWA-Container genutzt.
+
+### 3. Ordner für Let’s Encrypt anlegen
+
+Vor dem ersten Start im Projektordner ausführen (Traefik speichert dort die Zertifikate):
+
+```bash
+mkdir -p letsencrypt
+```
 
 ### 4. Container starten
 
-Starten Sie die Container mit Docker Compose:
-
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-#### 4.1 Zugriff auf die Anwendung
+### 5. Zugriff auf die Anwendung
 
-Die Anwendung ist anschließend unter folgenden URLs erreichbar (HTTPS, selbstsigniertes Zertifikat – Browser-Warnung einmal bestätigen):
-- **Frontend-Web**: `https://localhost:3000` bzw. `https://ihr-server:3000`
-- **Frontend-PWA**: `https://localhost:3001` bzw. `https://ihr-server:3001`
-- **Backend-API**: nur intern; API-Zugriff erfolgt über die Frontends unter `/api`.
+- **Web-Frontend:** `https://<WEB_DOMAIN>` (z. B. `https://web.palliroute.de`). HTTP wird automatisch auf HTTPS umgeleitet.
+- **PWA-Frontend:** aktuell `http://<Server-IP>:3001` (oder mit selbstsigniertem Zertifikat `https://<Server-IP>:3001`, nach Ausführung von `generate-certs.sh`). Bei späterer Umstellung auf Traefik: `https://<PWA_DOMAIN>` (wie Web).
+- **Backend-API:** Nur intern; Aufrufe erfolgen über die Frontends unter `/api`.
+- **Traefik-Dashboard:** Nur lokal auf dem Server unter `http://localhost:8080` (nicht von außen erreichbar).
 
-#### 4.2 Container verwalten
+### 6. Container verwalten
 
-Zum Stoppen der Container:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ## Lizenz
