@@ -13,8 +13,6 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - HETZNER_API_KEY=${HETZNER_API_KEY}
-      - DO_AUTH_TOKEN=${DO_AUTH_TOKEN}
     ports:
       - "80:80"
       - "443:443"
