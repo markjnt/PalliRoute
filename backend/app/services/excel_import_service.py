@@ -926,12 +926,14 @@ class ExcelImportService:
                             visit_type = "HB"
                         elif "NA" in visit_info:
                             visit_type = "NA"
-                    elif "TK" in visit_info:
-                        visit_type = "TK"
-                    else:
-                        # Validate that only valid visit types are used
-                        valid_visit_types = ["HB", "NA", "TK"]
-                        raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2} im Sheet '{sheet_name}'. Erlaubte Werte: {', '.join(valid_visit_types)}")
+                        elif "TK" in visit_info:
+                            visit_type = "TK"
+                        else:
+                            # Validate that only valid visit types are used
+                            valid_visit_types = ["HB", "NA", "TK"]
+                            raise ValueError(
+                                f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2} im Sheet '{sheet_name}'. Erlaubte Werte: {', '.join(valid_visit_types)}"
+                            )
                         duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                     
                     # Weekend area assignment
