@@ -312,7 +312,7 @@ export const WeeklyPlanningCell: React.FC<WeeklyPlanningCellProps> = ({
                                 placement="top"
                             >
                                 <Chip
-                                    label={`V. ${replacementEmployee.last_name}`}
+                                    label={`${replacementEmployee.first_name?.charAt(0) || ''}. ${replacementEmployee.last_name}`}
                                     size="small"
                                     onClick={handleReplacementMenuOpen}
                                     sx={{
