@@ -8,7 +8,6 @@ import {
   Nightlight as NightIcon,
 } from '@mui/icons-material';
 import { Employee, EmployeeCapacity } from '../../../types/models';
-import { getCapacityColor } from '../../../utils/oncall/colorUtils';
 import { employeeTypeColors } from '../../../utils/colors';
 
 interface EmployeeCapacityCardProps {
@@ -177,16 +176,20 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
         const calculatedRemaining = capacity.max_count - assigned;
         // Always show remaining as at least 0 (never negative)
         const remaining = Math.max(0, capacity.remaining ?? calculatedRemaining);
-        
+
         // Calculate percentage: if max_count = 0 and assigned > 0, show 100% (full bar)
         // Otherwise calculate normally, allowing > 100% when over capacity
-        const percentage = capacity.max_count > 0 
-          ? (assigned / capacity.max_count) * 100 
+        const percentage = capacity.max_count > 0
+          ? (assigned / capacity.max_count) * 100
           : (assigned > 0 ? 100 : 0);
-        
-        // Show as error if over capacity OR if assigned > 0 but max_count = 0
+
+        // Determine color based on relation to limit (max_count)
         const isOverCapacity = assigned > capacity.max_count || (capacity.max_count === 0 && assigned > 0);
-        const color = isOverCapacity ? 'error' : 'success';
+        const isAtLimit = !isOverCapacity && capacity.max_count > 0 && assigned === capacity.max_count;
+        const isUnderLimit = !isOverCapacity && !isAtLimit;
+
+        const color: 'primary' | 'success' | 'error' =
+          isOverCapacity ? 'error' : isAtLimit ? 'success' : 'primary';
 
         return (
           <Box key={capacity.id} sx={{ mb: 2, '&:last-child': { mb: 0 } }}>
@@ -252,7 +255,11 @@ export const EmployeeCapacityCard: React.FC<EmployeeCapacityCardProps> = ({ empl
                 mt: 0.75,
                 display: 'block',
                 fontSize: '0.7rem',
-                color: isOverCapacity ? 'error.main' : 'success.main',
+                color: isOverCapacity
+                  ? 'error.main'
+                  : isAtLimit
+                  ? 'success.main'
+                  : 'primary.main',
                 fontWeight: isOverCapacity ? 600 : 500,
               }}
             >
