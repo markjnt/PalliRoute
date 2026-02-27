@@ -667,19 +667,19 @@ class ExcelImportService:
             
             # Check required fields are not empty
             if not first_name:
-                raise ValueError(f"Vorname ist leer in Zeile {idx + 2}")
+                raise ValueError(f"Vorname ist leer in Zeile {idx + 2} im Sheet '{sheet_name}'")
             if not last_name:
-                raise ValueError(f"Nachname ist leer in Zeile {idx + 2}")
+                raise ValueError(f"Nachname ist leer in Zeile {idx + 2} im Sheet '{sheet_name}'")
             if not street:
-                raise ValueError(f"Strasse ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+                raise ValueError(f"Strasse ist leer für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'")
             if not zip_code:
-                raise ValueError(f"PLZ ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+                raise ValueError(f"PLZ ist leer für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'")
             if not city:
-                raise ValueError(f"Ort ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+                raise ValueError(f"Ort ist leer für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'")
             
             # Validate PLZ format (German postal codes: 5 digits)
             if not zip_code.isdigit() or len(zip_code) != 5:
-                raise ValueError(f"Ungültige PLZ '{zip_code}' für Patient {first_name} {last_name} in Zeile {idx + 2}. PLZ muss 5 Ziffern haben")
+                raise ValueError(f"Ungültige PLZ '{zip_code}' für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'. PLZ muss 5 Ziffern haben")
             
             latitude, longitude = geocode_results.get((street, zip_code, city), (None, None))
             
@@ -688,7 +688,7 @@ class ExcelImportService:
             
             # Check if area field is empty
             if not area_raw:
-                raise ValueError(f"Gebiet-Spalte ist leer für Patient {first_name} {last_name} in Zeile {idx + 2}")
+                raise ValueError(f"Gebiet-Spalte ist leer für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'")
             
             # Determine area based on substring matching
             area_raw_lower = area_raw.lower()
@@ -697,7 +697,7 @@ class ExcelImportService:
             elif "südkreis" in area_raw_lower or "suedkreis" in area_raw_lower:
                 patient_area = "Südkreis"
             else:
-                raise ValueError(f"Ungültiges Gebiet '{area_raw}' für Patient {first_name} {last_name} in Zeile {idx + 2}. Erwartet: 'Nordkreis' oder 'Südkreis'")
+                raise ValueError(f"Ungültiges Gebiet '{area_raw}' für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'. Erwartet: 'Nordkreis' oder 'Südkreis'")
             
             # Validate calendar week (KW)
             calendar_week = None
@@ -705,9 +705,9 @@ class ExcelImportService:
                 try:
                     calendar_week = ExcelImportService._parse_calendar_week(row['KW'])
                     if calendar_week is None or calendar_week < 1 or calendar_week > 53:
-                        raise ValueError(f"Ungültige Kalenderwoche {calendar_week} für Patient {first_name} {last_name} in Zeile {idx + 2}. Muss zwischen 1 und 53 sein")
+                        raise ValueError(f"Ungültige Kalenderwoche {calendar_week} für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'. Muss zwischen 1 und 53 sein")
                 except (ValueError, TypeError):
-                    raise ValueError(f"Ungültige Kalenderwoche '{row['KW']}' für Patient {first_name} {last_name} in Zeile {idx + 2}. Muss eine Zahl zwischen 1 und 53 sein")
+                    raise ValueError(f"Ungültige Kalenderwoche '{row['KW']}' für Patient {first_name} {last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'. Muss eine Zahl zwischen 1 und 53 sein")
             
             patient = Patient(
                 first_name=first_name,
@@ -784,15 +784,15 @@ class ExcelImportService:
             # Default employee assignment from 'Touren' column
             mitarbeiter_nachname_raw = str(row['Touren']).strip() if pd.notna(row['Touren']) else None
             if not mitarbeiter_nachname_raw:
-                raise ValueError(f"Touren-Spalte ist leer für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2}")
+                raise ValueError(f"Touren-Spalte ist leer für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'")
             
             # Find matching employees
             matching_employees = [e for e in employees if e.last_name.lower() in mitarbeiter_nachname_raw.lower()]
             if len(matching_employees) == 0:
                 available_employees = [e.last_name for e in employees]
-                raise ValueError(f"Kein Mitarbeiter gefunden mit Nachname in '{mitarbeiter_nachname_raw}' für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2}. Verfügbare Mitarbeiter: {', '.join(available_employees)}")
+                raise ValueError(f"Kein Mitarbeiter gefunden mit Nachname in '{mitarbeiter_nachname_raw}' für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2} im Sheet '{sheet_name}'. Verfügbare Mitarbeiter: {', '.join(available_employees)}")
             if len(matching_employees) > 1:
-                raise ValueError(f"Mehrere Mitarbeiter passen zu '{mitarbeiter_nachname_raw}' für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2}: {[e.last_name for e in matching_employees]}. Bitte spezifischer werden.")
+                raise ValueError(f"Mehrere Mitarbeiter passen zu '{mitarbeiter_nachname_raw}' für Patient {patient.first_name} {patient.last_name} in Zeile {idx + 2} im Sheet '{sheet_name}': {[e.last_name for e in matching_employees]}. Bitte spezifischer werden.")
             
             default_employee = matching_employees[0]
             print(f"    → Assigned to {default_employee.first_name} {default_employee.last_name}")
@@ -813,7 +813,7 @@ class ExcelImportService:
                     else:
                         # Validate that only valid visit types are used
                         valid_visit_types = ["HB", "NA", "TK"]
-                        raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2}. Erlaubte Werte: {', '.join(valid_visit_types)}")
+                        raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2} im Sheet '{sheet_name}'. Erlaubte Werte: {', '.join(valid_visit_types)}")
                     duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                 
                 # Parse responsible employees - support multiple aliases separated by comma
@@ -926,12 +926,12 @@ class ExcelImportService:
                             visit_type = "HB"
                         elif "NA" in visit_info:
                             visit_type = "NA"
-                        elif "TK" in visit_info:
-                            visit_type = "TK"
-                        else:
-                            # Validate that only valid visit types are used
-                            valid_visit_types = ["HB", "NA", "TK"]
-                            raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2}. Erlaubte Werte: {', '.join(valid_visit_types)}")
+                    elif "TK" in visit_info:
+                        visit_type = "TK"
+                    else:
+                        # Validate that only valid visit types are used
+                        valid_visit_types = ["HB", "NA", "TK"]
+                        raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2} im Sheet '{sheet_name}'. Erlaubte Werte: {', '.join(valid_visit_types)}")
                         duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                     
                     # Weekend area assignment
