@@ -238,7 +238,7 @@ class ExcelImportService:
             address_tuples = []
             for _, row in df.iterrows():
                 street = str(row['Strasse']).strip()
-                zip_code = str(row['PLZ']).strip()
+                zip_code = ExcelImportService._normalize_zip_code(row['PLZ'])
                 city = str(row['Ort']).strip()
                 address_tuples.append((street, zip_code, city))
             unique_address_tuples = list(set(address_tuples))
@@ -263,7 +263,7 @@ class ExcelImportService:
                         raise ValueError(f"Ungültiges Gebiet '{area}'. Muss einer der folgenden Werte sein: {', '.join(valid_areas)}")
 
                     street = str(row['Strasse']).strip()
-                    zip_code = str(row['PLZ']).strip()
+                    zip_code = ExcelImportService._normalize_zip_code(row['PLZ'])
                     city = str(row['Ort']).strip()
                     latitude, longitude = geocode_results.get((street, zip_code, city), (None, None))
 
@@ -459,7 +459,7 @@ class ExcelImportService:
             address_tuples = []
             for _, row in df.iterrows():
                 street = str(row['Straße']).strip()
-                zip_code = str(row['PLZ']).strip()
+                zip_code = ExcelImportService._normalize_zip_code(row['PLZ'])
                 city = str(row['Ort']).strip()
                 address_tuples.append((street, zip_code, city))
             unique_address_tuples = list(set(address_tuples))
@@ -474,7 +474,7 @@ class ExcelImportService:
                 if not name:
                     raise ValueError(f"Name ist leer in Zeile {idx + 2}")
                 street = str(row['Straße']).strip()
-                zip_code = str(row['PLZ']).strip()
+                zip_code = ExcelImportService._normalize_zip_code(row['PLZ'])
                 city = str(row['Ort']).strip()
                 latitude, longitude = geocode_results.get((street, zip_code, city), (None, None))
                 excel_names.add(name.lower())
@@ -551,6 +551,94 @@ class ExcelImportService:
         }
 
     @staticmethod
+    def _normalize_zip_code(value) -> str:
+        """
+        Normalize ZIP/PLZ values that may come in as numbers (e.g. 51597.0).
+        Returns a stripped string; numeric values are converted via int and zero-padded to 5 digits.
+        """
+        # Treat pandas NA values as empty
+        if pd.isna(value):
+            return ""
+
+        # Strings: handle numeric-like strings such as "51597.0"
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return ""
+            # If it's purely numeric or numeric with .0, normalize via float->int
+            if re.fullmatch(r"\d+(\.0+)?", s):
+                try:
+                    return f"{int(float(s)):05d}"
+                except (ValueError, OverflowError):
+                    return s
+            return s
+
+        # Numeric types: convert to int and pad to 5 digits
+        if isinstance(value, (int, float)):
+            try:
+                return f"{int(value):05d}"
+            except (ValueError, OverflowError):
+                return str(value)
+
+        # Fallback: convert to string and strip
+        return str(value).strip()
+
+    @staticmethod
+    def _normalize_phone_value(value):
+        """
+        Normalize phone number values that may come in as numbers (e.g. 0225198765.0).
+        Returns a string or None; numeric values are converted via int to remove '.0'.
+        """
+        if pd.isna(value):
+            return None
+
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return None
+            # Handle numeric-like strings with optional .0
+            if re.fullmatch(r"\d+(\.0+)?", s):
+                try:
+                    return str(int(float(s)))
+                except (ValueError, OverflowError):
+                    return s
+            return s
+
+        if isinstance(value, (int, float)):
+            try:
+                return str(int(value))
+            except (ValueError, OverflowError):
+                return str(value)
+
+        return str(value).strip()
+
+    @staticmethod
+    def _parse_calendar_week(value) -> Optional[int]:
+        """
+        Normalize calendar week (KW) values that may come in as numbers or strings like '12.0'.
+        Returns an int (1–53) or None if the value is empty/NA.
+        Range validation (1–53) is done by the caller.
+        """
+        if pd.isna(value):
+            return None
+
+        if isinstance(value, str):
+            s = value.strip()
+            if not s:
+                return None
+            try:
+                num = float(s)
+            except (ValueError, TypeError):
+                raise
+        else:
+            try:
+                num = float(value)
+            except (ValueError, TypeError):
+                raise
+
+        return int(num)
+
+    @staticmethod
     def _create_patients_from_sheet(df: pd.DataFrame, sheet_name: str) -> List[Patient]:
         """
         Create patients from a single sheet
@@ -559,7 +647,7 @@ class ExcelImportService:
         patient_address_tuples = []
         for _, row in df.iterrows():
             street = str(row['Strasse']).strip()
-            zip_code = str(row['PLZ']).strip()
+            zip_code = ExcelImportService._normalize_zip_code(row['PLZ'])
             city = str(row['Ort']).strip()
             patient_address_tuples.append((street, zip_code, city))
         unique_patient_address_tuples = list(set(patient_address_tuples))
@@ -574,7 +662,7 @@ class ExcelImportService:
             first_name = str(row['Vorname']).strip()
             last_name = str(row['Nachname']).strip()
             street = str(row['Strasse']).strip()
-            zip_code = str(row['PLZ']).strip()
+            zip_code = ExcelImportService._normalize_zip_code(row['PLZ'])
             city = str(row['Ort']).strip()
             
             # Check required fields are not empty
@@ -615,8 +703,8 @@ class ExcelImportService:
             calendar_week = None
             if pd.notna(row['KW']):
                 try:
-                    calendar_week = int(row['KW'])
-                    if calendar_week < 1 or calendar_week > 53:
+                    calendar_week = ExcelImportService._parse_calendar_week(row['KW'])
+                    if calendar_week is None or calendar_week < 1 or calendar_week > 53:
                         raise ValueError(f"Ungültige Kalenderwoche {calendar_week} für Patient {first_name} {last_name} in Zeile {idx + 2}. Muss zwischen 1 und 53 sein")
                 except (ValueError, TypeError):
                     raise ValueError(f"Ungültige Kalenderwoche '{row['KW']}' für Patient {first_name} {last_name} in Zeile {idx + 2}. Muss eine Zahl zwischen 1 und 53 sein")
@@ -629,8 +717,8 @@ class ExcelImportService:
                 city=city,
                 latitude=latitude,
                 longitude=longitude,
-                phone1=str(row['Telefon']) if pd.notna(row['Telefon']) else None,
-                phone2=str(row['Telefon2']) if pd.notna(row['Telefon2']) else None,
+                phone1=ExcelImportService._normalize_phone_value(row['Telefon']),
+                phone2=ExcelImportService._normalize_phone_value(row['Telefon2']),
                 calendar_week=calendar_week,
                 area=patient_area
             )
@@ -675,7 +763,13 @@ class ExcelImportService:
         
         for idx, row in df.iterrows():
             # Find the patient for this row (exact match including calendar_week)
-            row_calendar_week = int(row['KW']) if pd.notna(row['KW']) else None
+            if pd.notna(row['KW']):
+                try:
+                    row_calendar_week = ExcelImportService._parse_calendar_week(row['KW'])
+                except (ValueError, TypeError):
+                    row_calendar_week = None
+            else:
+                row_calendar_week = None
             patient = next((p for p in patients if 
                            p.last_name == str(row['Nachname']).strip() and
                            p.first_name == str(row['Vorname']).strip() and
