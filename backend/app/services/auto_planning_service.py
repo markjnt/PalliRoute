@@ -41,6 +41,7 @@ class AutoPlanningService:
         penalty_w3: int = 60,
         penalty_fairness: int = 50,
         penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten
+        bonus_friday_weekend_rb_coupling: int = 60,  # Belohnung wenn gleiche Person Fr RB + Wo RB Nacht
     ):
         self.existing_assignments_handling = existing_assignments_handling
         self.allow_overplanning = allow_overplanning
@@ -51,6 +52,7 @@ class AutoPlanningService:
         self.penalty_w3 = penalty_w3
         self.penalty_fairness = penalty_fairness
         self.penalty_overplanning = penalty_overplanning
+        self.bonus_friday_weekend_rb_coupling = bonus_friday_weekend_rb_coupling
 
     def _build_absent_dates(self, start_date: date) -> Set[Tuple[int, date]]:
         """Fetch Aplano absences (status=active) for planning range and return (employee_id, date) set."""
@@ -171,6 +173,7 @@ class AutoPlanningService:
                 penalty_w3=self.penalty_w3,
                 penalty_fairness=self.penalty_fairness,
                 penalty_overplanning=self.penalty_overplanning,
+                bonus_friday_weekend_rb_coupling=self.bonus_friday_weekend_rb_coupling,
             )
         except Exception as e:
             logger.exception('Failed to build CP-SAT model')
