@@ -72,6 +72,13 @@ if ('serviceWorker' in navigator) {
     onOfflineReady() {
       console.log('App ist jetzt offlinefähig!');
     },
+    onRegisteredSW(swUrl, registration) {
+      // Beim Öffnen der App sofort auf neue Version prüfen,
+      // damit ein einfaches Neuöffnen reicht (ohne PWA neu zu installieren).
+      if (registration) {
+        registration.update();
+      }
+    },
   });
 }
 
