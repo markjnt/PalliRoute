@@ -37,7 +37,7 @@ class AutoPlanningService:
         include_aplano: bool = False,
         time_limit_seconds: float = 30.0,
         penalty_w1: int = 100,
-        penalty_w2: int = 80,
+        penalty_w2: int = 150,  # Wochenend-Rotation (AW/RB → frei → …) wichtiger als andere weiche Regeln
         penalty_w3: int = 60,
         penalty_fairness: int = 50,
         penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten

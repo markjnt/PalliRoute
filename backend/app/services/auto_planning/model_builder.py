@@ -150,16 +150,44 @@ def _weekend_then_monday_rb_pairs(shifts: List[ShiftInfo]) -> List[Tuple[List[in
     return result
 
 
+def _friday_rb_weekend_rb_night_pairs(shifts: List[ShiftInfo]) -> List[Tuple[List[int], List[int]]]:
+    """
+    For each weekend (Sat+Sun): (friday_rb_nursing_indices, weekend_rb_night_indices).
+    Friday = the Friday before that Saturday. Used to reward: same employee has Friday RB and
+    RB Nacht on that weekend (and vice versa).
+    """
+    saturdays = sorted({s.date for s in shifts if s.date.weekday() == 5})
+    result: List[Tuple[List[int], List[int]]] = []
+    for sat_date in saturdays:
+        friday_date = sat_date - timedelta(days=1)
+        sun_date = sat_date + timedelta(days=1)
+        friday_rb_indices = [
+            s.index for s in shifts
+            if s.category == 'RB_WEEKDAY' and s.role == 'NURSING' and s.date == friday_date
+        ]
+        weekend_night_indices = [
+            s.index for s in shifts
+            if s.category == 'RB_WEEKEND'
+            and s.role == 'NURSING'
+            and s.time_of_day == 'NIGHT'
+            and (s.date == sat_date or s.date == sun_date)
+        ]
+        if friday_rb_indices and weekend_night_indices:
+            result.append((friday_rb_indices, weekend_night_indices))
+    return result
+
+
 def build_model(
     ctx: PlanningContext,
     allow_overplanning: bool,
     penalty_w1: int = 100,
-    penalty_w2: int = 80,
+    penalty_w2: int = 150,  # Wochenend-Rotation: gleicher Typ nicht zwei Wochenenden hintereinander
     penalty_w3: int = 60,
     penalty_fairness: int = 50,
     penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten
     penalty_area_mismatch: int = 40,
     penalty_weekend_then_monday_rb: int = 70,
+    bonus_friday_weekend_rb_coupling: int = 60,  # Belohnung wenn gleiche Person Fr RB + Wo RB Nacht
 ) -> PlanningModel:
     """
     Build CP-SAT model with variables and all constraints.
@@ -427,6 +455,27 @@ def build_model(
             model.Add(both <= has_monday_rb)
             model.Add(both >= has_weekend + has_monday_rb - 1)
             objective_terms.append(both * penalty_weekend_then_monday_rb)
+
+    # W6: Freitag RB <-> Wochenende RB Nacht koppeln: gleiche Person bevorzugen (Belohnung)
+    friday_weekend_pairs = _friday_rb_weekend_rb_night_pairs(shifts)
+    nursing_employees = [e for e in employees if e.role == 'NURSING']
+    for friday_rb_indices, weekend_night_indices in friday_weekend_pairs:
+        for e in nursing_employees:
+            vars_friday = [x[(e.index, s)] for (ei, s) in pairs if ei == e.index and s in friday_rb_indices]
+            vars_weekend_night = [x[(e.index, s)] for (ei, s) in pairs if ei == e.index and s in weekend_night_indices]
+            if not vars_friday or not vars_weekend_night:
+                continue
+            has_friday_rb = model.NewBoolVar(f'w6_fr_rb_{e.index}_{friday_rb_indices[0]}')
+            model.Add(sum(vars_friday) >= 1).OnlyEnforceIf(has_friday_rb)
+            model.Add(sum(vars_friday) == 0).OnlyEnforceIf(has_friday_rb.Not())
+            has_weekend_night = model.NewBoolVar(f'w6_wo_night_{e.index}_{weekend_night_indices[0]}')
+            model.Add(sum(vars_weekend_night) >= 1).OnlyEnforceIf(has_weekend_night)
+            model.Add(sum(vars_weekend_night) == 0).OnlyEnforceIf(has_weekend_night.Not())
+            both = model.NewBoolVar(f'w6_couple_{e.index}_{friday_rb_indices[0]}')
+            model.Add(both <= has_friday_rb)
+            model.Add(both <= has_weekend_night)
+            model.Add(both >= has_friday_rb + has_weekend_night - 1)
+            objective_terms.append(-bonus_friday_weekend_rb_coupling * both)
 
     # Area mismatch (soft): prefer matching employee area to shift area (Nord/Süd only).
     # For shifts with area "Mitte" (e.g. AW Mitte) no preference — any employee (Nord/Süd) is fine.
