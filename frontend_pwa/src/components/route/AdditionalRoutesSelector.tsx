@@ -136,41 +136,20 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
   };
 
   return (
-    <Box sx={{ px: 2, pb: 2 }}>
+    <Box sx={{ px: 0, pt: 0, pb: 1.5 }}>
       <Box
         sx={{
-          p: 2,
+          p: 1.5,
           bgcolor: 'rgba(0, 0, 0, 0.02)',
           borderRadius: 2,
           border: '1px solid rgba(0, 0, 0, 0.08)',
         }}
       >
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {/* Anzahl der ausgewählten Routen */}
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  bgcolor: '#007AFF',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  flexShrink: 0,
-                }}
-              >
-                {selectedEmployeeIds.length}
-              </Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
-                Weitere Routen anzeigen
-              </Typography>
-            </Box>
-            
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
+              Weitere Routen anzeigen
+            </Typography>
             {/* Toggle All Button */}
             {employeesWithRoutes.length > 0 && (
               <Box
@@ -202,7 +181,7 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
 
         {/* Area Toggle Buttons - Only show when not in weekend mode */}
         {!selectedWeekendArea && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 1.5 }}>
             <Box
               onClick={() => handleAreaToggle('alle')}
               sx={{
@@ -225,7 +204,7 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
             >
               Alle
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 0.75 }}>
               <Box
                 onClick={() => handleAreaToggle('nord')}
                 sx={{
@@ -276,7 +255,7 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
           </Box>
         )}
 
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {employeesWithRoutes.map((employee) => {
             const isSelected = selectedEmployeeIds.includes(employee.id as any);
             

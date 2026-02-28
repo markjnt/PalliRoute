@@ -2,7 +2,6 @@ import { Sheet, SheetRef } from 'react-modal-sheet';
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { RouteInfo } from '../route/RouteInfo';
 import { RouteList } from '../route/RouteList';
-import { AdditionalRoutesSelector } from '../route/AdditionalRoutesSelector';
 import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
 import { useUserStore } from '../../stores/useUserStore';
 import { useDragStore } from '../../stores/useDragStore';
@@ -20,11 +19,11 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
   ({ isOpen, onClose }, ref) => {
     const sheetRef = useRef<SheetRef>(null);
     const [currentSnap, setCurrentSnap] = useState(1);
-  const { selectedEmployeeIds, toggleEmployee, selectAll, deselectAll, resetForNewUser } = useAdditionalRoutesStore();
+  const { resetForNewUser } = useAdditionalRoutesStore();
   const { selectedUserId, selectedWeekendArea } = useUserStore();
     const { isDragging } = useDragStore();
 
-    const snapPoints = [0.88, 0];
+    const snapPoints = [0.85, 0];
 
     // Reset additional routes when logged-in user or weekend area changes
     useEffect(() => {
@@ -67,16 +66,12 @@ export const MainBottomSheet = forwardRef<MainBottomSheetRef, MainBottomSheetPro
                   }} />
                   </div>
             </Sheet.Header>
-            <Sheet.Content style={{ paddingBottom: sheetRef.current?.y }}>
-              <Sheet.Scroller draggableAt="top">
-                <RouteInfo />
-                <RouteList />
-                <AdditionalRoutesSelector 
-                  selectedEmployeeIds={selectedEmployeeIds}
-                  onEmployeeToggle={toggleEmployee}
-                  onSelectAll={selectAll}
-                  onDeselectAll={deselectAll}
-                />
+            <Sheet.Content style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <Sheet.Scroller draggableAt="top" style={{ flex: 1, minHeight: 0 }}>
+                <div style={{ paddingBottom: 24 }}>
+                  <RouteInfo />
+                  <RouteList />
+                </div>
               </Sheet.Scroller>
             </Sheet.Content>
           </Sheet.Container>

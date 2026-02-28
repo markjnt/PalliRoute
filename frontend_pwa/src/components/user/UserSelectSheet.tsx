@@ -21,13 +21,16 @@ import {
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  Done as DoneIcon,
 } from '@mui/icons-material';
 import { Sheet } from 'react-modal-sheet';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useUserStore } from '../../stores/useUserStore';
+import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
 import { Employee } from '../../types/models';
 import { employeeTypeColors } from '../../utils/colors';
 import WeekendTourSelector from './WeekendTourSelector';
+import { AdditionalRoutesSelector } from '../route/AdditionalRoutesSelector';
 
 interface UserSearchDrawerProps {
   open: boolean;
@@ -40,6 +43,7 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [isWeekendExpanded, setIsWeekendExpanded] = useState(false);
+  const [isAdditionalRoutesExpanded, setIsAdditionalRoutesExpanded] = useState(false);
   const { data: employees = [], isLoading, error } = useEmployees();
   const { 
     selectedUserId, 
@@ -47,6 +51,7 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     setSelectedUser, 
     setSelectedWeekendArea 
   } = useUserStore();
+  const { selectedEmployeeIds, toggleEmployee, selectAll, deselectAll } = useAdditionalRoutesStore();
 
   const filteredEmployees = useMemo(() => {
     let filtered = employees;
@@ -155,7 +160,8 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
     <Sheet
       isOpen={open}
       onClose={onClose}
-      snapPoints={[0.95]}
+      initialSnap={0}
+      snapPoints={[0.87, 0]}
     >
       <Sheet.Container>
         <Sheet.Header>
@@ -177,35 +183,57 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
           {/* Fixed header with search */}
           <Box sx={{ p: 3, pb: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.08)' }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Mitarbeiter suchen..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-                sx: {
-                  borderRadius: 2,
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: 'rgba(0, 0, 0, 0.12)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(0, 0, 0, 0.24)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#007AFF',
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Mitarbeiter suchen..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: 'text.secondary' }} />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      height: '48px',
+                      minHeight: '48px',
+                      '& fieldset': {
+                        borderColor: 'rgba(0, 0, 0, 0.12)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(0, 0, 0, 0.24)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#007AFF',
+                      },
                     },
                   },
-                },
-              }}
-            />
-            
+                }}
+              />
+              <IconButton
+                onClick={onClose}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  flexShrink: 0,
+                  width: '48px',
+                  height: '48px',
+                  minWidth: '48px',
+                  minHeight: '48px',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                }}
+                aria-label="Fertig"
+              >
+                <DoneIcon />
+              </IconButton>
+            </Box>
+
             {/* Filter Chips */}
             <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               <Chip
@@ -293,12 +321,67 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
         <Sheet.Content>
           <Sheet.Scroller draggableAt="top">
+            {/* Weitere Routen – ausklappbar, ganz oben im scrollbaren Bereich (wie Wochenend-Touren) */}
+            <Box sx={{ px: 3, pt: 2, pb: 0 }}>
+              <Box
+                onClick={() => setIsAdditionalRoutesExpanded(!isAdditionalRoutesExpanded)}
+                sx={{
+                  py: 1.5,
+                  px: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderRadius: 2,
+                  bgcolor: 'rgba(0, 0, 0, 0.03)',
+                  border: '1px solid rgba(0, 0, 0, 0.08)',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.05)' },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      bgcolor: '#007AFF',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {selectedEmployeeIds.length}
+                  </Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
+                    Weitere Routen anzeigen
+                  </Typography>
+                </Box>
+                {isAdditionalRoutesExpanded ? (
+                  <ExpandLessIcon sx={{ color: 'rgba(0,0,0,0.5)' }} />
+                ) : (
+                  <ExpandMoreIcon sx={{ color: 'rgba(0,0,0,0.5)' }} />
+                )}
+              </Box>
+              <Collapse in={isAdditionalRoutesExpanded} sx={{ mt: 1.5 }}>
+                <AdditionalRoutesSelector
+                  selectedEmployeeIds={selectedEmployeeIds}
+                  onEmployeeToggle={toggleEmployee}
+                  onSelectAll={selectAll}
+                  onDeselectAll={deselectAll}
+                />
+              </Collapse>
+            </Box>
+
             {/* Scrollable employee list - Hide when AW filter is active */}
             {activeFilter !== 'aw' && (
             <Box sx={{ 
               px: 3,
-              pt: 2,
-              pb: 2,
+              pt: 0,
+              pb: 1.5,
             }}>
               {isLoading ? (
                 <Box display="flex" justifyContent="center" alignItems="center" py={4}>
@@ -431,7 +514,7 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
             {/* Weekend Tour Selector - Only show when filter is 'all' or 'aw' */}
             {(activeFilter === 'all' || activeFilter === 'aw') && (
-            <Box sx={{ px: 3, pt: activeFilter !== 'aw' ? 2 : 2, pb: 2 }}>
+            <Box sx={{ px: 3, pt: 0, pb: 2 }}>
               <WeekendTourSelector
                 selectedArea={selectedWeekendArea}
                 onAreaSelect={handleWeekendAreaSelect}

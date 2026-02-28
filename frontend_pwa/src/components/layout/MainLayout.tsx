@@ -55,6 +55,7 @@ const MainLayout: React.FC = () => {
   }, [selectedUserId]);
 
   const handleUserSwitch = () => {
+    setIsSheetOpen(false); // MainBottomSheet schließen beim Öffnen des User-Selectors
     setIsUserDrawerOpen(true);
   };
 
@@ -63,11 +64,15 @@ const MainLayout: React.FC = () => {
   };
 
   const handleSheetToggle = () => {
+    if (!isSheetOpen) {
+      setIsUserDrawerOpen(false); // User-Sheet schließen beim Öffnen des MainBottomSheet
+    }
     setIsSheetOpen(!isSheetOpen);
   };
 
   const handleSheetClose = () => {
     setIsSheetOpen(false);
+    setIsUserDrawerOpen(false); // Also close user select sheet when map/outside is clicked
     // Also close weekday selector when map is clicked
     if ((window as any).__closeWeekdaySelector) {
       (window as any).__closeWeekdaySelector();
@@ -94,6 +99,10 @@ const MainLayout: React.FC = () => {
           onUserSwitch={handleUserSwitch}
           onSheetToggle={handleSheetToggle}
           onCloseWeekdaySelector={() => {}}
+          onWeekdayButtonClick={() => {
+            setIsSheetOpen(false);
+            setIsUserDrawerOpen(false);
+          }}
         />
 
         <MainBottomSheet 
