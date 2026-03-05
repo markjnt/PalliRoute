@@ -55,8 +55,14 @@ const MainLayout: React.FC = () => {
   }, [selectedUserId]);
 
   const handleUserSwitch = () => {
-    setIsSheetOpen(false); // MainBottomSheet schließen beim Öffnen des User-Selectors
-    setIsUserDrawerOpen(true);
+    const nextIsUserDrawerOpen = !isUserDrawerOpen;
+
+    // Wenn der User-Selector geöffnet wird, MainBottomSheet schließen
+    if (nextIsUserDrawerOpen) {
+      setIsSheetOpen(false);
+    }
+
+    setIsUserDrawerOpen(nextIsUserDrawerOpen);
   };
 
   const handleDrawerClose = () => {
