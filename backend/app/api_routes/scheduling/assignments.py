@@ -131,17 +131,8 @@ def create_assignment():
             if not shift_instance:
                 return jsonify({'error': 'Shift instance not found'}), 404
             
-            # Check if assignment already exists
-            existing = Assignment.query.filter_by(
-                employee_id=employee_id,
-                shift_instance_id=shift_instance_id
-            ).first()
-            
-            if existing:
-                return jsonify({
-                    'error': 'Assignment already exists for this employee and shift instance',
-                    'id': existing.id
-                }), 409
+            # One shift = one employee: remove any existing assignments for this shift
+            Assignment.query.filter_by(shift_instance_id=shift_instance_id).delete()
             
             assignment = Assignment(
                 employee_id=employee_id,
@@ -193,17 +184,8 @@ def create_assignment():
                 db.session.add(shift_instance)
                 db.session.flush()
             
-            # Check if assignment already exists
-            existing = Assignment.query.filter_by(
-                employee_id=employee_id,
-                shift_instance_id=shift_instance.id
-            ).first()
-            
-            if existing:
-                return jsonify({
-                    'error': 'Assignment already exists for this employee and shift instance',
-                    'id': existing.id
-                }), 409
+            # One shift = one employee: remove any existing assignments for this shift
+            Assignment.query.filter_by(shift_instance_id=shift_instance.id).delete()
             
             assignment = Assignment(
                 employee_id=employee_id,
