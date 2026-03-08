@@ -118,7 +118,9 @@ export const RouteInfo: React.FC = () => {
     };
   };
 
-  const utilizationInfo = calculateUtilization(selectedRoute.total_duration);
+  const durationMinutes = selectedRoute.total_duration ?? 0;
+  const distanceKm = selectedRoute.total_distance ?? 0;
+  const utilizationInfo = calculateUtilization(durationMinutes);
 
   // Format last update time for display
   const formatLastUpdateTime = (time: Date | null): string => {
@@ -189,7 +191,7 @@ export const RouteInfo: React.FC = () => {
                 Distanz
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600, color: '#1d1d1f' }}>
-                {formatDistance(selectedRoute.total_distance)}
+                {formatDistance(distanceKm)}
               </Typography>
             </Box>
           </Box>

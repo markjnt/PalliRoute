@@ -69,12 +69,14 @@ export const routesApi = {
         }
     },
 
-    // Optimize weekend routes for a specific day and area
+    // Optimize weekend routes for a specific day and area (uses current calendar week so displayed route gets updated)
     async optimizeWeekendRoutes(weekday: string, area: string): Promise<void> {
         try {
+            const calendar_week = await calendarWeekService.getBestWeek();
             const response = await api.post(`/routes/optimize`, {
                 weekday: weekday.toLowerCase(),
-                area: area
+                area: area,
+                calendar_week
             });
             return response.data;
         } catch (error) {

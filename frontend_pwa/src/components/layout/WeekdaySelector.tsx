@@ -261,7 +261,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
           const dayRoute = selectedWeekendArea 
             ? allRoutes.find(route => !route.employee_id && route.area === selectedWeekendArea && route.weekday === weekday.value)
             : allRoutes.find(route => route.employee_id === selectedUserId && route.weekday === weekday.value);
-          const utilization = dayRoute ? calculateUtilization(dayRoute.total_duration) : { utilizationPercent: 0, utilizationColor: 'success.main' };
+          const utilization = dayRoute ? calculateUtilization(dayRoute.total_duration ?? 0) : { utilizationPercent: 0, utilizationColor: 'success.main' };
 
           return (
             <Box

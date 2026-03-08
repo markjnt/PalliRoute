@@ -117,7 +117,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     
     // Appointments/Patients für alle sichtbaren Routen
     if (patients.length > 0 && appointments.length > 0 && visibleRoutes.length > 0) {
-      const appointmentPositions = new Map();
+      const appointmentPositions = new Map<number, { position: number; routeId: number }>();
       
       // Positionen für alle Termine in allen sichtbaren Routen setzen
       visibleRoutes.forEach(route => {
@@ -127,24 +127,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         });
       });
       
-      // HB- und NA-Termine (Hausbesuch und Neuaufnahme) anzeigen
+      // HB- und NA-Termine (Hausbesuch und Neuaufnahme) anzeigen – nur wenn sie in der route_order stehen
       const appointmentsForDay = appointments.filter(a => a.weekday === selectedWeekday && (a.visit_type === 'HB' || a.visit_type === 'NA'));
       
       for (const appointment of appointmentsForDay) {
         const patient = patients.find(p => p.id === appointment.patient_id);
-        if (patient) {
-          const posInfo = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
-          const position = posInfo ? posInfo.position : undefined;
-          const routeId = posInfo ? posInfo.routeId : undefined;
-          
-          if (routeId) {
-            // Prüfe, ob der Termin zu einer sichtbaren Route gehört
-            const route = visibleRoutes.find(r => r.id === routeId);
-            if (route) {
-              const baseMarker = createPatientMarkerData(patient, appointment, position, routeId, route);
-              if (baseMarker) {
-                newMarkers.push({ ...baseMarker, isInactive: false });
-              }
+        if (!patient) continue;
+        
+        const posInfo = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
+        const routeId = posInfo?.routeId;
+        
+        if (routeId) {
+          const route = visibleRoutes.find(r => r.id === routeId);
+          if (route) {
+            const baseMarker = createPatientMarkerData(patient, appointment, posInfo?.position, routeId, route);
+            if (baseMarker) {
+              newMarkers.push({ ...baseMarker, isInactive: false });
             }
           }
         }
