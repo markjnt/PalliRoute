@@ -350,6 +350,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
               employee={employee}
               dates={dates}
               assignments={assignments}
+              employeeCapacities={employeeCapacities}
               onCellClick={(date) => handleCellClick(employee, date)}
             />
           ))}
