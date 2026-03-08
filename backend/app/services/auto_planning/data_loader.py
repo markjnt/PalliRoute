@@ -41,11 +41,13 @@ def _get_calendar_week(d: date) -> int:
 
 @dataclass
 class PlanableEmployee:
-    """Employee included in the solver with index, role and optional area."""
+    """Employee included in the solver with index, role, optional area and optional home coordinates."""
     index: int
     id: int
     role: str  # NURSING | DOCTOR
     area: Optional[str] = None  # Nord, Süd, Mitte oder None (Stammbereich)
+    latitude: Optional[float] = None  # Wohnort für Distanz zum Tour-Start
+    longitude: Optional[float] = None
 
 
 @dataclass
@@ -152,7 +154,11 @@ def load_planning_context(
         if role in (ROLE_NURSING, ROLE_DOCTOR):
             idx = len(planable)
             area = _normalize_area(getattr(emp, 'area', None))
-            planable.append(PlanableEmployee(index=idx, id=emp.id, role=role, area=area))
+            planable.append(PlanableEmployee(
+                index=idx, id=emp.id, role=role, area=area,
+                latitude=getattr(emp, 'latitude', None),
+                longitude=getattr(emp, 'longitude', None),
+            ))
             employee_id_to_idx[emp.id] = idx
 
     # Capacity: for planning month only, all 5 types per employee
@@ -188,7 +194,11 @@ def load_planning_context(
         if role in (ROLE_NURSING, ROLE_DOCTOR):
             idx = len(planable)
             area = _normalize_area(getattr(emp, 'area', None))
-            planable.append(PlanableEmployee(index=idx, id=emp.id, role=role, area=area))
+            planable.append(PlanableEmployee(
+                index=idx, id=emp.id, role=role, area=area,
+                latitude=getattr(emp, 'latitude', None),
+                longitude=getattr(emp, 'longitude', None),
+            ))
             employee_id_to_idx[emp.id] = idx
     capacity_max = {eid: capacity_max[eid] for eid in employees_with_capacity}
 

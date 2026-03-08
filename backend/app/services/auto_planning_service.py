@@ -41,6 +41,7 @@ class AutoPlanningService:
         penalty_w3: int = 60,
         penalty_fairness: int = 50,
         penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten
+        penalty_distance_per_km: int = 3,  # Weiche Strafe pro km Wohnort–Tour-Start (AW/Tour Nord/Mitte/Süd)
         bonus_friday_weekend_rb_coupling: int = 60,  # Belohnung wenn gleiche Person Fr RB + Wo RB Nacht
     ):
         self.existing_assignments_handling = existing_assignments_handling
@@ -52,6 +53,7 @@ class AutoPlanningService:
         self.penalty_w3 = penalty_w3
         self.penalty_fairness = penalty_fairness
         self.penalty_overplanning = penalty_overplanning
+        self.penalty_distance_per_km = penalty_distance_per_km
         self.bonus_friday_weekend_rb_coupling = bonus_friday_weekend_rb_coupling
 
     def _build_absent_dates(self, start_date: date) -> Set[Tuple[int, date]]:
@@ -173,6 +175,7 @@ class AutoPlanningService:
                 penalty_w3=self.penalty_w3,
                 penalty_fairness=self.penalty_fairness,
                 penalty_overplanning=self.penalty_overplanning,
+                penalty_distance_per_km=self.penalty_distance_per_km,
                 bonus_friday_weekend_rb_coupling=self.bonus_friday_weekend_rb_coupling,
             )
         except Exception as e:

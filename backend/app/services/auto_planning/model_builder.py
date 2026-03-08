@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from ortools.sat.python import cp_model
 
+from app.services.route_utils import distance_km_to_area_start
 from .data_loader import PlanningContext, ShiftInfo
 
 # Capacity type -> (category, role, time_of_day filter: None = any)
@@ -186,6 +187,7 @@ def build_model(
     penalty_fairness: int = 50,
     penalty_overplanning: int = 800,  # Stark: Kapazitäten auch bei Überplanung möglichst einhalten
     penalty_area_mismatch: int = 40,
+    penalty_distance_per_km: int = 3,
     penalty_weekend_then_monday_rb: int = 70,
     bonus_friday_weekend_rb_coupling: int = 60,  # Belohnung wenn gleiche Person Fr RB + Wo RB Nacht
 ) -> PlanningModel:
@@ -489,6 +491,19 @@ def build_model(
             and emp_area != shift_area
         ):
             objective_terms.append(penalty_area_mismatch * x[(e_idx, s_idx)])
+
+    # Distance to tour start (soft): for shifts with area (AW/Tour Nord/Mitte/Süd), prefer assigning
+    # the employee whose home is closest to that area's start point.
+    for (e_idx, s_idx) in pairs:
+        shift_area = shifts[s_idx].area
+        if not shift_area:
+            continue
+        emp = employees[e_idx]
+        dist_km = distance_km_to_area_start(emp.latitude, emp.longitude, shift_area)
+        if dist_km is not None and penalty_distance_per_km > 0:
+            coeff = int(round(penalty_distance_per_km * dist_km))
+            if coeff > 0:
+                objective_terms.append(coeff * x[(e_idx, s_idx)])
 
     # Overplanning: Kapazitäten als weiche Constraints — Überschreitung bestrafen, Solver hält sie möglichst ein
     if allow_overplanning:

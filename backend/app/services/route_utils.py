@@ -1,8 +1,40 @@
 from datetime import datetime, timedelta, date
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import googlemaps
+import math
 import os
 from app.models.appointment import VISIT_TYPE_DURATIONS
+
+
+def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Distance in km between two WGS84 points (Haversine)."""
+    R = 6371  # Earth radius in km
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+
+def distance_km_to_area_start(
+    employee_lat: Optional[float],
+    employee_lng: Optional[float],
+    area: str,
+) -> Optional[float]:
+    """
+    Distance in km from employee location to the canonical start point of the given area
+    (Nord / Mitte / Süd). Used e.g. for automatic planning to prefer assigning
+    the employee closest to the tour start.
+    Returns None if employee has no coordinates.
+    """
+    if employee_lat is None or employee_lng is None:
+        return None
+    start = get_weekend_start_location(area)
+    return haversine_km(
+        employee_lat, employee_lng,
+        start['lat'], start['lng'],
+    )
 
 def get_departure_time(weekday: str, calendar_week: int) -> datetime:
     """
