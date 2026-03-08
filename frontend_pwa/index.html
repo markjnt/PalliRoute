@@ -41,22 +41,32 @@
       user-select: text;
     }
     
-    /* Zusätzliche PWA-Optimierungen */
+    /* Karten-Container: Touch-Events durchlassen, damit nur die Karte zoomt */
+    .pwa-map-touch-area {
+      touch-action: none;
+    }
+    
+    /* Zusätzliche PWA-Optimierungen – kein Seiten-Zoom, nur Karte zoombar */
+    html, body, #root {
+      touch-action: pan-x pan-y;
+      -webkit-user-select: none;
+      user-select: none;
+    }
     body {
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       overscroll-behavior: none;
-      touch-action: manipulation;
-      /* Zoom-Verhinderung */
+      /* pan-x pan-y = kein Pinch-Zoom der Seite, Karte bekommt weiterhin Touch-Events */
+      touch-action: pan-x pan-y;
       zoom: 1;
       -webkit-text-size-adjust: 100%;
       -ms-text-size-adjust: 100%;
       text-size-adjust: 100%;
     }
     
-    /* Verhindert Zoom bei Doppel-Tap */
+    /* Kein Seiten-Zoom (Pinch betrifft nur die Karte) */
     * {
-      touch-action: manipulation;
+      touch-action: pan-x pan-y;
     }
     
     /* Verhindert Zoom bei Input-Focus */

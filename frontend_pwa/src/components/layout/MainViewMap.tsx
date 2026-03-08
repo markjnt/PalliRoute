@@ -35,7 +35,7 @@ export const MapView: React.FC<MapViewProps> = ({ onMapClick }) => {
   }
 
   return (
-    <Box sx={{ position: 'relative', height: '110%' }}>
+    <Box className="pwa-map-touch-area" sx={{ position: 'relative', height: '110%' }}>
       <MapContainer apiKey={apiKey!} onMapClick={onMapClick} />
     </Box>
   );
