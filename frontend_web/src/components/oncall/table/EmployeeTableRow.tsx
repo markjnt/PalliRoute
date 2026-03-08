@@ -13,12 +13,12 @@ interface EmployeeTableRowProps {
   onCellClick: (date: Date) => void;
 }
 
-// Kurzbezeichnungen für Kapazitätstypen in der Tabelle (Wochentag nur RB, Ärzte ohne Umlaut)
+// Kurzbezeichnungen für Kapazitätstypen in der Tabelle (Wochentag nur RB, Ärzte ebenfalls nur RB)
 const CAPACITY_TYPE_ABBR: Record<string, string> = {
   'RB_NURSING_WEEKDAY': 'RB',
   'RB_NURSING_WEEKEND': 'RB-WE',
-  'RB_DOCTORS_WEEKDAY': 'RB-A',
-  'RB_DOCTORS_WEEKEND': 'RB-A WE',
+  'RB_DOCTORS_WEEKDAY': 'RB',
+  'RB_DOCTORS_WEEKEND': 'RB-WE',
   'AW_NURSING': 'AW',
 };
 
