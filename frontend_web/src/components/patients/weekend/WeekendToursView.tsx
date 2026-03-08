@@ -102,7 +102,6 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
         return routeAreaNormalized === area && r.weekday === selectedDay;
     });
     const routeId = route?.id;
-    const assignedEmployee = route?.employee_id ? employees.find(e => e.id === route.employee_id) : null;
 
     // Get route visibility using custom hook
     const routeVisibility = useRouteVisibility({ routeId });
@@ -182,7 +181,7 @@ const WeekendTourContainer: React.FC<WeekendTourContainerProps> = ({
                 alignItems: 'flex-start' 
             }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                    <WeekendTourHeader area={area} employee={assignedEmployee} />
+                    <WeekendTourHeader area={area} />
 
                     <WeekendTourStats area={area} route={route} />
                     

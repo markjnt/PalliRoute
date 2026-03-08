@@ -1,16 +1,14 @@
 import React from 'react';
 import { Box, Typography, Chip } from '@mui/material';
-import { Employee } from '../../../../types/models';
 
 const weekendAreas = ['Nord', 'Mitte', 'Süd'] as const;
 type WeekendArea = typeof weekendAreas[number];
 
 interface WeekendTourHeaderProps {
     area: WeekendArea;
-    employee?: Employee | null;
 }
 
-export const WeekendTourHeader: React.FC<WeekendTourHeaderProps> = ({ area, employee }) => {
+export const WeekendTourHeader: React.FC<WeekendTourHeaderProps> = ({ area }) => {
     return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* N/S Chips basierend auf Bereich */}
@@ -91,7 +89,7 @@ export const WeekendTourHeader: React.FC<WeekendTourHeaderProps> = ({ area, empl
                     })()
                 }}
             >
-                AW {area}{employee ? `: ${employee.first_name} ${employee.last_name}` : ''}
+                AW {area}
             </Typography>
         </Box>
     );
