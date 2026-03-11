@@ -52,14 +52,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     if (selectedWeekendArea) {
       // Für Wochenend-Bereiche: Hauptroute des ausgewählten Bereichs
       const mainRoute = routes.filter(route => 
-        !route.employee_id && 
         route.area === selectedWeekendArea && 
         route.weekday === selectedWeekday
       );
       
       // Zusätzliche Routen der anderen Wochenend-Bereiche
       const additionalRoutes = routes.filter(route => 
-        !route.employee_id && 
         selectedEmployeeIds.includes(route.area) && 
         route.weekday === selectedWeekday
       );

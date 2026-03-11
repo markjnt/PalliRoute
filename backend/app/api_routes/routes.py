@@ -145,13 +145,17 @@ def update_route(route_id):
 
         # Update route order
         route.set_route_order(route_order)
-
+        
         # Recalculate route using RoutePlanner
-        if route.employee_id:
-            route_planner.plan_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
-        else:
-            # For weekend routes, plan by area
+        is_weekend = route.weekday in ['saturday', 'sunday']
+        if is_weekend:
+            # Weekend / AW routes are always planned by area + calendar_week
             route_planner.plan_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
+        else:
+            # Weekday routes are planned by employee_id + calendar_week
+            if not route.employee_id:
+                return jsonify({'error': 'Route has no employee_id for weekday planning'}), 400
+            route_planner.plan_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
 
         # Note: plan_route already commits changes to database
 

@@ -45,8 +45,9 @@ class RoutePlanner:
             
             # Get route from database
             if is_weekend:
+                # Weekend routes are identified only by weekday, area and calendar_week,
+                # independent of employee_id (AW assignment may set employee_id later).
                 query = Route.query.filter_by(
-                    employee_id=None,
                     weekday=weekday.lower(),
                     area=area
                 )

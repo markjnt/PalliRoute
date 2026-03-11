@@ -61,8 +61,8 @@ def move_appointment():
         "appointment_id": 1,
         "source_employee_id": 1,  # For weekday appointments
         "target_employee_id": 2,  # For weekday appointments
-        "source_area": "Nordkreis",  # For weekend appointments
-        "target_area": "Südkreis",   # For weekend appointments
+        "source_area": "Nord",    # For weekend appointments (Nord, Mitte, Süd)
+        "target_area": "Süd",     # For weekend appointments (Nord, Mitte, Süd)
         "respect_replacement": true  # Whether to respect replacement chain
     }
     """
@@ -90,26 +90,15 @@ def move_appointment():
             # Weekend appointment - move between areas
             if not source_area or not target_area:
                 return jsonify({'error': 'source_area and target_area are required for weekend appointments'}), 400
-            
-            # Get source route for this weekday and area
+
+            # Get source route for this weekday, area and calendar week
             source_route_query = Route.query.filter_by(
-                employee_id=None,
                 weekday=weekday,
-                area=source_area
+                area=source_area,
             )
             if appointment.calendar_week:
                 source_route_query = source_route_query.filter_by(calendar_week=appointment.calendar_week)
             source_route = source_route_query.first()
-            
-            # Get target route for this weekday and area
-            target_route_query = Route.query.filter_by(
-                employee_id=None,
-                weekday=weekday,
-                area=target_area
-            )
-            if appointment.calendar_week:
-                target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)
-            target_route = target_route_query.first()
             
             # Update appointment's area
             appointment.area = target_area
@@ -124,14 +113,41 @@ def move_appointment():
                 # Recalculate source route
                 route_planner.plan_route(weekday, area=source_area, calendar_week=appointment.calendar_week)
             
-            if target_route and appointment.visit_type in ('HB', 'NA'):
-                # Only add HB and NA appointments to route order (exclude TK)
+            # Ensure target route exists and update its route order for HB/NA visits
+            if appointment.visit_type in ('HB', 'NA'):
+                # Get or create target route for this weekday, area and calendar week
+                target_route_query = Route.query.filter_by(
+                    weekday=weekday,
+                    area=target_area,
+                )
+                if appointment.calendar_week:
+                    target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)
+                target_route = target_route_query.first()
+
+                if not target_route:
+                    target_route = Route(
+                        employee_id=None,
+                        weekday=weekday,
+                        route_order=json.dumps([]),
+                        total_duration=0,
+                        total_distance=0,
+                        area=target_area,
+                        calendar_week=appointment.calendar_week
+                    )
+                    db.session.add(target_route)
+                    db.session.flush()
+
                 route_order = target_route.get_route_order()
-                route_order.append(appointment.id)
-                target_route.set_route_order(route_order)
+                if appointment.id not in route_order:
+                    route_order.append(appointment.id)
+                    target_route.set_route_order(route_order)
                 
-                # Optimize weekend route
-                route_optimizer.optimize_route(weekday, area=target_area, calendar_week=appointment.calendar_week)
+                # Optimize weekend route (creates/updates polyline, distance, duration)
+                route_optimizer.optimize_route(
+                    weekday,
+                    area=target_area,
+                    calendar_week=appointment.calendar_week
+                )
         else:
             # Weekday appointment - move between employees
             if not source_employee_id or not target_employee_id:
@@ -237,10 +253,10 @@ def assign_weekend_area():
         # Ensure target route exists (only relevant for HB/NA)
         target_route = None
         if appointment.visit_type in ('HB', 'NA'):
+            # Find weekend route for this weekday, area and calendar week
             target_route_query = Route.query.filter_by(
-                employee_id=None,
                 weekday=appointment.weekday,
-                area=target_area
+                area=target_area,
             )
             if appointment.calendar_week:
                 target_route_query = target_route_query.filter_by(calendar_week=appointment.calendar_week)

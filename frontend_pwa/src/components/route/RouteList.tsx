@@ -128,7 +128,6 @@ export const RouteList: React.FC = () => {
     if (selectedWeekendArea) {
       // Für Wochenend-Touren: Route des ausgewählten Bereichs
       return routes.filter(route => 
-        !route.employee_id && 
         route.area === selectedWeekendArea && 
         route.weekday === selectedWeekday
       );
