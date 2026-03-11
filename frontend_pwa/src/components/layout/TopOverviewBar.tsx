@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Avatar, IconButton, Typography, Chip } from '@mui/material';
 import {
   Home as HomeIcon,
@@ -24,6 +24,7 @@ interface TopOverviewBarProps {
 }
 
 export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle, onCloseWeekdaySelector, onWeekdayButtonClick }) => {
+  const barRef = useRef<HTMLDivElement | null>(null);
   const { selectedUserId, selectedWeekendArea } = useUserStore();
   const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
   const [isWeekdayMenuOpen, setIsWeekdayMenuOpen] = useState(false);
@@ -111,9 +112,37 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
   const tkPatients = getPatientsByVisitType('TK');
   const naPatients = getPatientsByVisitType('NA');
 
+  // Verhindert Safari-Pinch-Zoom explizit auf der Top-Bar
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+
+    const preventGesture = (event: any) => {
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      if (typeof event.stopPropagation === 'function') {
+        event.stopPropagation();
+      }
+    };
+
+    el.addEventListener('gesturestart', preventGesture as any, { passive: false });
+    el.addEventListener('gesturechange', preventGesture as any, { passive: false });
+    el.addEventListener('gestureend', preventGesture as any, { passive: false });
+    el.addEventListener('touchmove', preventGesture as any, { passive: false });
+
+    return () => {
+      el.removeEventListener('gesturestart', preventGesture as any);
+      el.removeEventListener('gesturechange', preventGesture as any);
+      el.removeEventListener('gestureend', preventGesture as any);
+      el.removeEventListener('touchmove', preventGesture as any);
+    };
+  }, []);
+
   return (
     <>
       <Box
+        ref={barRef}
         sx={{
           position: 'absolute',
           top: 50,
@@ -130,7 +159,11 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
           alignItems: 'center',
           px: 0,
           gap: 1,
+          // Verhindert, dass Pinch-/Zoom-Gesten an die Karte durchgereicht werden
+          touchAction: 'none',
         }}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         {/* Weekday Selection Button - LEFT */}
         <IconButton
