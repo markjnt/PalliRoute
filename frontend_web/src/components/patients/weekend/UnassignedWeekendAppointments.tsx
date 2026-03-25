@@ -97,7 +97,7 @@ export const UnassignedWeekendAppointments: React.FC<UnassignedWeekendAppointmen
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <WarningIcon color="warning" />
-        <Typography variant="h6">Nicht zugewiesene Wochenendtermine</Typography>
+        <Typography variant="h6">Nicht zugewiesene Termine</Typography>
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
