@@ -274,8 +274,8 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
           flex: 1,
           display: 'grid',
           gridTemplateColumns: `repeat(${Math.max(weekdays.length, 1)}, 1fr)`,
-          gap: 1,
-          p: 1,
+          gap: 0.5,
+          p: 0.75,
           pb: 0,
         }}
       >
@@ -302,12 +302,15 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
+                width: '100%',
+                minWidth: 0,
+                overflow: 'hidden',
                 borderRadius: 2,
                 cursor: weekday.disabled ? 'not-allowed' : 'pointer',
                 bgcolor: selectedWeekday === weekday.value ? 'rgba(0, 122, 255, 0.1)' : 'transparent',
                 border: selectedWeekday === weekday.value ? '1px solid rgba(0, 122, 255, 0.2)' : '1px solid transparent',
                 position: 'relative',
-                p: 1,
+                p: 0.65,
                 opacity: weekday.disabled ? 0.45 : 1,
                 '&:active': {
                   bgcolor: selectedWeekday === weekday.value ? 'rgba(0, 122, 255, 0.15)' : 'rgba(0, 0, 0, 0.05)',
@@ -321,9 +324,9 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                 variant="caption"
                 sx={{
                   fontWeight: currentWeekday === weekday.value ? 700 : 600,
-                  fontSize: '0.75rem',
+                  fontSize: '0.7rem',
                   color: selectedWeekday === weekday.value ? '#007AFF' : '#1d1d1f',
-                  mb: 0.5,
+                  mb: 0.35,
                 }}
               >
                 {getGermanWeekday(weekday.value)}
@@ -335,9 +338,13 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 0.35,
                     mb: 0.25,
+                    width: '100%',
                     maxWidth: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
                   }}
                 >
                   <Box
@@ -352,13 +359,17 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                   <Typography
                     variant="caption"
                     sx={{
-                      fontSize: '0.55rem',
+                      display: 'inline-block',
+                      fontSize: '0.52rem',
                       lineHeight: 1,
                       color: 'warning.dark',
-                      maxWidth: '100%',
+                      width: 'auto',
+                      minWidth: 0,
+                      maxWidth: 'calc(100% - 10px)',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                      textAlign: 'left',
                     }}
                   >
                     {weekday.holidayName}
@@ -371,9 +382,9 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                 sx={{ 
                   display: 'flex', 
                   flexDirection: 'column',
-                  gap: 0.25, 
+                  gap: 0.2, 
                   width: '100%',
-                  mb: 0.5,
+                  mb: 0.35,
                 }}
               >
                 <Chip 
@@ -383,8 +394,8 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                   color="primary" 
                   variant="outlined"
                   sx={{ 
-                    height: 16, 
-                    fontSize: '0.6rem',
+                    height: 15,
+                    fontSize: '0.55rem',
                     borderColor: 'rgba(25, 118, 210, 0.3)',
                     bgcolor: 'rgba(25, 118, 210, 0.05)',
                     flex: 1,
@@ -402,8 +413,8 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                   color="success" 
                   variant="outlined"
                   sx={{ 
-                    height: 16, 
-                    fontSize: '0.6rem',
+                    height: 15,
+                    fontSize: '0.55rem',
                     borderColor: 'rgba(76, 175, 80, 0.3)',
                     bgcolor: 'rgba(76, 175, 80, 0.05)',
                     flex: 1,
@@ -421,8 +432,8 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
                   color="secondary" 
                   variant="outlined"
                   sx={{ 
-                    height: 16, 
-                    fontSize: '0.6rem',
+                    height: 15,
+                    fontSize: '0.55rem',
                     borderColor: 'rgba(156, 39, 176, 0.3)',
                     bgcolor: 'rgba(156, 39, 176, 0.05)',
                     flex: 1,
@@ -439,7 +450,7 @@ export const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({
               <Typography
                 variant="caption"
                 sx={{
-                  fontSize: '0.65rem',
+                  fontSize: '0.6rem',
                   color: utilization.utilizationColor,
                   fontWeight: 500,
                 }}
