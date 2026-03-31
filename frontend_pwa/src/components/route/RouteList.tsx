@@ -27,6 +27,7 @@ import { getColorForVisitType, getColorForEmployeeType } from '../../utils/mapUt
 import { getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
 import RouteStopItem from './RouteStopItem';
+import { useNrwpHolidayForTourDay } from '../../hooks/useNrwpHolidayForTourDay';
 
 interface RouteStop {
   id: number;
@@ -49,8 +50,9 @@ interface RouteStop {
 
 
 export const RouteList: React.FC = () => {
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
+  const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedWeekday as Weekday);
   const { isStopCompleted, toggleStop, setCurrentWeekday, clearAllCompletedStops } = useRouteCompletionStore();
   const completedStops = useCompletedStops();
   
@@ -58,7 +60,10 @@ export const RouteList: React.FC = () => {
   const { data: employees = [] } = useEmployees();
   const { data: patients = [] } = usePatients();
   const { data: appointments = [] } = useAppointmentsByWeekday(selectedWeekday as Weekday);
-  const { data: routes = [] } = useRoutes({ weekday: selectedWeekday as Weekday });
+  const { data: routes = [] } = useRoutes({
+    weekday: selectedWeekday as Weekday,
+    ...(selectedTourArea ? { tour_area_day: isAreaTourDay } : {}),
+  });
   const reorderMutation = useReorderAppointment();
 
   // Get German weekday name
@@ -75,9 +80,9 @@ export const RouteList: React.FC = () => {
     return weekdayMap[weekday] || weekday;
   };
 
-  // Reset completion stops when user or weekend area changes (but not on initial mount)
+  // Reset completion stops when user or tour area changes (but not on initial mount)
   const prevUserIdRef = useRef<number | null>(null);
-  const prevWeekendAreaRef = useRef<string | null>(null);
+  const prevTourAreaRef = useRef<string | null>(null);
   const isInitialMountRef = useRef(true);
   
   useEffect(() => {
@@ -85,25 +90,25 @@ export const RouteList: React.FC = () => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
       prevUserIdRef.current = selectedUserId;
-      prevWeekendAreaRef.current = selectedWeekendArea;
+      prevTourAreaRef.current = selectedTourArea;
       return;
     }
     
     // Only clear if the values actually changed
-    if (prevUserIdRef.current !== selectedUserId || prevWeekendAreaRef.current !== selectedWeekendArea) {
+    if (prevUserIdRef.current !== selectedUserId || prevTourAreaRef.current !== selectedTourArea) {
       clearAllCompletedStops();
       prevUserIdRef.current = selectedUserId;
-      prevWeekendAreaRef.current = selectedWeekendArea;
+      prevTourAreaRef.current = selectedTourArea;
     }
-  }, [selectedUserId, selectedWeekendArea, clearAllCompletedStops]);
+  }, [selectedUserId, selectedTourArea, clearAllCompletedStops]);
 
   // Update current weekday in store and auto-reset when switching days
   useEffect(() => {
     setCurrentWeekday(selectedWeekday);
   }, [selectedWeekday, setCurrentWeekday]);
 
-  // Early return if no user or weekend area is selected
-  if (!selectedUserId && !selectedWeekendArea) {
+  // Early return if no user or tour area is selected
+  if (!selectedUserId && !selectedTourArea) {
     return (
       <Box sx={{ px: 2, pb: 2 }}>
         <Box
@@ -116,32 +121,32 @@ export const RouteList: React.FC = () => {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            Bitte wählen Sie einen Mitarbeiter oder eine Wochenend-Tour aus
+            Bitte wählen Sie einen Mitarbeiter oder eine AW-Tour aus
           </Typography>
         </Box>
       </Box>
     );
   }
 
-  // Route für ausgewählten Mitarbeiter oder Wochenend-Bereich anzeigen
+  // Route für ausgewählten Mitarbeiter oder AW-Bereich anzeigen
   const visibleRoutes = useMemo(() => {
-    if (selectedWeekendArea) {
-      // Für Wochenend-Touren: Route des ausgewählten Bereichs
+    if (selectedTourArea) {
+      // Für AW-Touren: Route des ausgewählten Bereichs
       return routes.filter(route => 
-        route.area === selectedWeekendArea && 
+        route.area === selectedTourArea && 
         route.weekday === selectedWeekday
       );
     } else {
       // Für Mitarbeiter: Route des ausgewählten Mitarbeiters
       return routes.filter(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
     }
-  }, [routes, selectedUserId, selectedWeekendArea, selectedWeekday]);
+  }, [routes, selectedUserId, selectedTourArea, selectedWeekday]);
 
   // Create route stops for all visible routes
   const routeStops = useMemo(() => {
     const stops: RouteStop[] = [];
     
-    if (!selectedUserId && !selectedWeekendArea) return stops;
+    if (!selectedUserId && !selectedTourArea) return stops;
     
     visibleRoutes.forEach(route => {
       const routeOrder = parseRouteOrder(route.route_order);
@@ -236,13 +241,13 @@ export const RouteList: React.FC = () => {
     });
     
     return stops;
-  }, [visibleRoutes, employees, patients, appointments, selectedUserId, selectedWeekendArea, isStopCompleted]);
+  }, [visibleRoutes, employees, patients, appointments, selectedUserId, selectedTourArea, isStopCompleted]);
 
   // Get tour employee stops (appointments where tour_employee_id matches but not in route)
   const tourEmployeeStops = useMemo(() => {
     const stops: RouteStop[] = [];
     
-    if (!selectedUserId || selectedWeekendArea) return stops; // Only for employee routes
+    if (!selectedUserId || selectedTourArea) return stops; // Only for employee routes
     
     // Get all appointment IDs that are in routes
     const routeAppointmentIds = new Set<number>();
@@ -357,13 +362,13 @@ export const RouteList: React.FC = () => {
 
   // Get TK appointments (phone calls) for the selected employee/area and day
   const tkAppointments = useMemo(() => {
-    if (!selectedUserId && !selectedWeekendArea) return [];
+    if (!selectedUserId && !selectedTourArea) return [];
     
     const allTkApps = appointments.filter(a => {
-      if (selectedWeekendArea) {
-        // Für Wochenend-Touren: TK-Termine für den ausgewählten Bereich und Wochentag
+      if (selectedTourArea) {
+        // Für AW-Touren: TK-Termine für den ausgewählten Bereich und Wochentag
         return a.weekday === selectedWeekday && 
-               a.area === selectedWeekendArea && 
+               a.area === selectedTourArea && 
                a.visit_type === 'TK';
       } else {
         // Für Mitarbeiter: TK-Termine des ausgewählten Mitarbeiters (employee_id ODER tour_employee_id)
@@ -375,11 +380,11 @@ export const RouteList: React.FC = () => {
     
     // Separate normal TK appointments and tour employee TK appointments
     const normalTkApps = allTkApps.filter(a => {
-      if (selectedWeekendArea) return true; // All are normal for weekend areas
+      if (selectedTourArea) return true; // All are normal for AW/tour-area mode
       return !(a.tour_employee_id === selectedUserId && a.employee_id !== selectedUserId);
     });
     
-    const tourEmployeeTkApps = selectedWeekendArea ? [] : allTkApps.filter(a => 
+    const tourEmployeeTkApps = selectedTourArea ? [] : allTkApps.filter(a => 
       a.tour_employee_id === selectedUserId && 
       a.employee_id !== selectedUserId
     );
@@ -566,7 +571,7 @@ export const RouteList: React.FC = () => {
       if (!a.isTourEmployeeAppointment && b.isTourEmployeeAppointment) return -1;
       return 0;
     });
-  }, [appointments, selectedUserId, selectedWeekendArea, selectedWeekday, patients, employees, isStopCompleted]);
+  }, [appointments, selectedUserId, selectedTourArea, selectedWeekday, patients, employees, isStopCompleted]);
 
   // Calculate completion percentage - now using store state directly
   const completionPercentage = useMemo(() => {

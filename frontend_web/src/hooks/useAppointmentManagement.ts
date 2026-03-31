@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Weekday } from '../types/models';
-import { useMoveAppointment, useCheckReplacement, useAssignWeekendArea } from '../services/queries/useAppointments';
+import { useMoveAppointment, useCheckReplacement, useAssignTourArea } from '../services/queries/useAppointments';
 import { useNotificationStore } from '../stores/useNotificationStore';
 import { useCalendarWeekStore } from '../stores/useCalendarWeekStore';
 
@@ -22,12 +22,12 @@ interface AppointmentManagementReturn {
   // Check for replacement
   checkReplacement: (targetEmployeeId: number, weekday: string, calendarWeek?: number) => Promise<any>;
 
-  assignWeekendArea: (appointmentId: number, targetArea: 'Nord' | 'Mitte' | 'Süd') => Promise<void>;
+  assignTourArea: (appointmentId: number, targetArea: 'Nord' | 'Mitte' | 'Süd') => Promise<void>;
   
   // Loading states
   isMoving: boolean;
   isCheckingReplacement: boolean;
-  isAssigningWeekendArea: boolean;
+  isAssigningTourArea: boolean;
 }
 
 export const useAppointmentManagement = ({
@@ -37,7 +37,7 @@ export const useAppointmentManagement = ({
   const { selectedCalendarWeek, getCurrentCalendarWeek } = useCalendarWeekStore();
   const moveAppointment = useMoveAppointment();
   const checkReplacement = useCheckReplacement();
-  const assignWeekendArea = useAssignWeekendArea();
+  const assignTourAreaMutation = useAssignTourArea();
 
   // Move single appointment
   const moveAppointmentHandler = useCallback(async (params: {
@@ -79,26 +79,26 @@ export const useAppointmentManagement = ({
     }
   }, [checkReplacement, selectedCalendarWeek, getCurrentCalendarWeek]);
 
-  const assignWeekendAreaHandler = useCallback(async (appointmentId: number, targetArea: 'Nord' | 'Mitte' | 'Süd') => {
+  const assignTourAreaHandler = useCallback(async (appointmentId: number, targetArea: 'Nord' | 'Mitte' | 'Süd') => {
     try {
       setLoading('Termin wird einem Bereich zugewiesen...');
-      await assignWeekendArea.mutateAsync({ appointmentId, targetArea });
+      await assignTourAreaMutation.mutateAsync({ appointmentId, targetArea });
       setNotification('Termin wurde dem Bereich zugewiesen', 'success');
     } catch (error) {
-      console.error('Fehler beim Zuweisen des Wochenendbereichs:', error);
-      setNotification('Fehler beim Zuweisen des Wochenendbereichs', 'error');
+      console.error('Fehler beim Zuweisen des Tourbereichs:', error);
+      setNotification('Fehler beim Zuweisen des Tourbereichs (Nord/Mitte/Süd)', 'error');
       throw error;
     } finally {
       resetLoading();
     }
-  }, [assignWeekendArea, setLoading, setNotification, resetLoading]);
+  }, [assignTourAreaMutation, setLoading, setNotification, resetLoading]);
 
   return {
     moveAppointment: moveAppointmentHandler,
     checkReplacement: checkReplacementHandler,
-    assignWeekendArea: assignWeekendAreaHandler,
+    assignTourArea: assignTourAreaHandler,
     isMoving: moveAppointment.isPending,
     isCheckingReplacement: checkReplacement.isPending,
-    isAssigningWeekendArea: assignWeekendArea.isPending
+    isAssigningTourArea: assignTourAreaMutation.isPending
   };
 };

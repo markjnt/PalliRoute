@@ -10,7 +10,7 @@ from .route_utils import (
     calculate_route_duration,
     calculate_visit_duration,
     get_gmaps_client,
-    get_weekend_start_location
+    get_tour_area_start_location
 )
 
 class RouteOptimizer:
@@ -25,21 +25,19 @@ class RouteOptimizer:
 
     def optimize_route(self, weekday: str, employee_id: int = None, area: str = None, calendar_week: int = None) -> None:
         """
-        Optimize route for a single employee and weekday or for weekend routes by area
+        Optimize route for a single employee and weekday or for AW tour-area routes (Nord/Mitte/Süd)
         Args:
             weekday: Day of the week
             employee_id: ID of the employee (for weekday routes)
-            area: Area name (for weekend routes)
+            area: Fläche Nord/Mitte/Süd (AW-Routen ohne festen Mitarbeiter)
             calendar_week: Calendar week for the route (optional, will be detected if not provided)
         """
         try:
-            # Determine if this is a weekend route
-            is_weekend = weekday.lower() in ['saturday', 'sunday']
-            
-            if is_weekend and not area:
-                raise ValueError("Area is required for weekend routes")
-            elif not is_weekend and not employee_id:
-                raise ValueError("Employee ID is required for weekday routes")
+            # Area-based tour (weekend or holiday AW): area + no employee_id in request
+            is_area_route = bool(area) and employee_id is None
+
+            if not is_area_route and not employee_id:
+                raise ValueError("Employee ID is required for employee routes")
             
             # Get calendar week from any patient
             patient = Patient.query.filter(Patient.calendar_week.isnot(None)).first()
@@ -47,9 +45,9 @@ class RouteOptimizer:
                 raise ValueError("No patients found with calendar week information")
                         
             # Get route from database
-            if is_weekend:
-                # Weekend routes are identified only by weekday, area and calendar_week,
-                # independent of employee_id (AW assignment may set employee_id later).
+            if is_area_route:
+                # Area routes (Sa/So or holiday Mon–Fri): match weekday, area, calendar_week;
+                # employee_id may be set later from AW assignment.
                 query = Route.query.filter_by(
                     weekday=weekday.lower(),
                     area=area
@@ -58,7 +56,7 @@ class RouteOptimizer:
                     query = query.filter_by(calendar_week=calendar_week)
                 route = query.first()
                 if not route:
-                    raise ValueError(f"No weekend route found for area {area} on {weekday} (KW {calendar_week})")
+                    raise ValueError(f"No area route found for {area} on {weekday} (KW {calendar_week})")
             else:
                 query = Route.query.filter_by(
                     employee_id=employee_id,
@@ -87,9 +85,9 @@ class RouteOptimizer:
                 raise ValueError(f"No appointments found for the IDs in route order: {appointment_ids}")
 
             # Get coordinates for all locations
-            if is_weekend:
-                # For weekend routes, use a central location in the area as start/end point
-                start_location = get_weekend_start_location(area)
+            if is_area_route:
+                # Central start/end in tour area
+                start_location = get_tour_area_start_location(area)
             else:
                 # Get employee location for weekday routes
                 employee = Employee.query.filter_by(id=employee_id).first()
@@ -143,7 +141,6 @@ class RouteOptimizer:
         except Exception as e:
             print(e)
             db.session.rollback()
-            if is_weekend:
-                raise Exception(f'Failed to optimize weekend route for area {area}: {str(e)}')
-            else:
-                raise Exception(f'Failed to optimize route for employee {employee_id}: {str(e)}') 
+            if is_area_route:
+                raise Exception(f'Failed to optimize area route for {area}: {str(e)}') from e
+            raise Exception(f'Failed to optimize route for employee {employee_id}: {str(e)}') from e 

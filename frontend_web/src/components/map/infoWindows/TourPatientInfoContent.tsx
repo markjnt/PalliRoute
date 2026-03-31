@@ -5,17 +5,14 @@ import { Appointment, Patient, Route } from '../../../types/models';
 import { getColorForVisitType } from '../../../utils/mapUtils';
 import { TourInfoBox } from './TourInfoBox';
 
-interface WeekendPatientInfoContentProps {
+interface TourPatientInfoContentProps {
   marker: MarkerData;
   patients: Patient[];
   appointments: Appointment[];
   routes: Route[];
 }
 
-/**
- * Component for displaying weekend patient information in marker info windows
- */
-export const WeekendPatientInfoContent: React.FC<WeekendPatientInfoContentProps> = ({ 
+export const TourPatientInfoContent: React.FC<TourPatientInfoContentProps> = ({ 
   marker, 
   patients, 
   appointments, 
@@ -39,12 +36,11 @@ export const WeekendPatientInfoContent: React.FC<WeekendPatientInfoContentProps>
   const area = marker.area || '';
   const tourColor = getAreaColor(area);
   
-  // Weekend utilization calculation (75% = 315 minutes target)
   let utilization: number | undefined = undefined;
   let durationMinutes: number | undefined = undefined;
   let targetMinutes: number | undefined = undefined;
   if (route && route.total_duration) {
-    targetMinutes = 315; // 75% of 420 minutes
+    targetMinutes = 315;
     durationMinutes = route.total_duration;
     utilization = targetMinutes > 0 ? (durationMinutes / targetMinutes) * 100 : undefined;
   }
@@ -87,7 +83,6 @@ export const WeekendPatientInfoContent: React.FC<WeekendPatientInfoContentProps>
         </Box>
       )}
       
-      {/* Address */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
           {patient.street}<br/>
@@ -95,7 +90,6 @@ export const WeekendPatientInfoContent: React.FC<WeekendPatientInfoContentProps>
         </Typography>
       </Box>
       
-      {/* Weekend TourInfoBox */}
       {route && (
         <TourInfoBox
           employeeName=""

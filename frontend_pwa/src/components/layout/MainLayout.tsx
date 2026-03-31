@@ -9,33 +9,33 @@ import UserSearchDrawer from '../user/UserSelectSheet';
 import { TopOverviewBar } from './TopOverviewBar';
 
 const MainLayout: React.FC = () => {
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
   const { selectedWeekday, setSelectedWeekday, resetToCurrentDay } = useWeekdayStore();
   const navigate = useNavigate();
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   
   // Verfolge die vorherige Tour-Art, um zu erkennen, ob zwischen Tour-Arten gewechselt wurde
-  const previousTourTypeRef = useRef<'employee' | 'weekend' | null>(null);
+  const previousTourTypeRef = useRef<'employee' | 'tour_area' | null>(null);
   const isInitialMountRef = useRef(true);
 
   // Automatisch den aktuellen Tag auswählen beim Laden der App oder beim Wechsel zwischen Tour-Arten
   useEffect(() => {
     // Bestimme die aktuelle Tour-Art
-    const currentTourType: 'employee' | 'weekend' | null = 
-      selectedWeekendArea ? 'weekend' : (selectedUserId ? 'employee' : null);
+    const currentTourType: 'employee' | 'tour_area' | null = 
+      selectedTourArea ? 'tour_area' : (selectedUserId ? 'employee' : null);
 
     // Beim ersten Laden oder wenn zwischen Tour-Arten gewechselt wird
     const isTourTypeChange = previousTourTypeRef.current !== null && 
                              previousTourTypeRef.current !== currentTourType;
     
     if (isInitialMountRef.current || isTourTypeChange) {
-      if (selectedWeekendArea) {
-        // Wochenend-Tour: Setze auf aktuelles Wochenende oder Samstag als Fallback
+      if (selectedTourArea) {
+        // AW-Tour: aktueller Sa/So oder Samstag als Fallback
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
         const currentDay = days[new Date().getDay()];
-        const isWeekend = currentDay === 'saturday' || currentDay === 'sunday';
-        setSelectedWeekday(isWeekend && currentDay ? currentDay : 'saturday');
+        const isAreaDay = currentDay === 'saturday' || currentDay === 'sunday';
+        setSelectedWeekday(isAreaDay && currentDay ? currentDay : 'saturday');
       } else if (selectedUserId) {
         // Mitarbeiter-Tour: Setze auf aktuellen Werktag oder Montag als Fallback
         resetToCurrentDay();
@@ -45,7 +45,7 @@ const MainLayout: React.FC = () => {
     // Aktualisiere die vorherige Tour-Art
     previousTourTypeRef.current = currentTourType;
     isInitialMountRef.current = false;
-  }, [selectedUserId, selectedWeekendArea, setSelectedWeekday, resetToCurrentDay]);
+  }, [selectedUserId, selectedTourArea, setSelectedWeekday, resetToCurrentDay]);
 
   // Redirect to user selection if no user is selected
   useEffect(() => {

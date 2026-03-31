@@ -96,7 +96,7 @@ export interface Route {
     total_duration: number;
     total_distance: number;
     polyline: string;
-    area: string; // Changed from Area to string to support weekend areas like 'Nord', 'Mitte', 'Süd'
+    area: string; // u. a. AW-Tourbereiche 'Nord', 'Mitte', 'Süd'
     calendar_week?: number;  // Added for easier filtering
     created_at: string;
     updated_at: string;

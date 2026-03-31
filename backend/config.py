@@ -60,3 +60,7 @@ class Config:
     # Aplano API configuration
     APLANO_API_KEY = os.environ.get('APLANO_API_KEY')
     APLANO_API_BASE_URL = 'https://web.aplano.de/papi/v1'
+
+    # NRW public holidays (feiertage-api.de)
+    HOLIDAY_API_BASE_URL = os.environ.get('HOLIDAY_API_BASE_URL', 'https://feiertage-api.de/api/')
+    HOLIDAY_STATE = os.environ.get('HOLIDAY_STATE', 'NW')

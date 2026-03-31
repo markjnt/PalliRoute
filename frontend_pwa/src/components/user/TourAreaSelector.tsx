@@ -14,32 +14,32 @@ import {
 import {
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as RadioButtonUncheckedIcon,
-  Weekend as WeekendIcon,
+  Map as TourAreaIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 
-interface WeekendTourSelectorProps {
+interface TourAreaSelectorProps {
   selectedArea: string | null;
   onAreaSelect: (area: string) => void;
   isExpanded: boolean;
   onToggleExpanded: () => void;
 }
 
-const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({ 
+const TourAreaSelector: React.FC<TourAreaSelectorProps> = ({ 
   selectedArea, 
   onAreaSelect,
   isExpanded,
   onToggleExpanded
 }) => {
-  const weekendAreas = [
+  const tourAreaOptions = [
     { id: 'Nord', label: 'AW Nord', color: '#ff9800', chipColor: '#1976d2' },
     { id: 'Mitte', label: 'AW Mitte', color: '#ff9800', chipColor: '#7b1fa2' },
     { id: 'Süd', label: 'AW Süd', color: '#ff9800', chipColor: '#388e3c' },
   ];
 
   const getAreaColor = (area: string) => {
-    const areaConfig = weekendAreas.find(a => a.id === area);
+    const areaConfig = tourAreaOptions.find(a => a.id === area);
     return areaConfig?.color || '#ff9800';
   };
 
@@ -74,9 +74,9 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <WeekendIcon sx={{ color: '#ff9800', mr: 1, fontSize: '1.2rem' }} />
+          <TourAreaIcon sx={{ color: '#ff9800', mr: 1, fontSize: '1.2rem' }} />
           <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1d1d1f', fontSize: '0.95rem' }}>
-            Wochenend-Touren
+            AW-Touren
           </Typography>
           {selectedArea && (
             <Chip
@@ -102,7 +102,7 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
       {/* Collapsible content */}
       <Collapse in={isExpanded}>
         <Grid container spacing={1.5}>
-          {weekendAreas.map((area) => (
+          {tourAreaOptions.map((area) => (
             <Grid size={{ xs: 12, sm: 6 }} key={area.id}>
               <Card
                 onClick={(e) => {
@@ -198,4 +198,4 @@ const WeekendTourSelector: React.FC<WeekendTourSelectorProps> = ({
   );
 };
 
-export default WeekendTourSelector;
+export default TourAreaSelector;

@@ -4,6 +4,7 @@ from app import db
 from app.models.scheduling import ShiftDefinition, ShiftInstance, Assignment
 from calendar import monthrange
 from . import scheduling_bp
+from app.services.holiday_service import is_weekday_holiday
 
 
 def get_calendar_week(dt):
@@ -323,17 +324,23 @@ def generate_shift_instances():
         
         for day in range(1, last_day + 1):
             instance_date = date(year, month_num, day)
-            
-            # Determine if this date matches the shift definition's weekday/weekend requirement
             is_weekday = instance_date.weekday() < 5
             is_weekend = instance_date.weekday() >= 5
-            
+            is_public_holiday_weekday = is_weekday_holiday(instance_date)
+
             for shift_def in shift_definitions:
-                # Skip if date doesn't match weekday/weekend requirement
-                if is_weekday and not shift_def.is_weekday:
-                    continue
-                if is_weekend and not shift_def.is_weekend:
-                    continue
+                # NRW public holiday on Mon–Fri: same shift template as weekend (AW + RB_WEEKEND), not RB_WEEKDAY
+                if is_public_holiday_weekday:
+                    if shift_def.is_weekday and not shift_def.is_weekend:
+                        continue
+                    if not shift_def.is_weekend:
+                        continue
+                elif is_weekday:
+                    if not shift_def.is_weekday:
+                        continue
+                elif is_weekend:
+                    if not shift_def.is_weekend:
+                        continue
                 
                 # Check if instance already exists
                 existing = ShiftInstance.query.filter_by(

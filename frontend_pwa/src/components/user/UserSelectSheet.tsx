@@ -29,7 +29,7 @@ import { useUserStore } from '../../stores/useUserStore';
 import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
 import { Employee } from '../../types/models';
 import { employeeTypeColors } from '../../utils/colors';
-import WeekendTourSelector from './WeekendTourSelector';
+import TourAreaSelector from './TourAreaSelector';
 import { AdditionalRoutesSelector } from '../route/AdditionalRoutesSelector';
 
 interface UserSearchDrawerProps {
@@ -42,14 +42,14 @@ type FilterType = 'all' | 'pflege-nord' | 'pflege-sued' | 'arzt' | 'honorararzt'
 const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
-  const [isWeekendExpanded, setIsWeekendExpanded] = useState(false);
+  const [isTourAreaExpanded, setIsTourAreaExpanded] = useState(false);
   const [isAdditionalRoutesExpanded, setIsAdditionalRoutesExpanded] = useState(false);
   const { data: employees = [], isLoading, error } = useEmployees();
   const { 
     selectedUserId, 
-    selectedWeekendArea, 
+    selectedTourArea, 
     setSelectedUser, 
-    setSelectedWeekendArea 
+    setSelectedTourArea 
   } = useUserStore();
   const { selectedEmployeeIds, toggleEmployee, selectAll, deselectAll } = useAdditionalRoutesStore();
 
@@ -122,28 +122,28 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
   const handleUserSelect = (userId: number) => {
     setSelectedUser(userId);
-    setSelectedWeekendArea(null); // Clear weekend area selection
-    setIsWeekendExpanded(false); // Collapse weekend menu
+    setSelectedTourArea(null); // Clear AW/Tour-Area selection
+    setIsTourAreaExpanded(false); // Collapse AW/Tour-Area menu
     setActiveFilter('all'); // Reset filter when selecting a user
     // Weekday wird automatisch in MainLayout.tsx gesetzt, wenn zwischen Tour-Arten gewechselt wird
     onClose(); // Close the sheet after selecting a user
   };
 
-  const handleWeekendAreaSelect = (area: string) => {
-    setSelectedWeekendArea(area);
+  const handleTourAreaSelect = (area: string) => {
+    setSelectedTourArea(area);
     setSelectedUser(null); // Clear user selection
-    setActiveFilter('aw'); // Set filter to AW when weekend area is selected
+    setActiveFilter('aw'); // Set filter to AW when tour area is selected
     // Weekday wird automatisch in MainLayout.tsx gesetzt, wenn zwischen Tour-Arten gewechselt wird
-    onClose(); // Close the sheet after selecting a weekend area
+    onClose(); // Close the sheet after selecting an AW/Tour-Area
   };
 
   const handleFilterChange = (filter: FilterType) => {
     setActiveFilter(filter);
     if (filter === 'aw') {
-      setIsWeekendExpanded(true);
-      // Don't reset selections when switching to AW filter - just show weekend tours
+      setIsTourAreaExpanded(true);
+      // Don't reset selections when switching to AW filter - just show AW/Tour-Areas
     } else {
-      setIsWeekendExpanded(false);
+      setIsTourAreaExpanded(false);
       // Don't reset selections when changing filters
     }
   };
@@ -321,7 +321,7 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
 
         <Sheet.Content>
           <Sheet.Scroller draggableAt="top">
-            {/* Weitere Routen – ausklappbar, ganz oben im scrollbaren Bereich (wie Wochenend-Touren) */}
+            {/* Weitere Routen – ausklappbar, ganz oben im scrollbaren Bereich (wie AW/Tour-Areas) */}
             <Box sx={{ px: 3, pt: 2, pb: 0 }}>
               <Box
                 onClick={() => setIsAdditionalRoutesExpanded(!isAdditionalRoutesExpanded)}
@@ -512,14 +512,14 @@ const UserSearchDrawer: React.FC<UserSearchDrawerProps> = ({ open, onClose }) =>
             </Box>
             )}
 
-            {/* Weekend Tour Selector - Only show when filter is 'all' or 'aw' */}
+            {/* Tour-Area selector - only show when filter is 'all' or 'aw' */}
             {(activeFilter === 'all' || activeFilter === 'aw') && (
             <Box sx={{ px: 3, pt: 0, pb: 2 }}>
-              <WeekendTourSelector
-                selectedArea={selectedWeekendArea}
-                onAreaSelect={handleWeekendAreaSelect}
-                isExpanded={isWeekendExpanded || activeFilter === 'aw'}
-                onToggleExpanded={() => setIsWeekendExpanded(!isWeekendExpanded)}
+              <TourAreaSelector
+                selectedArea={selectedTourArea}
+                onAreaSelect={handleTourAreaSelect}
+                isExpanded={isTourAreaExpanded || activeFilter === 'aw'}
+                onToggleExpanded={() => setIsTourAreaExpanded(!isTourAreaExpanded)}
               />
             </Box>
             )}

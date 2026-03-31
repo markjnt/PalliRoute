@@ -12,6 +12,8 @@ interface DemandRowProps {
   viewMode: 'month' | 'week';
   gridTemplateColumns: string;
   employeeColumnWidth: number;
+  /** Sa–So oder Feiertags-Mo–Fr: Wochenend-Bedarf (AW/RB-WE). Standard: nur Kalender-Wochenende. */
+  weekendLayoutForDate?: (date: Date) => boolean;
   /** Wenn gesetzt: eigene sticky-Position. Wenn nicht gesetzt: Teil eines übergeordneten Sticky-Blocks. */
   stickyTop?: number;
 }
@@ -22,6 +24,7 @@ export const DemandRow: React.FC<DemandRowProps> = ({
   viewMode,
   gridTemplateColumns,
   employeeColumnWidth,
+  weekendLayoutForDate = isWeekend,
   stickyTop,
 }) => {
   const isSticky = stickyTop !== undefined;
@@ -85,7 +88,7 @@ export const DemandRow: React.FC<DemandRowProps> = ({
 
       {/* Bedarf für jeden Tag */}
       {dates.map((date, idx) => {
-        const isWeekendDay = isWeekend(date);
+        const isWeekendDay = weekendLayoutForDate(date);
         const availableDuties = isWeekendDay ? WEEKEND_DUTIES : WEEKDAY_DUTIES;
         
         // Separate AW and RB duties for weekend

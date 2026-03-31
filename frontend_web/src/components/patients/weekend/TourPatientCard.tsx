@@ -24,7 +24,7 @@ import { Patient, Appointment, Weekday } from '../../../types/models';
 import { useNotificationStore } from '../../../stores/useNotificationStore';
 import { useMoveAppointment } from '../../../services/queries/useAppointments';
 
-interface WeekendPatientCardProps {
+interface TourPatientCardProps {
     patient: Patient;
     appointments: Appointment[];
     visitType: 'HB' | 'NA' | 'TK';
@@ -35,10 +35,10 @@ interface WeekendPatientCardProps {
     onMoveDown?: (patientId: number) => void; // New prop for moving patient down
     isFirst?: boolean; // New prop to indicate if this is the first patient in the list
     isLast?: boolean; // New prop to indicate if this is the last patient in the list
-    area: string; // Weekend area (Nord, Mitte, Süd)
+    area: string; // AW tour area (Nord, Mitte, Süd)
 }
 
-export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({ 
+export const TourPatientCard: React.FC<TourPatientCardProps> = ({ 
     patient, 
     appointments,
     visitType,
@@ -99,9 +99,8 @@ export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({
     };
 
     const handleMoveToArea = async (targetArea: string) => {
+        setLoading('Patient wird zugewiesen...');
         try {
-            setLoading('Patient wird zugewiesen...');
-            
             if (!selectedDayAppointment) {
                 setNotification('Kein Termin für den ausgewählten Tag gefunden', 'error');
                 return;
@@ -120,13 +119,14 @@ export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({
                 sourceArea: area,
                 targetArea: targetArea
             });
-            
+
             handleAreaMenuClose();
-            resetLoading();
             setNotification(`Patient erfolgreich zu ${targetArea} zugewiesen`, 'success');
         } catch (error) {
             console.error('Fehler beim Zuweisen des Patienten:', error);
             setNotification('Fehler beim Zuweisen des Patienten', 'error');
+        } finally {
+            resetLoading();
         }
     };
 
@@ -144,7 +144,7 @@ export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({
     };
 
     // Available weekend areas
-    const weekendAreas = ['Nord', 'Mitte', 'Süd'];
+    const tourAreaLabels = ['Nord', 'Mitte', 'Süd'];
 
     return (
         <Card 
@@ -261,7 +261,7 @@ export const WeekendPatientCard: React.FC<WeekendPatientCardProps> = ({
                     }
                 }}
             >
-                {weekendAreas.map((targetArea) => {
+                {tourAreaLabels.map((targetArea) => {
                     const isCurrentArea = targetArea === area;
                     const disabled = isCurrentArea;
                     const areaColor = getAreaColor(targetArea);

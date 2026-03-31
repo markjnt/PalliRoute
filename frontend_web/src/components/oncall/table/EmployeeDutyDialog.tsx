@@ -24,6 +24,8 @@ interface EmployeeDutyDialogProps {
   date: Date | null;
   assignments: Assignment[];
   employeeCapacities?: EmployeeCapacity[];
+  /** Wenn gesetzt: Duty-Palette wie Wochenende (z. B. NRW-Feiertag Mo–Fr). */
+  treatAsWeekendForDuties?: boolean;
   onClose: () => void;
   onDutyToggle: (dutyType: DutyType, area?: OnCallArea) => void;
 }
@@ -34,13 +36,15 @@ export const EmployeeDutyDialog: React.FC<EmployeeDutyDialogProps> = ({
   date,
   assignments,
   employeeCapacities,
+  treatAsWeekendForDuties,
   onClose,
   onDutyToggle,
 }) => {
   if (!employee || !date) return null;
 
-  const isWeekendDay = isWeekend(date);
-  const availableDuties = isWeekendDay ? WEEKEND_DUTIES : WEEKDAY_DUTIES;
+  const useWeekendPalette =
+    treatAsWeekendForDuties !== undefined ? treatAsWeekendForDuties : isWeekend(date);
+  const availableDuties = useWeekendPalette ? WEEKEND_DUTIES : WEEKDAY_DUTIES;
 
   // Create a map of selected duties for quick lookup
   const selectedDutiesMap = useMemo(() => {

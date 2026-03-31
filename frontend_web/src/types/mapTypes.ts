@@ -12,7 +12,7 @@ export interface MarkerData {
   position: google.maps.LatLng;
   title: string;
   label?: string;
-  type: 'employee' | 'patient' | 'weekend_area' | 'weekend_patient' | 'custom' | 'pflegeheim';
+  type: 'employee' | 'patient' | 'tour_area' | 'tour_patient' | 'custom' | 'pflegeheim';
   visitType?: string; // HB, TK, or NA
   employeeType?: string; // Job title for employees
   patientId?: number;
@@ -23,7 +23,7 @@ export interface MarkerData {
   routeId?: number; // ID der zugehörigen Route (für Sichtbarkeit)
   isInactive?: boolean; // Marker gehört zu keiner sichtbaren Route
   routeArea?: string; // Area der zugehörigen Route (Nordkreis/Südkreis)
-  area?: string; // Weekend area (Nord, Mitte, Süd)
+  area?: string; // AW-Fläche (Nord, Mitte, Süd)
   customAddress?: string; // Adresse für Custom-Marker
 }
 

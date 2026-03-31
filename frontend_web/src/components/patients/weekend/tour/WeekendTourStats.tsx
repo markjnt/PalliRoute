@@ -3,11 +3,10 @@ import { Box, Typography, Tooltip } from '@mui/material';
 import { AccessTime as AccessTimeIcon, Straighten as StraightenIcon } from '@mui/icons-material';
 import { Route } from '../../../../types/models';
 
-const weekendAreas = ['Nord', 'Mitte', 'Süd'] as const;
-type WeekendArea = typeof weekendAreas[number];
+type TourArea = 'Nord' | 'Mitte' | 'Süd';
 
 interface WeekendTourStatsProps {
-    area: WeekendArea;
+    area: TourArea;
     route?: Route;
 }
 

@@ -57,7 +57,7 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
   const completedStops = useCompletedStops();
   const { selectedWeekday } = useWeekdayStore();
   const { selectedEmployeeIds } = useAdditionalRoutesStore();
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
 
   // Gruppiere alle Marker
   const markerGroups = useMemo(() => groupMarkersByLatLng(markers), [markers]);
@@ -79,17 +79,17 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
 
   // Check if marker belongs to additional route (not main user route)
   const isAdditionalRouteMarker = (marker: MarkerData): boolean => {
-    if (marker.type === 'weekend_area') {
-      // Weekend area start marker is never additional
+    if (marker.type === 'tour_area') {
+      // Tour-area start marker is never additional
       return false;
     }
     if (!marker.routeId) return false;
     const route = routes.find(r => r.id === marker.routeId);
     if (!route) return false;
     
-    // For weekend routes (no employee_id), check if it's an additional area
+    // For AW/tour-area routes (no employee_id), check if it's an additional area
     if (!route.employee_id) {
-      return route.area !== selectedWeekendArea && selectedEmployeeIds.includes(route.area);
+      return route.area !== selectedTourArea && selectedEmployeeIds.includes(route.area);
     }
     
     // For employee routes, check if it's an additional employee
@@ -98,8 +98,8 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
 
   // Get route color for a marker
   const getMarkerRouteColor = (marker: MarkerData): string | null => {
-    if (marker.type === 'weekend_area') {
-      // Weekend area start marker uses orange color
+    if (marker.type === 'tour_area') {
+      // Tour-area start marker uses orange color
       return '#ff9800';
     }
     
@@ -107,9 +107,9 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
     const route = routes.find(r => r.id === marker.routeId);
     if (!route) return null;
     
-    // For weekend routes (no employee_id), use area-based colors
+    // For AW/tour-area routes (no employee_id), use area-based colors
     if (!route.employee_id) {
-      const getWeekendAreaColor = (area: string) => {
+      const getTourAreaColor = (area: string) => {
         switch (area) {
           case 'Nord': return '#1976d2'; // Blue
           case 'Mitte': return '#7b1fa2'; // Purple
@@ -118,14 +118,14 @@ export const MapMarkers: React.FC<MapMarkersProps> = ({
         }
       };
       
-      // Main weekend route (selected area) is always blue
-      if (route.area === selectedWeekendArea) {
+      // Main tour-area route (selected area) is always blue
+      if (route.area === selectedTourArea) {
         return '#2196F3';
       }
       
-      // Additional weekend routes get their area color
+      // Additional tour-area routes get their area color
       if (selectedEmployeeIds.includes(route.area)) {
-        return getWeekendAreaColor(route.area);
+        return getTourAreaColor(route.area);
       }
       
       return null;

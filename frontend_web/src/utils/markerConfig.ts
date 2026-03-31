@@ -1,6 +1,6 @@
 import { getColorForVisitType, getColorForEmployeeType } from './mapUtils';
 
-export const createMarkerIcon = (type: 'employee' | 'patient' | 'weekend_area' | 'weekend_patient' | 'custom' | 'pflegeheim', employeeType?: string, visitType?: string, isGray: boolean = false, area?: string) => {
+export const createMarkerIcon = (type: 'employee' | 'patient' | 'tour_area' | 'tour_patient' | 'custom' | 'pflegeheim', employeeType?: string, visitType?: string, isGray: boolean = false, area?: string) => {
   if (isGray) {
     return {
       path: google.maps.SymbolPath.CIRCLE,
@@ -23,8 +23,8 @@ export const createMarkerIcon = (type: 'employee' | 'patient' | 'weekend_area' |
     };
   }
 
-  if (type === 'weekend_area') {
-    // Single color for weekend start marker
+  if (type === 'tour_area') {
+    // Startpunkt AW-Fläche
     const getAreaColor = (area?: string) => {
       if (area === 'Wochenend-Touren') return '#ff9800'; // Orange for general weekend marker
       switch (area) {
@@ -45,7 +45,7 @@ export const createMarkerIcon = (type: 'employee' | 'patient' | 'weekend_area' |
     };
   }
 
-  if (type === 'weekend_patient') {
+  if (type === 'tour_patient') {
     return {
       path: google.maps.SymbolPath.CIRCLE,
       fillColor: getColorForVisitType(visitType),

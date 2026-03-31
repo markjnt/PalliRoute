@@ -4,7 +4,7 @@ import { Event as EventIcon, AddLocation as AddLocationIcon, Delete as DeleteIco
 import { useNavigate } from 'react-router-dom';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { MapContainerProps, MarkerData } from '../../types/mapTypes';
-import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, createWeekendAreaMarkerData, createWeekendPatientMarkerData, parseRouteOrder } from '../../utils/mapUtils';
+import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, createTourAreaMarkerData, createTourPatientMarkerData, parseRouteOrder } from '../../utils/mapUtils';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
@@ -17,6 +17,7 @@ import { routeLineColors, getColorForTour } from '../../utils/colors';
 import { Weekday } from '../../types/models';
 import AreaSelection from '../area_select/AreaSelection';
 import { useCustomMarkerStore } from '../../stores/useCustomMarkerStore';
+import { useNrwpHolidayForTourDay } from '../../hooks';
 import { usePflegeheime } from '../../services/queries/usePflegeheime';
 import { usePflegeheimeVisibilityStore } from '../../stores/usePflegeheimeVisibilityStore';
 
@@ -51,8 +52,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
 
-  // Check if this is a weekend day
-  const isWeekend = selectedWeekday === 'saturday' || selectedWeekday === 'sunday';
+  const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedWeekday as Weekday);
 
   // Data hooks - verwenden automatisch selectedCalendarWeek aus dem Store
   const { data: employees = [], isLoading: employeesLoading, refetch: refetchEmployees } = useEmployees();
@@ -60,15 +60,15 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const { data: appointments = [], isLoading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useAppointmentsByWeekday(selectedWeekday as Weekday);
   const { data: routes = [], isLoading: routesLoading, error: routesError, refetch: refetchRoutes } = useRoutes({ 
     weekday: selectedWeekday as Weekday,
-    weekend_only: isWeekend
+    tour_area_day: isAreaTourDay,
   });
 
   // Nur die passenden Routen für den Tag und die Area
   const isAllAreas = userArea === 'Nord- und Südkreis' || !userArea;
   const dayRoutes = useMemo(
     () => {
-      if (isWeekend) {
-        // Weekend routes - always show Mitte and filter others based on userArea
+      if (isAreaTourDay) {
+        // Weekend / Feiertags-AW: Mitte + Nord/Süd je nach userArea
         return routes.filter(route => {
           if (route.weekday !== selectedWeekday) return false;
           if (isAllAreas) return true;
@@ -90,7 +90,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         return routes.filter(route => route.weekday === selectedWeekday && (isAllAreas || route.area === targetArea));
       }
     },
-    [routes, selectedWeekday, userArea, isAllAreas, isWeekend]
+    [routes, selectedWeekday, userArea, isAllAreas, isAreaTourDay]
   );
 
   // Sichtbare Routen-IDs für den Tag
@@ -101,8 +101,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     if (!isLoaded) return [];
     const newMarkers: MarkerData[] = [];
     
-    if (isWeekend) {
-      // Weekend logic: Show start markers for each visible area and weekend patient markers
+    if (isAreaTourDay) {
+      // Wochenende / Feiertag: Startmarker je Bereich + AW-Patientenmarker
       
       // Get unique areas from visible routes
       const visibleAreas = new Set<string>();
@@ -132,22 +132,26 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       
       // Create weekend start marker for each visible area
       visibleAreas.forEach(area => {
-        const marker = createWeekendAreaMarkerData(area);
+        const marker = createTourAreaMarkerData(area);
         if (marker) newMarkers.push(marker);
       });
       
-      // Create weekend patient markers
+      // AW-Patientenmarker (Sa/So und Feiertags-Mo–Fr): Nummer aus route_order der Flächenroute
       if (patients.length > 0 && appointments.length > 0) {
-        const weekendAppointments = appointments.filter(a => 
+        const awTourAppointments = appointments.filter(a => 
           a.weekday === selectedWeekday && 
           (a.visit_type === 'HB' || a.visit_type === 'NA') &&
-          !a.employee_id // Only weekend appointments without employee assignment
+          !a.employee_id
         );
         
-        const appointmentPositions = new Map();
+        const tourFlacheAreas = new Set(['Nord', 'Mitte', 'Süd']);
+        const appointmentPositions = new Map<number, { position: number; routeId: number; area?: string }>();
         routes.forEach(route => {
-          // Include all weekend routes (with or without employee_id from AW assignment)
-          if (route.weekday === selectedWeekday && (route.weekday === 'saturday' || route.weekday === 'sunday')) {
+          if (
+            route.weekday === selectedWeekday &&
+            route.area &&
+            tourFlacheAreas.has(String(route.area))
+          ) {
             const routeOrder = parseRouteOrder(route.route_order);
             routeOrder.forEach((appointmentId, idx) => {
               appointmentPositions.set(appointmentId, { position: idx + 1, routeId: route.id, area: route.area });
@@ -155,7 +159,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           }
         });
         
-        for (const appointment of weekendAppointments) {
+        for (const appointment of awTourAppointments) {
           const patient = patients.find(p => p.id === appointment.patient_id);
           if (patient) {
             const posInfo = appointment.id ? appointmentPositions.get(appointment.id) : undefined;
@@ -165,7 +169,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             
             // Prüfe, ob die Route sichtbar ist
             const isInactive = !routeId || !visibleRouteIds.includes(routeId);
-            const baseMarker = createWeekendPatientMarkerData(patient, appointment, area || 'Unknown', position, routeId);
+            const baseMarker = createTourPatientMarkerData(patient, appointment, area || 'Unknown', position, routeId);
             if (baseMarker) {
               const marker = { ...baseMarker, isInactive };
               newMarkers.push(marker);
@@ -241,13 +245,13 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
 
     return newMarkers;
-  }, [isLoaded, employees, patients, appointments, routes, selectedWeekday, visibleRouteIds, isWeekend, customMarker, showPflegeheimeOnMap, pflegeheime]);
+  }, [isLoaded, employees, patients, appointments, routes, selectedWeekday, visibleRouteIds, isAreaTourDay, customMarker, showPflegeheimeOnMap, pflegeheime]);
 
   // Route-Polylines
   const routePaths = useMemo(() => {
     return dayRoutes.map(route => {
-      if (isWeekend) {
-        // Weekend routes - may have employee_id from AW assignment
+      if (isAreaTourDay) {
+        // AW-Flächenrouten (Wochenende / Feiertag) – ggf. mit employee_id
         const getAreaColor = (area?: string) => {
           switch (area) {
             case 'Nord': return '#1976d2';
@@ -260,7 +264,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         const employee = employees.find(e => e.id === route.employee_id);
         const employeeName = employee 
           ? `${employee.first_name} ${employee.last_name} (AW ${route.area})`
-          : `Wochenend-Tour ${route.area}`;
+          : `AW-Tour ${route.area}`;
         return {
           employeeId: route.employee_id || null,
           routeId: route.id,
@@ -287,7 +291,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         };
       }
     });
-  }, [dayRoutes, employees, isWeekend]);
+  }, [dayRoutes, employees, isAreaTourDay]);
 
   // Fehler- und Ladezustände
   const isLoading = employeesLoading || patientsLoading || appointmentsLoading || routesLoading || !isLoaded;

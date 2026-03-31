@@ -61,6 +61,15 @@ export const isWeekend = (date: Date): boolean => {
   return day === 0 || day === 6; // Sunday or Saturday
 };
 
+/** Sa–So oder gesetzlicher Feiertag (NRW) an Mo–Fr — gleiche UI-/Duty-Logik wie Wochenende. */
+export const isWeekendLayoutDate = (date: Date, holidayByYmd: Map<string, string>): boolean => {
+  if (isWeekend(date)) return true;
+  const ymd = formatDate(date);
+  if (!holidayByYmd.get(ymd)) return false;
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+};
+
 export const isToday = (date: Date): boolean => {
   const today = new Date();
   return date.getDate() === today.getDate() &&

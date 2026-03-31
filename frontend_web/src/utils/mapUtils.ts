@@ -165,9 +165,8 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
   }
 };
 
-// Get weekend start location coordinates based on area
-// These coordinates match the backend route_utils.py get_weekend_start_location function
-export const getWeekendStartLocation = (area: string): { lat: number; lng: number } => {
+// Zentraler Startpunkt je Fläche (Nord/Mitte/Süd) — entspricht backend route_utils.get_tour_area_start_location
+export const getTourAreaStartLocation = (area: string): { lat: number; lng: number } => {
   // Normalize area name (handle variations like 'Nordkreis' -> 'Nord')
   let areaNormalized = area;
   if (area.includes('Nord') || area === 'Nordkreis') {
@@ -178,8 +177,7 @@ export const getWeekendStartLocation = (area: string): { lat: number; lng: numbe
     areaNormalized = 'Mitte';
   }
   
-  // Define start locations for each weekend area
-  const weekendStartLocations: Record<string, { lat: number; lng: number }> = {
+  const tourAreaStartLocations: Record<string, { lat: number; lng: number }> = {
     'Mitte': {
       lat: 50.9833022,  // Auf der Brück 9, 51645 Gummersbach
       lng: 7.5412243
@@ -195,25 +193,23 @@ export const getWeekendStartLocation = (area: string): { lat: number; lng: numbe
   };
   
   // Get location for the area, default to Mitte if not found
-  return weekendStartLocations[areaNormalized] || weekendStartLocations['Mitte'];
+  return tourAreaStartLocations[areaNormalized] || tourAreaStartLocations['Mitte'];
 };
 
-// Create weekend area marker data (central starting point for weekend routes)
-export const createWeekendAreaMarkerData = (area: string, routeId?: number): MarkerData | null => {
-  const weekendStartLocation = getWeekendStartLocation(area);
-  const position = new google.maps.LatLng(weekendStartLocation.lat, weekendStartLocation.lng);
+export const createTourAreaMarkerData = (area: string, routeId?: number): MarkerData | null => {
+  const start = getTourAreaStartLocation(area);
+  const position = new google.maps.LatLng(start.lat, start.lng);
   
   return {
     position,
-    title: 'Wochenend-Startpunkt',
-    type: 'weekend_area',
+    title: 'AW-Startpunkt',
+    type: 'tour_area',
     area,
     routeId
   };
 };
 
-// Create weekend patient marker data (for weekend appointments without employee assignment)
-export const createWeekendPatientMarkerData = (patient: Patient, appointment: Appointment, area: string, position?: number, routeId?: number): MarkerData | null => {
+export const createTourPatientMarkerData = (patient: Patient, appointment: Appointment, area: string, position?: number, routeId?: number): MarkerData | null => {
   // Check if we have latitude and longitude from the backend
   if (patient.latitude && patient.longitude) {
     // Create position using coordinates from backend
@@ -225,7 +221,7 @@ export const createWeekendPatientMarkerData = (patient: Patient, appointment: Ap
     return {
       position: position_coords,
       title: `${patient.first_name} ${patient.last_name} - ${appointment.visit_type} (${area})`,
-      type: 'weekend_patient',
+      type: 'tour_patient',
       label,
       visitType: appointment.visit_type,
       patientId: patient.id,
@@ -236,7 +232,7 @@ export const createWeekendPatientMarkerData = (patient: Patient, appointment: Ap
     };
   } else {
     // If no coordinates, log warning and skip
-    console.warn(`No coordinates for weekend patient: ${patient.first_name} ${patient.last_name}`);
+    console.warn(`No coordinates for tour patient: ${patient.first_name} ${patient.last_name}`);
     return null;
   }
 }; 

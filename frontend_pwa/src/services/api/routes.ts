@@ -10,6 +10,7 @@ export const routesApi = {
         employee_id?: number;
         weekday?: Weekday;
         date?: string;
+        tour_area_day?: boolean;
     }): Promise<Route[]> {
         try {
             // Use the calendar week service to get the best week
@@ -69,8 +70,7 @@ export const routesApi = {
         }
     },
 
-    // Optimize weekend routes for a specific day and area (uses current calendar week so displayed route gets updated)
-    async optimizeWeekendRoutes(weekday: string, area: string): Promise<void> {
+    async optimizeTourAreaRoutes(weekday: string, area: string): Promise<void> {
         try {
             const calendar_week = await calendarWeekService.getBestWeek();
             const response = await api.post(`/routes/optimize`, {
@@ -80,7 +80,7 @@ export const routesApi = {
             });
             return response.data;
         } catch (error) {
-            console.error(`Failed to optimize weekend routes for weekday ${weekday} and area ${area}:`, error);
+            console.error(`Failed to optimize tour-area routes for weekday ${weekday} and area ${area}:`, error);
             throw error;
         }
     },

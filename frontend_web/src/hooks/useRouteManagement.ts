@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Route, Weekday } from '../types/models';
-import { useOptimizeRoutes, useOptimizeWeekendRoutes, useReorderAppointment } from '../services/queries/useRoutes';
+import { useOptimizeRoutes, useOptimizeTourAreaRoutes, useReorderAppointment } from '../services/queries/useRoutes';
 import { useNotificationStore } from '../stores/useNotificationStore';
 
 interface UseRouteManagementProps {
@@ -10,15 +10,10 @@ interface UseRouteManagementProps {
 }
 
 interface RouteManagementReturn {
-  // Route optimization
   optimizeRoute: () => Promise<void>;
-  optimizeWeekendRoute: () => Promise<void>;
-  
-  // Route reordering
+  optimizeTourAreaRoute: () => Promise<void>;
   movePatientUp: (routeId: number, appointmentId: number) => Promise<void>;
   movePatientDown: (routeId: number, appointmentId: number) => Promise<void>;
-  
-  // Loading states
   isOptimizing: boolean;
   isReordering: boolean;
 }
@@ -30,10 +25,9 @@ export const useRouteManagement = ({
 }: UseRouteManagementProps): RouteManagementReturn => {
   const { setNotification, setLoading, resetLoading } = useNotificationStore();
   const optimizeRoutes = useOptimizeRoutes();
-  const optimizeWeekendRoutes = useOptimizeWeekendRoutes();
+  const optimizeTourAreaRoutes = useOptimizeTourAreaRoutes();
   const reorderAppointment = useReorderAppointment();
 
-  // Optimize regular route
   const optimizeRoute = useCallback(async () => {
     if (!employeeId) {
       setNotification('Kein Mitarbeiter ausgewählt', 'error');
@@ -55,29 +49,27 @@ export const useRouteManagement = ({
     }
   }, [employeeId, selectedDay, optimizeRoutes, setNotification, setLoading, resetLoading]);
 
-  // Optimize weekend route
-  const optimizeWeekendRoute = useCallback(async () => {
+  const optimizeTourAreaRoute = useCallback(async () => {
     if (!area) {
       setNotification('Kein Bereich ausgewählt', 'error');
       return;
     }
 
     try {
-      setLoading('Wochenend-Route wird optimiert...');
-      await optimizeWeekendRoutes.mutateAsync({
+      setLoading('AW-Tour wird optimiert...');
+      await optimizeTourAreaRoutes.mutateAsync({
         weekday: selectedDay.toLowerCase(),
         area
       });
       setNotification('Route erfolgreich optimiert', 'success');
     } catch (error) {
-      console.error('Fehler beim Optimieren der Wochenend-Route:', error);
+      console.error('Fehler beim Optimieren der AW-Flächenroute:', error);
       setNotification('Fehler beim Optimieren der Route', 'error');
     } finally {
       resetLoading();
     }
-  }, [area, selectedDay, optimizeWeekendRoutes, setNotification, setLoading, resetLoading]);
+  }, [area, selectedDay, optimizeTourAreaRoutes, setNotification, setLoading, resetLoading]);
 
-  // Move patient up in route
   const movePatientUp = useCallback(async (routeId: number, appointmentId: number) => {
     try {
       setLoading('Patient wird verschoben...');
@@ -95,7 +87,6 @@ export const useRouteManagement = ({
     }
   }, [reorderAppointment, setNotification, setLoading, resetLoading]);
 
-  // Move patient down in route
   const movePatientDown = useCallback(async (routeId: number, appointmentId: number) => {
     try {
       setLoading('Patient wird verschoben...');
@@ -115,10 +106,10 @@ export const useRouteManagement = ({
 
   return {
     optimizeRoute,
-    optimizeWeekendRoute,
+    optimizeTourAreaRoute,
     movePatientUp,
     movePatientDown,
-    isOptimizing: optimizeRoutes.isPending || optimizeWeekendRoutes.isPending,
+    isOptimizing: optimizeRoutes.isPending || optimizeTourAreaRoutes.isPending,
     isReordering: reorderAppointment.isPending
   };
 };

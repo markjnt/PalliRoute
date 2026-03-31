@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Assignment, DutyType, OnCallArea } from '../../../types/models';
-import { getCalendarDays, getWeekDays, isWeekend, formatDate, getCalendarWeek } from '../../../utils/oncall/dateUtils';
+import { getCalendarDays, getWeekDays, formatDate, getCalendarWeek, isWeekendLayoutDate } from '../../../utils/oncall/dateUtils';
 import { WEEKDAY_DUTIES, WEEKEND_DUTIES, WEEK_DAYS } from '../../../utils/oncall/constants';
+import { useNrwpHolidaysForYears } from '../../../services/queries/useConfig';
 import { CalendarDay } from './CalendarDay';
 
 interface CalendarGridProps {
@@ -19,6 +20,16 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   onDutyClick,
 }) => {
   const displayDates = viewMode === 'month' ? getCalendarDays(currentDate) : getWeekDays(currentDate);
+
+  const holidayYears = useMemo(() => {
+    const years = new Set<number>();
+    displayDates.forEach((d) => {
+      if (d) years.add(d.getFullYear());
+    });
+    return [...years].sort((a, b) => a - b);
+  }, [displayDates]);
+
+  const { holidayByYmd } = useNrwpHolidaysForYears(holidayYears);
 
   // Group dates by week for month view
   const weeks = useMemo(() => {
@@ -47,8 +58,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
   const getDateAssignments = (date: Date) => {
     const dateStr = formatDate(date);
-    const isWeekendDay = isWeekend(date);
-    const duties = isWeekendDay ? WEEKEND_DUTIES : WEEKDAY_DUTIES;
+    const useWeekendLayout = isWeekendLayoutDate(date, holidayByYmd);
+    const duties = useWeekendLayout ? WEEKEND_DUTIES : WEEKDAY_DUTIES;
 
     return duties.map((duty) => {
       const key = `${dateStr}_${duty.type}_${duty.area || ''}`;
@@ -167,12 +178,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 }
 
                 const dateAssignments = getDateAssignments(date);
+                const holidayName = holidayByYmd.get(formatDate(date));
+                const weekendLayout = isWeekendLayoutDate(date, holidayByYmd);
 
                 return (
                   <CalendarDay
                     key={formatDate(date)}
                     date={date}
                     assignments={dateAssignments}
+                    holidayName={holidayName}
+                    holidayDotCompact
+                    weekendLayout={weekendLayout}
                     onDutyClick={onDutyClick}
                   />
                 );
@@ -239,12 +255,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           }
 
           const dateAssignments = getDateAssignments(date);
+          const holidayName = holidayByYmd.get(formatDate(date));
+          const weekendLayout = isWeekendLayoutDate(date, holidayByYmd);
 
           return (
             <CalendarDay
               key={formatDate(date)}
               date={date}
               assignments={dateAssignments}
+              holidayName={holidayName}
+              holidayDotCompact={false}
+              weekendLayout={weekendLayout}
               onDutyClick={onDutyClick}
             />
           );

@@ -19,6 +19,7 @@ export const useRoutes = (params?: {
   employee_id?: number;
   weekday?: Weekday;
   date?: string;
+  tour_area_day?: boolean;
 }) => {
   return useQuery({
     queryKey: routeKeys.list(params),
@@ -62,13 +63,12 @@ export const useOptimizeRoutes = () => {
   });
 };
 
-// Hook to optimize weekend routes for a specific day and area
-export const useOptimizeWeekendRoutes = () => {
+export const useOptimizeTourAreaRoutes = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: ({ weekday, area }: { weekday: string; area: string }) => 
-      routesApi.optimizeWeekendRoutes(weekday, area),
+      routesApi.optimizeTourAreaRoutes(weekday, area),
     onSuccess: () => {
       // Invalidate all route queries as they might be affected
       queryClient.invalidateQueries({ 

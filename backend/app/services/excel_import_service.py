@@ -16,6 +16,11 @@ from ..models.pflegeheim import Pflegeheim
 from .. import db
 import json
 from .route_optimizer import RouteOptimizer
+from .holiday_service import (
+    date_for_iso_week_and_weekday,
+    default_planning_year,
+    is_weekday_holiday,
+)
 from datetime import date
 
 class ExcelImportService:
@@ -639,6 +644,39 @@ class ExcelImportService:
         return int(num)
 
     @staticmethod
+    def _parse_touren_wochenende_area(row, has_aw_tour_column: bool, aw_tour_column: str) -> Optional[str]:
+        """Parse Nord/Mitte/Süd from Touren-Wochenende column; None if unset."""
+        if not has_aw_tour_column or aw_tour_column not in row or pd.isna(row.get(aw_tour_column)):
+            return None
+        raw = str(row[aw_tour_column]).strip().lower()
+        if "nord" in raw:
+            return "Nord"
+        if "mitte" in raw:
+            return "Mitte"
+        if "süd" in raw or "sued" in raw:
+            return "Süd"
+        return None
+
+    @staticmethod
+    def _is_aw_style_area_appointment(app: Appointment) -> bool:
+        """HB/NA without employee: weekend or NRW weekday public holiday."""
+        if app.employee_id is not None or app.visit_type not in ('HB', 'NA'):
+            return False
+        if app.weekday in ('saturday', 'sunday'):
+            return True
+        if app.weekday not in ('monday', 'tuesday', 'wednesday', 'thursday', 'friday'):
+            return False
+        if not app.calendar_week:
+            return False
+        try:
+            d = date_for_iso_week_and_weekday(
+                app.calendar_week, app.weekday, default_planning_year()
+            )
+            return is_weekday_holiday(d)
+        except ValueError:
+            return False
+
+    @staticmethod
     def _create_patients_from_sheet(df: pd.DataFrame, sheet_name: str) -> List[Patient]:
         """
         Create patients from a single sheet
@@ -757,9 +795,9 @@ class ExcelImportService:
         if has_responsible_columns:
             print(f"    Found responsible employee columns: {[col for col in responsible_columns if col in df.columns]}")
         
-        # Check for weekend area column
-        weekend_area_column = 'Touren-Wochenende'
-        has_weekend_area = weekend_area_column in df.columns
+        # Spalte „Touren-Wochenende“: AW-Fläche (Nord/Mitte/Süd) für Sa/So und Feiertags-Mo–Fr
+        aw_tour_column = 'Touren-Wochenende'
+        has_aw_tour_column = aw_tour_column in df.columns
         
         for idx, row in df.iterrows():
             # Find the patient for this row (exact match including calendar_week)
@@ -816,6 +854,60 @@ class ExcelImportService:
                         raise ValueError(f"Ungültiger Besuchstyp '{visit_info}' für Patient {patient.first_name} {patient.last_name} am {weekday} in Zeile {idx + 2} im Sheet '{sheet_name}'. Erlaubte Werte: {', '.join(valid_visit_types)}")
                     duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                 
+                weekday_map = {
+                    'Montag': 'monday',
+                    'Dienstag': 'tuesday',
+                    'Mittwoch': 'wednesday',
+                    'Donnerstag': 'thursday',
+                    'Freitag': 'friday'
+                }
+                english_weekday = weekday_map.get(weekday, weekday.lower())
+
+                # Parse time info (shared for all appointments of this weekday)
+                time_info_column = f"Uhrzeit/Info {weekday}"
+                time_info = None
+                if time_info_column in row and not pd.isna(row[time_info_column]):
+                    time_info = str(row[time_info_column])
+                appointment_time = None
+                if time_info and ':' in time_info:
+                    try:
+                        time_parts = time_info.split(':')
+                        hour, minute = int(time_parts[0]), int(time_parts[1])
+                        appointment_time = time(hour, minute)
+                    except (ValueError, IndexError):
+                        pass
+
+                # NRW public holiday (Mon–Fri): same as weekend tour (Touren-Wochenende area, no employee)
+                if visit_type is not None and patient.calendar_week is not None:
+                    try:
+                        hol_date = date_for_iso_week_and_weekday(
+                            patient.calendar_week, english_weekday, default_planning_year()
+                        )
+                        if is_weekday_holiday(hol_date):
+                            area_hol = ExcelImportService._parse_touren_wochenende_area(
+                                row, has_aw_tour_column, aw_tour_column
+                            )
+                            if area_hol is None:
+                                area_hol = "Nicht zugewiesen"
+                            appointments.append(
+                                Appointment(
+                                    patient_id=patient.id,
+                                    employee_id=None,
+                                    origin_employee_id=None,
+                                    tour_employee_id=None,
+                                    weekday=english_weekday,
+                                    time=appointment_time,
+                                    visit_type=visit_type,
+                                    duration=duration,
+                                    info=time_info,
+                                    area=area_hol,
+                                    calendar_week=patient.calendar_week,
+                                )
+                            )
+                            continue
+                    except ValueError:
+                        pass
+
                 # Parse responsible employees - support multiple aliases separated by comma
                 responsible_column = f"Zuständige {weekday}"
                 responsible_aliases = []
@@ -830,30 +922,7 @@ class ExcelImportService:
                 # If no responsible aliases found, use default employee (single entry)
                 if not responsible_aliases:
                     responsible_aliases = [None]  # None means use default_employee
-                
-                # Parse time info (shared for all appointments of this weekday)
-                time_info_column = f"Uhrzeit/Info {weekday}"
-                time_info = None
-                if time_info_column in row and not pd.isna(row[time_info_column]):
-                    time_info = str(row[time_info_column])
-                appointment_time = None
-                if time_info and ':' in time_info:
-                    try:
-                        time_parts = time_info.split(':')
-                        hour, minute = int(time_parts[0]), int(time_parts[1])
-                        appointment_time = time(hour, minute)
-                    except (ValueError, IndexError):
-                        pass
-                
-                # Weekday mapping
-                weekday_map = {
-                    'Montag': 'monday',
-                    'Dienstag': 'tuesday',
-                    'Mittwoch': 'wednesday',
-                    'Donnerstag': 'thursday',
-                    'Freitag': 'friday'
-                }
-                english_weekday = weekday_map.get(weekday, weekday.lower())
+
                 replacement_key = (english_weekday, patient.calendar_week)
                 visit_type_value = visit_type if visit_type is not None else ""
                 
@@ -936,17 +1005,17 @@ class ExcelImportService:
                             )
                         duration = VISIT_TYPE_DURATIONS.get(visit_type, 0)
                     
-                    # Weekend area assignment
-                    weekend_area = None
-                    if has_weekend_area and weekend_area_column in row and pd.notna(row[weekend_area_column]):
-                        weekend_area_raw = str(row[weekend_area_column]).strip()
-                        weekend_area_raw_lower = weekend_area_raw.lower()
-                        if "nord" in weekend_area_raw_lower:
-                            weekend_area = "Nord"
-                        elif "mitte" in weekend_area_raw_lower:
-                            weekend_area = "Mitte"
-                        elif "süd" in weekend_area_raw_lower or "sued" in weekend_area_raw_lower:
-                            weekend_area = "Süd"
+                    # AW-Fläche aus Touren-Wochenende
+                    aw_tour_area = None
+                    if has_aw_tour_column and aw_tour_column in row and pd.notna(row[aw_tour_column]):
+                        aw_tour_area_raw = str(row[aw_tour_column]).strip()
+                        aw_tour_area_raw_lower = aw_tour_area_raw.lower()
+                        if "nord" in aw_tour_area_raw_lower:
+                            aw_tour_area = "Nord"
+                        elif "mitte" in aw_tour_area_raw_lower:
+                            aw_tour_area = "Mitte"
+                        elif "süd" in aw_tour_area_raw_lower or "sued" in aw_tour_area_raw_lower:
+                            aw_tour_area = "Süd"
                     
                     # Parse time info
                     time_info_column = f"Uhrzeit/Info {weekday}"
@@ -962,7 +1031,7 @@ class ExcelImportService:
                         except (ValueError, IndexError):
                             pass
                     
-                    # Create weekend appointment
+                    # AW-Termin (Sa/So)
                     weekday_map = {
                         'Samstag': 'saturday',
                         'Sonntag': 'sunday'
@@ -973,18 +1042,18 @@ class ExcelImportService:
                     if visit_type is not None:
                         # Wenn Weekend-Termin vorhanden ist, aber keine Touren-Wochenende-Angabe,
                         # wird der Termin ohne Area angelegt (leerer String)
-                        if weekend_area is None:
-                            weekend_area = "Nicht zugewiesen"
+                        if aw_tour_area is None:
+                            aw_tour_area = "Nicht zugewiesen"
                         appointment = Appointment(
                             patient_id=patient.id,
-                            employee_id=None,  # No employee assignment for weekend appointments
-                            origin_employee_id=None,  # No original employee for weekend appointments
+                            employee_id=None,  # AW: keine Mitarbeiter-Zuweisung
+                            origin_employee_id=None,
                             weekday=english_weekday,
                             time=appointment_time,
                             visit_type=visit_type_value,
                             duration=duration,
                             info=time_info,
-                            area=weekend_area,
+                            area=aw_tour_area,
                             calendar_week=patient.calendar_week  # Set calendar_week from patient
                         )
                         appointments.append(appointment)
@@ -1037,24 +1106,20 @@ class ExcelImportService:
             )
             routes.append(new_route)
         
-        # Group weekend appointments by area and weekday
-        weekend_area_appointments = {}
+        # Gruppierung AW-Flächentermine (Wochenende + NRW-Feiertag Mo–Fr)
+        aw_tour_area_appointments = {}
         for app in appointments:
-            if (
-                app.visit_type in ('HB', 'NA')
-                and app.employee_id is None
-                and app.weekday in ['saturday', 'sunday']
-            ):
-                # Skip creating routes for unassigned appointments; they get assigned later
-                if not app.area or app.area == "Nicht zugewiesen":
-                    continue
-                key = (app.area, app.weekday)
-                if key not in weekend_area_appointments:
-                    weekend_area_appointments[key] = []
-                weekend_area_appointments[key].append(app)
+            if not ExcelImportService._is_aw_style_area_appointment(app):
+                continue
+            if not app.area or app.area == "Nicht zugewiesen":
+                continue
+            key = (app.area, app.weekday)
+            if key not in aw_tour_area_appointments:
+                aw_tour_area_appointments[key] = []
+            aw_tour_area_appointments[key].append(app)
         
-        # Create weekend routes for each area-weekday combination
-        for (area, weekday), apps in weekend_area_appointments.items():
+        # Flächenrouten je Bereich/Wochentag
+        for (area, weekday), apps in aw_tour_area_appointments.items():
             if not apps:
                 continue
             
@@ -1115,11 +1180,12 @@ class ExcelImportService:
                         )
                         empty_routes.append(new_route)
             
-            # Create empty weekend routes for this calendar week
-            weekend_areas = ['Nord', 'Mitte', 'Süd']
+            # Leere AW-Flächenrouten Sa/So
+            tour_area_labels = ['Nord', 'Mitte', 'Süd']
             english_weekend_days = ['saturday', 'sunday']
+            plan_year = default_planning_year()
             
-            for area in weekend_areas:
+            for area in tour_area_labels:
                 for weekday in english_weekend_days:
                     existing_route = Route.query.filter_by(
                         employee_id=None,
@@ -1129,7 +1195,7 @@ class ExcelImportService:
                     ).first()
                     
                     if not existing_route:
-                        print(f"      Creating empty weekend route for area {area} on {weekday} (KW {calendar_week})")
+                        print(f"      Creating empty AW tour-area route for {area} on {weekday} (KW {calendar_week})")
                         new_route = Route(
                             employee_id=None,
                             weekday=weekday,
@@ -1138,6 +1204,36 @@ class ExcelImportService:
                             total_distance=0,
                             area=area,
                             calendar_week=calendar_week  # Set specific calendar_week
+                        )
+                        empty_routes.append(new_route)
+
+            # Empty area routes for NRW public holidays (Mon–Fri), same as weekend AW slots
+            for weekday in english_weekdays:
+                try:
+                    d = date_for_iso_week_and_weekday(calendar_week, weekday, plan_year)
+                except ValueError:
+                    continue
+                if not is_weekday_holiday(d):
+                    continue
+                for area in tour_area_labels:
+                    existing_route = Route.query.filter_by(
+                        employee_id=None,
+                        weekday=weekday,
+                        area=area,
+                        calendar_week=calendar_week
+                    ).first()
+                    if not existing_route:
+                        print(
+                            f"      Creating empty holiday-AW route for area {area} on {weekday} (KW {calendar_week})"
+                        )
+                        new_route = Route(
+                            employee_id=None,
+                            weekday=weekday,
+                            route_order=json.dumps([]),
+                            total_duration=0,
+                            total_distance=0,
+                            area=area,
+                            calendar_week=calendar_week,
                         )
                         empty_routes.append(new_route)
         
@@ -1170,16 +1266,16 @@ class ExcelImportService:
                 print(f"    Failed to optimize route for employee {route.employee_id} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
                 failed_routes += 1
 
-        # Optimize weekend routes (without employee_id)
-        weekend_routes = [r for r in routes if r.employee_id is None]
-        for route in weekend_routes:
+        # AW-Flächenrouten (ohne employee_id)
+        aw_tour_routes = [r for r in routes if r.employee_id is None]
+        for route in aw_tour_routes:
             try:
                 route_status = "with appointments" if route.get_route_order() else "empty"
-                print(f"    Optimizing weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
+                print(f"    Optimizing AW tour-area route for {route.area} on {route.weekday} (KW {route.calendar_week}) - {route_status}")
                 route_optimizer.optimize_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
                 planned_routes += 1
             except Exception as e:
-                print(f"    Failed to optimize weekend route for area {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
+                print(f"    Failed to optimize AW tour-area route for {route.area} on {route.weekday} (KW {route.calendar_week}): {str(e)}")
                 failed_routes += 1
 
         print(f"Route optimization complete: {planned_routes} routes optimized successfully, {failed_routes} routes failed")
@@ -1211,20 +1307,26 @@ class ExcelImportService:
         
         # Map weekday string to ISO weekday number (1=Monday, 7=Sunday)
         weekday_to_iso = {
+            'monday': 1,
+            'tuesday': 2,
+            'wednesday': 3,
+            'thursday': 4,
+            'friday': 5,
             'saturday': 6,
-            'sunday': 7
+            'sunday': 7,
         }
         
         updated_count = 0
-        
-        # Get all weekend routes (employee_id is None, weekday is saturday or sunday)
-        weekend_routes = Route.query.filter(
+        plan_year = default_planning_year()
+
+        # Area-based AW routes (weekend + holiday weekdays use Nord/Mitte/Süd)
+        area_routes = Route.query.filter(
             Route.employee_id.is_(None),
-            Route.weekday.in_(['saturday', 'sunday']),
-            Route.calendar_week.in_(calendar_weeks)
+            Route.calendar_week.in_(calendar_weeks),
+            Route.area.in_(['Nord', 'Mitte', 'Süd']),
         ).all()
         
-        for route in weekend_routes:
+        for route in area_routes:
             # Normalize route area to match assignment area
             assignment_area = normalize_area(route.area)
             if not assignment_area:
@@ -1232,13 +1334,14 @@ class ExcelImportService:
             
             # Get the date for this route (from calendar_week and weekday)
             try:
-                current_year = datetime.now().year
                 iso_weekday = weekday_to_iso.get(route.weekday.lower())
                 if not iso_weekday:
                     continue
                 
-                # Calculate date from calendar week and weekday
-                route_date = date.fromisocalendar(current_year, route.calendar_week, iso_weekday)
+                route_date = date.fromisocalendar(plan_year, route.calendar_week, iso_weekday)
+                wd = route.weekday.lower()
+                if wd not in ('saturday', 'sunday') and not is_weekday_holiday(route_date):
+                    continue
                 
                 # Find matching AW assignment using new model structure
                 # AW = category="AW", role="NURSING", time_of_day="NONE"

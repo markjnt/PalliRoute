@@ -42,6 +42,8 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - CORS_ORIGINS=${CORS_ORIGINS}
       - APLANO_API_KEY=${APLANO_API_KEY}
+      - HOLIDAY_STATE=${HOLIDAY_STATE}
+      - HOLIDAY_API_BASE_URL=${HOLIDAY_API_BASE_URL}
     expose:
       - "9000"
     restart: unless-stopped

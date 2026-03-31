@@ -2,7 +2,7 @@ import { getColorForVisitType, getColorForEmployeeType } from './mapUtils';
 
 // Create marker icon based on type and properties
 export const createMarkerIcon = (
-  type: 'employee' | 'patient' | 'weekend_area',
+  type: 'employee' | 'patient' | 'tour_area',
   employeeType?: string,
   visitType?: string,
   isInactive: boolean = false,
@@ -10,8 +10,8 @@ export const createMarkerIcon = (
 ): google.maps.Symbol | undefined => {
   let baseColor: string;
   
-  if (type === 'weekend_area') {
-    // Weekend area colors
+  if (type === 'tour_area') {
+    // Tour-area colors (AW)
     baseColor = routeColor || '#ff9800';
   } else if (type === 'employee') {
     baseColor = getColorForEmployeeType(employeeType);

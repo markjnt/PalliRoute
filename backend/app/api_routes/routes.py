@@ -8,6 +8,7 @@ from ..services.route_planner import RoutePlanner
 from ..services.route_optimizer import RouteOptimizer
 from ..services.pdf_generator import PDFGenerator
 from ..services.aplano_sync import sync_employee_planning
+from ..services.holiday_service import is_aw_area_assignment_day
 from .. import db
 from ..models.patient import Patient
 
@@ -23,8 +24,8 @@ def get_routes():
     - employee_id: Filter by employee
     - weekday: Filter by weekday (monday, tuesday, etc.)
     - date: Filter by specific date (YYYY-MM-DD)
-    - area: Filter by area (for weekend routes)
-    - weekend_only: Filter only weekend routes (saturday, sunday)
+    - area: Filter by area (AW-Flächen Nord/Mitte/Süd)
+    - tour_area_day: true = Sa/So-Flächenrouten; mit weekday=monday..friday nur dieser Tag (Feiertags-AW)
     - calendar_week: Filter by calendar week (via patient appointments)
     """
     try:
@@ -33,7 +34,7 @@ def get_routes():
         weekday = request.args.get('weekday', '').lower()
         date_str = request.args.get('date')
         area = request.args.get('area')
-        weekend_only = request.args.get('weekend_only', '').lower() == 'true'
+        tour_area_day = request.args.get('tour_area_day', '').lower() == 'true'
         calendar_week = request.args.get('calendar_week', type=int)
 
         # Build query
@@ -48,8 +49,10 @@ def get_routes():
         if area:
             query = query.filter_by(area=area)
         
-        if weekend_only:
-            query = query.filter(Route.weekday.in_(['saturday', 'sunday']))
+        if tour_area_day:
+            # Mit explizitem Werktag: keine zusätzliche Sa/So-Bedingung (Feiertags-Mo–Fr = area routes).
+            if weekday not in ('monday', 'tuesday', 'wednesday', 'thursday', 'friday'):
+                query = query.filter(Route.weekday.in_(['saturday', 'sunday']))
         
         if calendar_week:
             # Direct filter by calendar_week (much simpler!)
@@ -146,16 +149,17 @@ def update_route(route_id):
         # Update route order
         route.set_route_order(route_order)
         
-        # Recalculate route using RoutePlanner
-        is_weekend = route.weekday in ['saturday', 'sunday']
-        if is_weekend:
-            # Weekend / AW routes are always planned by area + calendar_week
+        # Neu berechnen: AW-Flächenroute (Nord/Mitte/Süd) zuerst — kann employee_id haben (AW-Zuweisung),
+        # muss aber weiter mit Zentralstart geplant werden, nicht vom Mitarbeiter-Wohnort.
+        aw_tour_areas = ('Nord', 'Mitte', 'Süd')
+        if is_aw_area_assignment_day(route.calendar_week, route.weekday) and route.area in aw_tour_areas:
             route_planner.plan_route(route.weekday, area=route.area, calendar_week=route.calendar_week)
-        else:
-            # Weekday routes are planned by employee_id + calendar_week
-            if not route.employee_id:
-                return jsonify({'error': 'Route has no employee_id for weekday planning'}), 400
+        elif route.employee_id is not None:
             route_planner.plan_route(route.weekday, route.employee_id, calendar_week=route.calendar_week)
+        else:
+            return jsonify({
+                'error': 'Route kann nicht neu geplant werden (kein Mitarbeiter und kein AW-Flächentag).'
+            }), 400
 
         # Note: plan_route already commits changes to database
 
@@ -222,7 +226,7 @@ def optimize_routes():
             if calendar_week:
                 # Optimize specific route for this calendar week
                 route_optimizer.optimize_route(weekday, area=area, calendar_week=calendar_week)
-                return jsonify({'message': f'Weekend route optimized successfully for area {area} on {weekday} (KW {calendar_week})'})
+                return jsonify({'message': f'AW tour-area route optimized successfully for {area} on {weekday} (KW {calendar_week})'})
             else:
                 # Optimize all routes for this area/weekday (all calendar weeks)
                 routes = Route.query.filter_by(employee_id=None, weekday=weekday, area=area).all()
@@ -232,8 +236,8 @@ def optimize_routes():
                         route_optimizer.optimize_route(weekday, area=area, calendar_week=route.calendar_week)
                         optimized_count += 1
                     except Exception as e:
-                        print(f"Failed to optimize weekend route for area {area} on {weekday} (KW {route.calendar_week}): {e}")
-                return jsonify({'message': f'{optimized_count} weekend routes optimized successfully for area {area} on {weekday}'})  
+                        print(f"Failed to optimize AW tour-area route for {area} on {weekday} (KW {route.calendar_week}): {e}")
+                return jsonify({'message': f'{optimized_count} AW tour-area routes optimized for {area} on {weekday}'})  
         else:
             return jsonify({'error': 'Either employee_id or area is required'}), 400
             

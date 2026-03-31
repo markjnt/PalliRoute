@@ -6,45 +6,41 @@ interface UseAreaManagementProps {
   appointments: any[];
   selectedDay: Weekday;
   currentArea?: string;
+  /** Sa/So oder Feiertags-Mo–Fr: Filter wie AW-Flächen (Nord/Mitte/Süd). */
+  useTourAreaLayout?: boolean;
 }
 
 interface AreaManagementReturn {
-  // Area filtering
   getFilteredRoutes: () => Route[];
   isAllAreas: boolean;
-  
-  // Weekend area management
-  getWeekendAreas: () => string[];
-  getWeekendRoutesByArea: () => Map<string, Route[]>;
-  
-  // Area utilities
+  getTourAreas: () => string[];
+  getTourRoutesByArea: () => Map<string, Route[]>;
   getAreaBackgroundColor: (area: string) => string;
   getAreaColor: (area: string) => string;
 }
-
-const weekendAreas = ['Nord', 'Mitte', 'Süd'] as const;
-type WeekendArea = typeof weekendAreas[number];
 
 export const useAreaManagement = ({
   routes,
   appointments,
   selectedDay,
-  currentArea
+  currentArea,
+  useTourAreaLayout = false,
 }: UseAreaManagementProps): AreaManagementReturn => {
-  
-  // Check if all areas are selected
   const isAllAreas = currentArea === 'Nord- und Südkreis' || !currentArea;
 
-  // Filter routes by area
+  const isTourAreaMode =
+    useTourAreaLayout ||
+    selectedDay === 'saturday' ||
+    selectedDay === 'sunday';
+
   const getFilteredRoutes = useCallback(() => {
     if (isAllAreas) {
       return routes;
     }
-    
-    // For weekend routes, always include Mitte + selected area
-    if (selectedDay === 'saturday' || selectedDay === 'sunday') {
+
+    if (isTourAreaMode) {
       const filteredRoutes = routes.filter(r => (r.area as string) === 'Mitte');
-      
+
       if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
         const nordRoutes = routes.filter(r => (r.area as string) === 'Nord');
         filteredRoutes.push(...nordRoutes);
@@ -52,71 +48,57 @@ export const useAreaManagement = ({
         const südRoutes = routes.filter(r => (r.area as string) === 'Süd');
         filteredRoutes.push(...südRoutes);
       }
-      
+
       return filteredRoutes;
     }
-    
-    // For weekday routes, filter by selected area directly (Nordkreis/Südkreis)
-    // Handle both "Nordkreis"/"Südkreis" and "Nord"/"Süd" values
+
     let targetArea = currentArea;
     if (currentArea === 'Nord') {
       targetArea = 'Nordkreis';
     } else if (currentArea === 'Süd') {
       targetArea = 'Südkreis';
     }
-    
-    return routes.filter(r => r.area === targetArea);
-  }, [routes, isAllAreas, currentArea, selectedDay]);
 
-  // Get weekend areas
-  const getWeekendAreas = useCallback(() => {
+    return routes.filter(r => r.area === targetArea);
+  }, [routes, isAllAreas, currentArea, selectedDay, isTourAreaMode]);
+
+  const getTourAreas = useCallback(() => {
     if (isAllAreas) {
-      // Show all areas in order: Nord, Mitte, Süd
       return ['Nord', 'Mitte', 'Süd'];
-    } else {
-      // Always show Mitte + selected area in correct order
-      if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
-        return ['Nord', 'Mitte'];
-      } else if (currentArea === 'Südkreis' || currentArea === 'Süd') {
-        return ['Mitte', 'Süd'];
-      }
-      return ['Mitte'];
     }
+    if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
+      return ['Nord', 'Mitte'];
+    }
+    if (currentArea === 'Südkreis' || currentArea === 'Süd') {
+      return ['Mitte', 'Süd'];
+    }
+    return ['Mitte'];
   }, [isAllAreas, currentArea]);
 
-  // Get weekend routes grouped by area
-  const getWeekendRoutesByArea = useCallback(() => {
+  const getTourRoutesByArea = useCallback(() => {
     const areaMap = new Map<string, Route[]>();
-    
+
     if (isAllAreas) {
-      // Show all areas in order: Nord, Mitte, Süd
       const orderedAreas = ['Nord', 'Mitte', 'Süd'];
       orderedAreas.forEach(area => {
         const areaRoutes = routes.filter(r => (r.area as string) === area);
         areaMap.set(area, areaRoutes);
       });
     } else {
-      // Always show Mitte + selected area in correct order
       if (currentArea === 'Nordkreis' || currentArea === 'Nord') {
-        const nordRoutes = routes.filter(r => (r.area as string) === 'Nord');
-        areaMap.set('Nord', nordRoutes);
-        const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
-        areaMap.set('Mitte', mitteRoutes);
+        areaMap.set('Nord', routes.filter(r => (r.area as string) === 'Nord'));
+        areaMap.set('Mitte', routes.filter(r => (r.area as string) === 'Mitte'));
       } else if (currentArea === 'Südkreis' || currentArea === 'Süd') {
-        const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
-        areaMap.set('Mitte', mitteRoutes);
-        const südRoutes = routes.filter(r => (r.area as string) === 'Süd');
-        areaMap.set('Süd', südRoutes);
+        areaMap.set('Mitte', routes.filter(r => (r.area as string) === 'Mitte'));
+        areaMap.set('Süd', routes.filter(r => (r.area as string) === 'Süd'));
       } else {
-        const mitteRoutes = routes.filter(r => (r.area as string) === 'Mitte');
-        areaMap.set('Mitte', mitteRoutes);
+        areaMap.set('Mitte', routes.filter(r => (r.area as string) === 'Mitte'));
       }
     }
-    
+
     return areaMap;
   }, [routes, isAllAreas, currentArea]);
 
-  // Get background color for area
   const getAreaBackgroundColor = (area: string) => {
     switch (area) {
       case 'Nord': return 'rgba(25, 118, 210, 0.08)';
@@ -126,7 +108,6 @@ export const useAreaManagement = ({
     }
   };
 
-  // Get color for area
   const getAreaColor = (area: string) => {
     switch (area) {
       case 'Nord': return '#1976d2';
@@ -139,8 +120,8 @@ export const useAreaManagement = ({
   return {
     getFilteredRoutes,
     isAllAreas,
-    getWeekendAreas,
-    getWeekendRoutesByArea,
+    getTourAreas,
+    getTourRoutesByArea,
     getAreaBackgroundColor,
     getAreaColor
   };

@@ -30,7 +30,7 @@ def distance_km_to_area_start(
     """
     if employee_lat is None or employee_lng is None:
         return None
-    start = get_weekend_start_location(area)
+    start = get_tour_area_start_location(area)
     return haversine_km(
         employee_lat, employee_lng,
         start['lat'], start['lng'],
@@ -89,20 +89,18 @@ def calculate_visit_duration(appointments: List) -> int:
         for appointment in appointments
     )
 
-def get_weekend_start_location(area: str) -> Dict[str, float]:
+def get_tour_area_start_location(area: str) -> Dict[str, float]:
     """
-    Get a central starting location for weekend routes based on area
-    For weekend routes, we need a central point in the area as starting point
-    
+    Zentraler Startpunkt für AW-Flächenrouten (Nord / Mitte / Süd), analog Touren-Wochenende.
+
     Args:
         area: Area name (Nord, Mitte, Süd, or variations like Nordkreis, Südkreis)
-    
+
     Returns:
         Dictionary with 'lat' and 'lng' keys containing the coordinates
     """
-    # Define start locations for each weekend area
     # Coordinates are geocoded from the actual addresses
-    weekend_start_locations = {
+    tour_area_start_locations = {
         'Mitte': {
             'lat': 50.9833022, 
             'lng': 7.5412243,  # Auf der Brück 9, 51645 Gummersbach
@@ -127,7 +125,7 @@ def get_weekend_start_location(area: str) -> Dict[str, float]:
         area_normalized = 'Mitte'
     
     # Get location for the area, default to Mitte if not found
-    location = weekend_start_locations.get(area_normalized, weekend_start_locations['Mitte'])
+    location = tour_area_start_locations.get(area_normalized, tour_area_start_locations['Mitte'])
     
     return {'lat': location['lat'], 'lng': location['lng']}
 

@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Alert, CircularProgress, Button, Chip, Tooltip } from '@mui/material';
-import { Patient, Appointment, Employee, Weekday, Route } from '../../types/models';
+import React, { useMemo } from 'react';
+import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { Employee, Weekday } from '../../types/models';
 import { TourContainer } from './TourContainer';
 import { WeekendToursView } from './weekend/WeekendToursView';
-import { Person as PersonIcon, CheckCircle, Cancel, Warning as WarningIcon, Route as RouteIcon, LocalHospital as DoctorIcon, RemoveCircle as EmptyIcon } from '@mui/icons-material';
-import { employeeTypeColors } from '../../utils/colors';
+import { Person as PersonIcon, LocalHospital as DoctorIcon, RemoveCircle as EmptyIcon } from '@mui/icons-material';
 import { useRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
 import { useAreaStore } from '../../stores/useAreaStore';
-import { useEmployeeManagement, useAreaManagement } from '../../hooks';
+import { useEmployeeManagement, useAreaManagement, useNrwpHolidayForTourDay } from '../../hooks';
 
 interface ToursViewProps {
     selectedDay: Weekday;
@@ -23,22 +22,14 @@ interface ToursViewProps {
 }
 
 export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, filteredResults }) => {
-    // Check if this is a weekend day
-    const isWeekend = selectedDay === 'saturday' || selectedDay === 'sunday';
-    
-    // For weekend days, show only the weekend tours view
-    if (isWeekend) {
-        return <WeekendToursView selectedDay={selectedDay} />;
-    }
+    const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedDay);
 
-    // React Query Hooks (only for weekdays) - verwenden automatisch selectedCalendarWeek
-    const { data: employees = [], isLoading: loadingEmployees, error: employeesError } = useEmployees(); // Employees sind kalenderwochenunabhängig!
+    const { data: employees = [], isLoading: loadingEmployees, error: employeesError } = useEmployees();
     const { data: patients = [], isLoading: loadingPatients, error: patientsError } = usePatients();
     const { data: appointments = [], isLoading: loadingAppointments, error: appointmentsError } = useAppointmentsByWeekday(selectedDay);
-    const { data: routes = [], isLoading: loadingRoutes, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedDay });
+    const { data: routes = [], isLoading: loadingRoutes, error: routesError } = useRoutes({ weekday: selectedDay });
     const { currentArea } = useAreaStore();
 
-    // Custom hooks for business logic
     const employeeManagement = useEmployeeManagement({
         employees,
         appointments,
@@ -53,44 +44,31 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
         currentArea: currentArea || undefined
     });
 
-    // Get filtered data using custom hooks
     const filteredEmployees = employeeManagement.getFilteredEmployees();
     const filteredRoutes = areaManagement.getFilteredRoutes();
-    const allEmployees = employeeManagement.getSortedEmployees();
-    
 
-    
-
-
-    // Use filtered results from SearchField component
     const {
         filteredActiveOtherEmployeesWithPatients,
         filteredActiveOtherEmployeesWithoutPatients,
         filteredDoctors
     } = filteredResults;
 
-    // Get employee groups using custom hook
-    const doctorsWithPatients = employeeManagement.getDoctorsWithPatients();
-    const doctorsWithoutPatients = employeeManagement.getDoctorsWithoutPatients();
-    const otherEmployeesWithPatients = employeeManagement.getOtherEmployeesWithPatients();
-    const otherEmployeesWithoutPatients = employeeManagement.getOtherEmployeesWithoutPatients();
-
-    // Use filtered results from SearchField component for display
-    const activeOtherEmployeesWithPatients = React.useMemo(() => {
-        return filteredActiveOtherEmployeesWithPatients;
-    }, [filteredActiveOtherEmployeesWithPatients]);
-
-    const activeOtherEmployeesWithoutPatients = React.useMemo(() => {
-        return filteredActiveOtherEmployeesWithoutPatients;
-    }, [filteredActiveOtherEmployeesWithoutPatients]);
-
-    const activeDoctorsWithPatients = React.useMemo(() => {
+    const activeOtherEmployeesWithPatients = useMemo(() => filteredActiveOtherEmployeesWithPatients, [filteredActiveOtherEmployeesWithPatients]);
+    const activeOtherEmployeesWithoutPatients = useMemo(() => filteredActiveOtherEmployeesWithoutPatients, [filteredActiveOtherEmployeesWithoutPatients]);
+    const activeDoctorsWithPatients = useMemo(() => {
         return filteredDoctors.filter(doctor => employeeManagement.hasPatientInEmployee(doctor.id || 0));
     }, [filteredDoctors, employeeManagement]);
-
-    const activeDoctorsWithoutPatients = React.useMemo(() => {
+    const activeDoctorsWithoutPatients = useMemo(() => {
         return filteredDoctors.filter(doctor => !employeeManagement.hasPatientInEmployee(doctor.id || 0));
     }, [filteredDoctors, employeeManagement]);
+
+    if (isAreaTourDay) {
+        return (
+            <Box>
+                <WeekendToursView selectedDay={selectedDay} />
+            </Box>
+        );
+    }
 
     if (loadingEmployees || loadingPatients || loadingAppointments || loadingRoutes) {
         return (
@@ -99,7 +77,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
             </Box>
         );
     }
-    
+
     if (employeesError || patientsError || appointmentsError || routesError) {
         return (
             <Alert severity="error" sx={{ my: 2 }}>
@@ -107,7 +85,7 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
             </Alert>
         );
     }
-    
+
     if (patients.length === 0) {
         return (
             <Alert severity="info" sx={{ my: 2 }}>
@@ -115,29 +93,29 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
             </Alert>
         );
     }
-    
+
     return (
         <Box>
             {/* 1. Pflegetouren - Active other employees with patients */}
             {activeOtherEmployeesWithPatients.length > 0 && (
                 <Box sx={{ mb: 4 }}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
                         mb: 2,
-                        justifyContent: 'space-between' 
+                        justifyContent: 'space-between'
                     }}>
                         <Typography variant="h6" component="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <PersonIcon />
                             Pflegetouren
                         </Typography>
                     </Box>
-                    
-                    <Box sx={{ 
-                        display: 'flex', 
-                        flexWrap: 'wrap', 
+
+                    <Box sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
                         gap: 1,
-                        '& > *': { 
+                        '& > *': {
                             flexGrow: 1,
                             flexShrink: 1,
                             flexBasis: {
@@ -178,23 +156,23 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
             {/* 2. Ärzte - Doctors with patients */}
             {activeDoctorsWithPatients.length > 0 && (
                 <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
                         mb: 2,
-                        justifyContent: 'space-between' 
+                        justifyContent: 'space-between'
                     }}>
                         <Typography variant="h6" component="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <DoctorIcon />
                             Ärztetouren
                         </Typography>
                     </Box>
-                    
+
                     <Box sx={{
-                        display: 'flex', 
-                        flexWrap: 'wrap', 
+                        display: 'flex',
+                        flexWrap: 'wrap',
                         gap: 1,
-                        '& > *': { 
+                        '& > *': {
                             flexGrow: 1,
                             flexShrink: 1,
                             flexBasis: {
@@ -232,26 +210,26 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                 </Box>
             )}
 
-            {/* 3. Leere Pflegetouren - Other employees without patients */}
+            {/* 3. Leere Pflegetouren */}
             {activeOtherEmployeesWithoutPatients.length > 0 && (
                 <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
                         mb: 2,
-                        justifyContent: 'space-between' 
+                        justifyContent: 'space-between'
                     }}>
                         <Typography variant="h6" component="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <EmptyIcon />
                             Leere Pflegetouren
                         </Typography>
                     </Box>
-                    
+
                     <Box sx={{
-                        display: 'flex', 
-                        flexWrap: 'wrap', 
+                        display: 'flex',
+                        flexWrap: 'wrap',
                         gap: 1,
-                        '& > *': { 
+                        '& > *': {
                             flexGrow: 1,
                             flexShrink: 1,
                             flexBasis: {
@@ -289,26 +267,26 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                 </Box>
             )}
 
-            {/* 4. Leere Ärztetouren - Doctors without patients */}
+            {/* 4. Leere Ärztetouren */}
             {activeDoctorsWithoutPatients.length > 0 && (
                 <Box sx={{ mb: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
                         mb: 2,
-                        justifyContent: 'space-between' 
+                        justifyContent: 'space-between'
                     }}>
                         <Typography variant="h6" component="h3" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <EmptyIcon />
                             Leere Ärztetouren
                         </Typography>
                     </Box>
-                    
+
                     <Box sx={{
-                        display: 'flex', 
-                        flexWrap: 'wrap', 
+                        display: 'flex',
+                        flexWrap: 'wrap',
                         gap: 1,
-                        '& > *': { 
+                        '& > *': {
                             flexGrow: 1,
                             flexShrink: 1,
                             flexBasis: {
@@ -346,16 +324,15 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
                 </Box>
             )}
 
-            {/* Show message when no results found */}
-            {searchTerm && 
-             activeOtherEmployeesWithPatients.length === 0 && 
-             activeDoctorsWithPatients.length === 0 && 
-             activeOtherEmployeesWithoutPatients.length === 0 && 
-             activeDoctorsWithoutPatients.length === 0 && (
-                <Alert severity="info" sx={{ my: 2 }}>
-                    Keine Ergebnisse für "{searchTerm}" gefunden.
-                </Alert>
-            )}
+            {searchTerm &&
+                activeOtherEmployeesWithPatients.length === 0 &&
+                activeDoctorsWithPatients.length === 0 &&
+                activeOtherEmployeesWithoutPatients.length === 0 &&
+                activeDoctorsWithoutPatients.length === 0 && (
+                    <Alert severity="info" sx={{ my: 2 }}>
+                        Keine Ergebnisse für "{searchTerm}" gefunden.
+                    </Alert>
+                )}
         </Box>
     );
-}; 
+};

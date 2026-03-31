@@ -12,24 +12,29 @@ import {
 } from '@mui/icons-material';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
-import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes, useOptimizeTourAreaRoutes } from '../../services/queries/useRoutes';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { useRouteCompletionStore } from '../../stores/useRouteCompletionStore';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useRefresh } from '../../services/queries/useRefresh';
 import { Weekday } from '../../types/models';
+import { useNrwpHolidayForTourDay } from '../../hooks/useNrwpHolidayForTourDay';
 
 export const RouteInfo: React.FC = () => {
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
+  const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedWeekday as Weekday);
   const { clearCompletedStops } = useRouteCompletionStore();
   const { lastUpdateTime } = useLastUpdateStore();
   const { refreshData } = useRefresh();
   
-  const { data: routes = [] } = useRoutes({ weekday: selectedWeekday as Weekday });
+  const { data: routes = [] } = useRoutes({
+    weekday: selectedWeekday as Weekday,
+    ...(selectedTourArea ? { tour_area_day: isAreaTourDay } : {}),
+  });
   const { data: employees = [] } = useEmployees();
   const optimizeRoutesMutation = useOptimizeRoutes();
-  const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
+  const optimizeTourAreaRoutesMutation = useOptimizeTourAreaRoutes();
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -45,14 +50,14 @@ export const RouteInfo: React.FC = () => {
     return weekdayMap[weekday] || weekday;
   };
 
-  // Immer nur die Route des ausgewählten Mitarbeiters oder Wochenend-Bereichs anzeigen
+  // Immer nur die Route des ausgewählten Mitarbeiters oder AW-Bereichs anzeigen
   const selectedRoute = useMemo(() => {
-    if (selectedWeekendArea) {
-      return routes.find(route => !route.employee_id && route.area === selectedWeekendArea && route.weekday === selectedWeekday);
+    if (selectedTourArea) {
+      return routes.find(route => !route.employee_id && route.area === selectedTourArea && route.weekday === selectedWeekday);
     } else {
       return routes.find(route => route.employee_id === selectedUserId && route.weekday === selectedWeekday);
     }
-  }, [routes, selectedUserId, selectedWeekendArea, selectedWeekday]);
+  }, [routes, selectedUserId, selectedTourArea, selectedWeekday]);
 
   // Get selected employee for work_hours (only for employee routes)
   const selectedEmployee = useMemo(() => {
@@ -91,8 +96,8 @@ export const RouteInfo: React.FC = () => {
   const calculateUtilization = (duration: number) => {
     let targetMinutes: number;
     
-    if (selectedWeekendArea) {
-      // For weekend tours: 75% of 420 minutes = 315 minutes target
+    if (selectedTourArea) {
+      // For AW/tour-area tours: 75% of 420 minutes = 315 minutes target
       targetMinutes = 315;
     } else {
       // For employees: based on work_hours percentage
@@ -133,11 +138,11 @@ export const RouteInfo: React.FC = () => {
     if (!selectedWeekday) return;
     
     try {
-      if (selectedWeekendArea) {
-        // Optimize weekend route
-        await optimizeWeekendRoutesMutation.mutateAsync({
+      if (selectedTourArea) {
+        // Optimize AW/tour-area route
+        await optimizeTourAreaRoutesMutation.mutateAsync({
           weekday: selectedWeekday,
-          area: selectedWeekendArea
+          area: selectedTourArea
         });
       } else if (selectedUserId) {
         // Optimize employee route
@@ -224,7 +229,7 @@ export const RouteInfo: React.FC = () => {
         <Button
           variant="contained"
           onClick={handleOptimize}
-          disabled={optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending}
+          disabled={optimizeRoutesMutation.isPending || optimizeTourAreaRoutesMutation.isPending}
           sx={{
             bgcolor: '#4CAF50',
             borderRadius: 1.5,
@@ -247,7 +252,7 @@ export const RouteInfo: React.FC = () => {
         >
           <RouteIcon sx={{ fontSize: 18 }} />
           <Typography variant="caption" sx={{ fontWeight: 500 }}>
-            {(optimizeRoutesMutation.isPending || optimizeWeekendRoutesMutation.isPending) 
+            {(optimizeRoutesMutation.isPending || optimizeTourAreaRoutesMutation.isPending) 
               ? 'Optimiere...' 
               : 'Optimieren'}
           </Typography>

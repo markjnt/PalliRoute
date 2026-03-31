@@ -25,7 +25,7 @@ interface TopOverviewBarProps {
 
 export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, onSheetToggle, onCloseWeekdaySelector, onWeekdayButtonClick }) => {
   const barRef = useRef<HTMLDivElement | null>(null);
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
   const { selectedWeekday, setSelectedWeekday } = useWeekdayStore();
   const [isWeekdayMenuOpen, setIsWeekdayMenuOpen] = useState(false);
 
@@ -95,8 +95,8 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
   };
 
   // Get appointments for the selected employee and day
-  const employeeAppointments = selectedWeekendArea 
-    ? appointments.filter(a => a.weekday === selectedWeekday && a.area === selectedWeekendArea) // For weekend tours, show only appointments for the selected area
+  const employeeAppointments = selectedTourArea 
+    ? appointments.filter(a => a.weekday === selectedWeekday && a.area === selectedTourArea) // For AW/tour-area tours, show only appointments for the selected area
     : appointments.filter(a => a.employee_id === selectedUserId && a.weekday === selectedWeekday);
 
   // Group patients by visit type
@@ -304,13 +304,13 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
           </Box>
         </Box>
 
-        {/* User Avatar or Weekend Area - RIGHT */}
+        {/* User avatar or tour area - right */}
         <Avatar
           onClick={onUserSwitch}
           sx={{
             width: 48,
             height: 48,
-            bgcolor: selectedWeekendArea 
+            bgcolor: selectedTourArea 
               ? '#ff9800'
               : selectedEmployee ? getEmployeeColor(selectedEmployee.function) : '#007AFF',
             color: 'white',
@@ -327,11 +327,11 @@ export const TopOverviewBar: React.FC<TopOverviewBarProps> = ({ onUserSwitch, on
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          {selectedWeekendArea ? (
-            selectedWeekendArea === 'Nord' ? 'N' : 
-            selectedWeekendArea === 'Mitte' ? 'M' : 
-            selectedWeekendArea === 'Süd' ? 'S' : 
-            selectedWeekendArea.charAt(0)
+          {selectedTourArea ? (
+            selectedTourArea === 'Nord' ? 'N' : 
+            selectedTourArea === 'Mitte' ? 'M' : 
+            selectedTourArea === 'Süd' ? 'S' : 
+            selectedTourArea.charAt(0)
           ) : selectedEmployee ? (
             getInitials(selectedEmployee.first_name, selectedEmployee.last_name)
           ) : (

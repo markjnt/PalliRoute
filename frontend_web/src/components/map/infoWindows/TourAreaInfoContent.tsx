@@ -2,14 +2,11 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { MarkerData } from '../../../types/mapTypes';
 
-interface WeekendAreaInfoContentProps {
+interface TourAreaInfoContentProps {
   marker: MarkerData;
 }
 
-/**
- * Component for displaying weekend area information in marker info windows
- */
-export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ marker }) => {
+export const TourAreaInfoContent: React.FC<TourAreaInfoContentProps> = ({ marker }) => {
   const getAreaColor = (area?: string) => {
     if (area === 'Wochenend-Touren') return '#ff9800';
     switch (area) {
@@ -20,7 +17,7 @@ export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ 
     }
   };
 
-  const isGeneralWeekendMarker = marker.area === 'Wochenend-Touren';
+  const isGeneralTourMarker = marker.area === 'Wochenend-Touren';
   const area = marker.area || '';
 
   return (
@@ -35,7 +32,6 @@ export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ 
         {marker.title}
       </Typography>
       
-      {/* Weekend area type */}
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
@@ -54,14 +50,13 @@ export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ 
           }} 
         />
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-          {isGeneralWeekendMarker 
+          {isGeneralTourMarker 
             ? 'Zentraler Startpunkt für alle Wochenend-Touren' 
             : `${marker.area}-Bereich`
           }
         </Typography>
       </Box>
       
-      {/* Address */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
           {(() => {
@@ -79,7 +74,7 @@ export const WeekendAreaInfoContent: React.FC<WeekendAreaInfoContentProps> = ({ 
         </Typography>
       </Box>
       
-      {isGeneralWeekendMarker && (
+      {isGeneralTourMarker && (
         <Box sx={{ mt: 1, p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 'medium', mb: 1 }}>
             Wochenend-Bereiche:

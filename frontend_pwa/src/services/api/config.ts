@@ -20,5 +20,11 @@ export const configApi = {
             console.error('Failed to fetch last import time:', error);
             throw error;
         }
-    }
+    },
+
+    /** NRW public holidays for a calendar year (date -> name in UI). */
+    async getHolidays(year: number): Promise<{ year: number; holidays: { date: string; name: string }[] }> {
+        const response = await api.get('/config/holidays', { params: { year } });
+        return response.data;
+    },
 }; 

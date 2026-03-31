@@ -13,8 +13,9 @@ import { useEmployees } from '../../services/queries/useEmployees';
 import { useRoutes } from '../../services/queries/useRoutes';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { useUserStore } from '../../stores/useUserStore';
-import { Employee } from '../../types/models';
+import { Employee, Weekday } from '../../types/models';
 import { getColorForTour } from '../../utils/colors';
+import { useNrwpHolidayForTourDay } from '../../hooks/useNrwpHolidayForTourDay';
 
 interface AdditionalRoutesSelectorProps {
   selectedEmployeeIds: (number | string)[];
@@ -30,9 +31,13 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
   onDeselectAll,
 }) => {
   const { selectedWeekday } = useWeekdayStore();
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
+  const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedWeekday as Weekday);
   const { data: employees = [] } = useEmployees();
-  const { data: routes = [] } = useRoutes({ weekday: selectedWeekday as any });
+  const { data: routes = [] } = useRoutes({
+    weekday: selectedWeekday as Weekday,
+    ...(selectedTourArea ? { tour_area_day: isAreaTourDay } : {}),
+  });
   
   // State for area filter - only one can be active at a time
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<'nord' | 'sud' | 'alle'>('alle');
@@ -44,11 +49,10 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
 
   // Get employees that have routes for the selected weekday, excluding the logged-in user
   const employeesWithRoutes = useMemo(() => {
-    if (selectedWeekendArea) {
-      // For weekend areas, show other weekend areas
-      const weekendAreas = ['Nord', 'Mitte', 'Süd'];
-      return weekendAreas
-        .filter(area => area !== selectedWeekendArea)
+    if (selectedTourArea) {
+      const tourAreaLabels = ['Nord', 'Mitte', 'Süd'];
+      return tourAreaLabels
+        .filter(area => area !== selectedTourArea)
         .map(area => ({
           id: area as any,
           first_name: `AW ${area}`,
@@ -109,7 +113,7 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
         return false;
       });
     }
-  }, [employees, routes, selectedUserId, selectedWeekendArea, selectedAreaFilter]);
+  }, [employees, routes, selectedUserId, selectedTourArea, selectedAreaFilter]);
 
   // Get German weekday name
   const getGermanWeekday = (weekday: string): string => {
@@ -179,8 +183,8 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
           </Box>
         </Box>
 
-        {/* Area Toggle Buttons - Only show when not in weekend mode */}
-        {!selectedWeekendArea && (
+        {/* Area toggle buttons - only show in employee mode */}
+        {!selectedTourArea && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 1.5 }}>
             <Box
               onClick={() => handleAreaToggle('alle')}
@@ -259,8 +263,8 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
           {employeesWithRoutes.map((employee) => {
             const isSelected = selectedEmployeeIds.includes(employee.id as any);
             
-            // Get color based on weekend area or employee
-            const getWeekendAreaColor = (area: string) => {
+            // Get color based on tour area or employee
+            const getTourAreaColor = (area: string) => {
               switch (area) {
                 case 'Nord': return '#1976d2'; // Blue
                 case 'Mitte': return '#7b1fa2'; // Purple
@@ -269,11 +273,11 @@ export const AdditionalRoutesSelector: React.FC<AdditionalRoutesSelectorProps> =
               }
             };
             
-            const routeColor = selectedWeekendArea 
-              ? getWeekendAreaColor(employee.id as string)
+            const routeColor = selectedTourArea 
+              ? getTourAreaColor(employee.id as string)
               : getColorForTour(employee.id as any);
             
-            const fullName = selectedWeekendArea 
+            const fullName = selectedTourArea 
               ? employee.first_name
               : `${employee.first_name} ${employee.last_name}`;
             

@@ -135,9 +135,8 @@ export const createEmployeeMarkerData = (employee: Employee, routeId?: number): 
   }
 };
 
-// Get weekend start location coordinates based on area
-// These coordinates match the backend route_utils.py get_weekend_start_location function
-export const getWeekendStartLocation = (area: string): { lat: number; lng: number } => {
+// Entspricht backend route_utils.get_tour_area_start_location
+export const getTourAreaStartLocation = (area: string): { lat: number; lng: number } => {
   // Normalize area name (handle variations like 'Nordkreis' -> 'Nord')
   let areaNormalized = area;
   if (area.includes('Nord') || area === 'Nordkreis') {
@@ -148,8 +147,7 @@ export const getWeekendStartLocation = (area: string): { lat: number; lng: numbe
     areaNormalized = 'Mitte';
   }
   
-  // Define start locations for each weekend area
-  const weekendStartLocations: Record<string, { lat: number; lng: number }> = {
+  const tourAreaStartLocations: Record<string, { lat: number; lng: number }> = {
     'Mitte': {
       lat: 50.9833022,  // Auf der Brück 9, 51645 Gummersbach
       lng: 7.5412243
@@ -165,18 +163,17 @@ export const getWeekendStartLocation = (area: string): { lat: number; lng: numbe
   };
   
   // Get location for the area, default to Mitte if not found
-  return weekendStartLocations[areaNormalized] || weekendStartLocations['Mitte'];
+  return tourAreaStartLocations[areaNormalized] || tourAreaStartLocations['Mitte'];
 };
 
-// Create weekend area marker data
-export const createWeekendAreaMarkerData = (area: string): MarkerData | null => {
-  const weekendStartLocation = getWeekendStartLocation(area);
-  const position = new google.maps.LatLng(weekendStartLocation.lat, weekendStartLocation.lng);
+export const createTourAreaMarkerData = (area: string): MarkerData | null => {
+  const start = getTourAreaStartLocation(area);
+  const position = new google.maps.LatLng(start.lat, start.lng);
   
   return {
     position,
     title: `AW Tour: ${area}-Bereich`,
-    type: 'weekend_area',
+    type: 'tour_area',
     area: area,
     employeeId: null,
     routeId: null
@@ -203,7 +200,7 @@ export const createPatientMarkerData = (patient: Patient, appointment: Appointme
       appointmentId: appointment.id,
       routePosition: position,
       routeId,
-      area: route?.area // Set the area from the route for weekend routes
+      area: route?.area
     };
   } else {
     // If no coordinates, log warning and skip
@@ -218,15 +215,14 @@ export const calculateRouteBounds = (
   employees: Employee[], 
   patients: Patient[], 
   appointments: any[],
-  selectedWeekendArea?: string | null
+  selectedTourArea?: string | null
 ): google.maps.LatLngBounds | null => {
   const bounds = new google.maps.LatLngBounds();
   let hasValidPoints = false;
   
-  // If it's a weekend area, add the weekend start location
-  if (selectedWeekendArea) {
-    const weekendStartLocation = getWeekendStartLocation(selectedWeekendArea);
-    bounds.extend(new google.maps.LatLng(weekendStartLocation.lat, weekendStartLocation.lng));
+  if (selectedTourArea) {
+    const start = getTourAreaStartLocation(selectedTourArea);
+    bounds.extend(new google.maps.LatLng(start.lat, start.lng));
     hasValidPoints = true;
   }
   

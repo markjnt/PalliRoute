@@ -4,7 +4,9 @@ import { Employee, Assignment, DutyType, OnCallArea, EmployeeCapacity, ShiftDefi
 import { EmployeeTableRow } from './EmployeeTableRow';
 import { EmployeeDutyDialog } from './EmployeeDutyDialog';
 import { DemandRow } from './DemandRow';
-import { formatDate, isWeekend } from '../../../utils/oncall/dateUtils';
+import { formatDate, isWeekendLayoutDate } from '../../../utils/oncall/dateUtils';
+import { useNrwpHolidaysForYears } from '../../../services/queries/useConfig';
+import { HolidayChip } from '../../common/HolidayChip';
 import { WEEK_DAYS } from '../../../utils/oncall/constants';
 import { shiftDefinitionToDutyType, findShiftDefinition } from '../../../utils/oncall/shiftMapping';
 
@@ -43,6 +45,19 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [employeeFilter, setEmployeeFilter] = useState<'all' | 'pflege_n' | 'pflege_s' | 'arzt'>('all');
+
+  const holidayYears = useMemo(() => {
+    const s = new Set<number>();
+    dates.forEach((d) => s.add(d.getFullYear()));
+    return [...s].sort((a, b) => a - b);
+  }, [dates]);
+
+  const { holidayByYmd } = useNrwpHolidaysForYears(holidayYears);
+
+  const weekendLayoutForDate = useCallback(
+    (d: Date) => isWeekendLayoutDate(d, holidayByYmd),
+    [holidayByYmd]
+  );
 
   // Filter employees based on filter selection
   const filteredEmployees = useMemo(() => {
@@ -290,7 +305,9 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
           const jsDay = date.getDay();
           const weekDayIndex = jsDay === 0 ? 6 : jsDay - 1;
           const dayOfWeek = WEEK_DAYS[weekDayIndex];
-          const isWeekendDay = isWeekend(date);
+          const ymd = formatDate(date);
+          const holidayNameCol = holidayByYmd.get(ymd);
+          const weekendStyle = weekendLayoutForDate(date);
           return (
             <Box
               key={date.toISOString()}
@@ -298,7 +315,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                 textAlign: 'center',
                 py: viewMode === 'month' ? 0.5 : 0.75,
                 px: viewMode === 'month' ? 0.25 : 0.5,
-                backgroundColor: isWeekendDay ? 'rgba(255, 152, 0, 0.08)' : 'transparent',
+                backgroundColor: weekendStyle ? 'rgba(255, 152, 0, 0.08)' : 'transparent',
                 borderRight: idx < dates.length - 1 ? '1px solid' : 'none',
                 borderColor: 'divider',
               }}
@@ -327,6 +344,11 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
               >
                 {date.getDate()}.{date.getMonth() + 1}
               </Typography>
+              {holidayNameCol ? (
+                <Box sx={{ mt: 0.25, display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+                  <HolidayChip name={holidayNameCol} compact={viewMode === 'month'} />
+                </Box>
+              ) : null}
             </Box>
           );
         })}
@@ -339,6 +361,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
             viewMode={viewMode}
             gridTemplateColumns={gridTemplateColumns}
             employeeColumnWidth={employeeColumnWidth}
+            weekendLayoutForDate={weekendLayoutForDate}
           />
         </Box>
 
@@ -351,6 +374,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
               dates={dates}
               assignments={assignments}
               employeeCapacities={employeeCapacities}
+              weekendLayoutForDate={weekendLayoutForDate}
               onCellClick={(date) => handleCellClick(employee, date)}
             />
           ))}
@@ -364,6 +388,9 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
         date={selectedDate}
         assignments={selectedAssignments}
         employeeCapacities={employeeCapacities}
+        treatAsWeekendForDuties={
+          selectedDate ? weekendLayoutForDate(selectedDate) : undefined
+        }
         onClose={handleDialogClose}
         onDutyToggle={handleDutyToggle}
       />

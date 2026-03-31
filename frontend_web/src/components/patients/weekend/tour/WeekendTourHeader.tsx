@@ -1,11 +1,10 @@
 import React from 'react';
 import { Box, Typography, Chip } from '@mui/material';
 
-const weekendAreas = ['Nord', 'Mitte', 'Süd'] as const;
-type WeekendArea = typeof weekendAreas[number];
+type TourArea = 'Nord' | 'Mitte' | 'Süd';
 
 interface WeekendTourHeaderProps {
-    area: WeekendArea;
+    area: TourArea;
 }
 
 export const WeekendTourHeader: React.FC<WeekendTourHeaderProps> = ({ area }) => {

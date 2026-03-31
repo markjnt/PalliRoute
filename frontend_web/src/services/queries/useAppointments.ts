@@ -92,12 +92,12 @@ export const useCheckReplacement = () => {
   });
 };
 
-export const useAssignWeekendArea = () => {
+export const useAssignTourArea = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ appointmentId, targetArea }: { appointmentId: number; targetArea: 'Nord' | 'Mitte' | 'Süd' }) =>
-      appointmentsApi.assignWeekendArea(appointmentId, targetArea),
+      appointmentsApi.assignTourArea(appointmentId, targetArea),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: appointmentKeys.all });
       queryClient.invalidateQueries({ queryKey: routeKeys.all });

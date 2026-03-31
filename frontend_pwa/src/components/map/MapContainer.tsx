@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Box, CircularProgress, Alert } from '@mui/material';
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api';
 import { MapContainerProps } from '../../types/mapTypes';
-import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, createWeekendAreaMarkerData, parseRouteOrder, calculateRouteBounds } from '../../utils/mapUtils';
+import { containerStyle, defaultCenter, defaultZoom, mapOptions, libraries, createEmployeeMarkerData, createPatientMarkerData, createTourAreaMarkerData, parseRouteOrder, calculateRouteBounds } from '../../utils/mapUtils';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients } from '../../services/queries/usePatients';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
@@ -15,6 +15,7 @@ import { Weekday } from '../../types/models';
 import { useUserStore } from '../../stores/useUserStore';
 import { useWeekdayStore } from '../../stores/useWeekdayStore';
 import { useAdditionalRoutesStore } from '../../stores/useAdditionalRoutesStore';
+import { useNrwpHolidayForTourDay } from '../../hooks/useNrwpHolidayForTourDay';
 
 /**
  * Main container component for the map that integrates all map features
@@ -37,26 +38,30 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const [mapError, setMapError] = useState<string | null>(null);
 
   // Get selected user and weekday from stores
-  const { selectedUserId, selectedWeekendArea } = useUserStore();
+  const { selectedUserId, selectedTourArea } = useUserStore();
   const { selectedWeekday } = useWeekdayStore();
   const { selectedEmployeeIds } = useAdditionalRoutesStore();
+  const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedWeekday as Weekday);
 
   // Data hooks
   const { data: employees = [], isLoading: employeesLoading, refetch: refetchEmployees } = useEmployees();
   const { data: patients = [], isLoading: patientsLoading, error: patientsError, refetch: refetchPatients } = usePatients();
   const { data: appointments = [], isLoading: appointmentsLoading, error: appointmentsError, refetch: refetchAppointments } = useAppointmentsByWeekday(selectedWeekday as Weekday);
-  const { data: routes = [], isLoading: routesLoading, error: routesError, refetch: refetchRoutes } = useRoutes({ weekday: selectedWeekday as Weekday });
+  const { data: routes = [], isLoading: routesLoading, error: routesError, refetch: refetchRoutes } = useRoutes({
+    weekday: selectedWeekday as Weekday,
+    ...(selectedTourArea ? { tour_area_day: isAreaTourDay } : {}),
+  });
 
   // Routen basierend auf Sichtbarkeit filtern
   const visibleRoutes = useMemo(() => {
-    if (selectedWeekendArea) {
-      // Für Wochenend-Bereiche: Hauptroute des ausgewählten Bereichs
+    if (selectedTourArea) {
+      // Für AW-Bereiche: Hauptroute des ausgewählten Bereichs
       const mainRoute = routes.filter(route => 
-        route.area === selectedWeekendArea && 
+        route.area === selectedTourArea && 
         route.weekday === selectedWeekday
       );
       
-      // Zusätzliche Routen der anderen Wochenend-Bereiche
+      // Zusätzliche Routen der anderen AW-Bereiche
       const additionalRoutes = routes.filter(route => 
         selectedEmployeeIds.includes(route.area) && 
         route.weekday === selectedWeekday
@@ -74,21 +79,21 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       
       return [...mainRoute, ...additionalRoutes];
     }
-  }, [routes, selectedUserId, selectedWeekendArea, selectedWeekday, selectedEmployeeIds]);
+  }, [routes, selectedUserId, selectedTourArea, selectedWeekday, selectedEmployeeIds]);
 
   // Marker-Berechnung mit useMemo
   const markers = useMemo(() => {
     if (!isLoaded) return [];
     const newMarkers = [];
     
-    if (selectedWeekendArea) {
-      // Für Wochenend-Bereiche: Nur den zentralen Start-Marker anzeigen
-      const weekendStartMarker = createWeekendAreaMarkerData(selectedWeekendArea);
-      if (weekendStartMarker) {
-        newMarkers.push({ ...weekendStartMarker, isInactive: false });
+    if (selectedTourArea) {
+      // Für AW-Bereiche: Nur den zentralen Start-Marker anzeigen
+      const tourAreaStartMarker = createTourAreaMarkerData(selectedTourArea);
+      if (tourAreaStartMarker) {
+        newMarkers.push({ ...tourAreaStartMarker, isInactive: false });
       }
       
-      // Keine zusätzlichen Wochenend-Bereich-Marker mehr, da der zentrale orange Marker ausreicht
+      // Keine zusätzlichen AW-Bereich-Marker mehr, da der zentrale orange Marker ausreicht
     } else {
       // Für Mitarbeiter: Hauptmitarbeiter anzeigen
       const selectedEmployee = employees.find(e => e.id === selectedUserId);
@@ -153,9 +158,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   // Route-Polylines für alle sichtbaren Routen
   const routePaths = useMemo(() => {
     return visibleRoutes.map(route => {
-      if (selectedWeekendArea) {
-        // Für Wochenend-Routen: Verwende die gleichen Farben wie bei Mitarbeitern
-        const getWeekendAreaColor = (area: string) => {
+      if (selectedTourArea) {
+        // Für AW-Routen: Verwende die gleichen Farben wie bei Mitarbeitern
+        const getTourAreaColor = (area: string) => {
           switch (area) {
             case 'Nord': return '#1976d2'; // Blue
             case 'Mitte': return '#7b1fa2'; // Purple
@@ -165,11 +170,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         };
         
         // Hauptroute (ausgewählter Bereich) bekommt die Standard-Blaue Farbe
-        const isMainRoute = route.area === selectedWeekendArea;
-        const color = isMainRoute ? '#2196F3' : getWeekendAreaColor(route.area);
+        const isMainRoute = route.area === selectedTourArea;
+        const color = isMainRoute ? '#2196F3' : getTourAreaColor(route.area);
         
         return {
-          employeeId: null, // Weekend routes have no employee
+          employeeId: null, // AW/tour-area routes have no employee
           routeId: route.id,
           routeOrder: parseRouteOrder(route.route_order),
           color,
@@ -196,16 +201,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         };
       }
     });
-  }, [visibleRoutes, employees, selectedWeekendArea, selectedUserId]);
+  }, [visibleRoutes, employees, selectedTourArea, selectedUserId]);
 
   // Auto-center map on route when routes change
   useEffect(() => {
     if (map && employees.length > 0 && patients.length > 0 && appointments.length > 0) {
-      // For weekend areas, we need to zoom even if no routes are present
-      const shouldZoom = visibleRoutes.length > 0 || selectedWeekendArea;
+      // For AW/tour-area mode, we need to zoom even if no routes are present
+      const shouldZoom = visibleRoutes.length > 0 || selectedTourArea;
       
       if (shouldZoom) {
-        const bounds = calculateRouteBounds(visibleRoutes, employees, patients, appointments, selectedWeekendArea);
+        const bounds = calculateRouteBounds(visibleRoutes, employees, patients, appointments, selectedTourArea);
         if (bounds) {
           // Add some padding around the bounds for better visibility
           map.fitBounds(bounds, {
@@ -217,7 +222,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         }
       }
     }
-  }, [map, visibleRoutes, employees, patients, appointments, selectedWeekendArea]);
+  }, [map, visibleRoutes, employees, patients, appointments, selectedTourArea]);
 
   // Fehler- und Ladezustände
   const isLoading = employeesLoading || patientsLoading || appointmentsLoading || routesLoading || !isLoaded;

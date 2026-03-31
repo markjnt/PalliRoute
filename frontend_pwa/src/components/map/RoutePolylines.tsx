@@ -38,7 +38,7 @@ export const RoutePolylines: React.FC<RoutePolylinesProps> = ({ routes, map }) =
       // Get color: main user route is always blue, additional routes get different colors
       let routeColor: string;
       if (employeeId === null) {
-        // Weekend routes: color is already set in routePaths data
+        // AW/tour-area routes: color is already set in routePaths data
         routeColor = color;
       } else if (employeeId === selectedUserId) {
         routeColor = '#2196F3'; // Standard blue for main user route

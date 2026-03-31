@@ -19,7 +19,7 @@ import {
 } from '@mui/icons-material';
 import { Appointment, Patient } from '../../../types/models';
 
-type WeekendArea = 'Nord' | 'Mitte' | 'Süd';
+type TourArea = 'Nord' | 'Mitte' | 'Süd';
 
 interface UnassignedWeekendAppointment {
   appointment: Appointment;
@@ -28,13 +28,13 @@ interface UnassignedWeekendAppointment {
 
 interface UnassignedWeekendAppointmentsProps {
   appointments: UnassignedWeekendAppointment[];
-  onAssignArea: (appointmentId: number, area: WeekendArea) => Promise<void>;
+  onAssignArea: (appointmentId: number, area: TourArea) => Promise<void>;
   isAssigning: boolean;
 }
 
-const areaButtons: WeekendArea[] = ['Nord', 'Mitte', 'Süd'];
+const areaButtons: TourArea[] = ['Nord', 'Mitte', 'Süd'];
 
-const getAreaColor = (area: WeekendArea) => {
+const getAreaColor = (area: TourArea) => {
   switch (area) {
     case 'Nord':
       return '#1976d2';

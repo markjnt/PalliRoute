@@ -3,11 +3,11 @@ import { persist } from 'zustand/middleware';
 
 interface UserState {
   selectedUserId: number | null;
-  selectedWeekendArea: string | null;
+  selectedTourArea: string | null;
   setSelectedUser: (userId: number | null) => void;
-  setSelectedWeekendArea: (area: string | null) => void;
+  setSelectedTourArea: (area: string | null) => void;
   clearSelectedUser: () => void;
-  clearSelectedWeekendArea: () => void;
+  clearSelectedTourArea: () => void;
   clearAllSelections: () => void;
 }
 
@@ -15,15 +15,15 @@ export const useUserStore = create<UserState>()(
   persist(
     (set) => ({
       selectedUserId: null,
-      selectedWeekendArea: null,
+      selectedTourArea: null,
       setSelectedUser: (userId: number | null) => set({ selectedUserId: userId }),
-      setSelectedWeekendArea: (area: string | null) => set({ selectedWeekendArea: area }),
+      setSelectedTourArea: (area: string | null) => set({ selectedTourArea: area }),
       clearSelectedUser: () => set({ selectedUserId: null }),
-      clearSelectedWeekendArea: () => set({ selectedWeekendArea: null }),
-      clearAllSelections: () => set({ selectedUserId: null, selectedWeekendArea: null }),
+      clearSelectedTourArea: () => set({ selectedTourArea: null }),
+      clearAllSelections: () => set({ selectedUserId: null, selectedTourArea: null }),
     }),
     {
-      name: 'user-storage',
+      name: 'user-storage-v2',
     }
   )
-); 
+);

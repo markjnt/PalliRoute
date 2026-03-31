@@ -6,8 +6,8 @@ import { Appointment, Employee, Patient, Route } from '../../types/models';
 import { 
   PatientInfoContent, 
   EmployeeInfoContent, 
-  WeekendPatientInfoContent, 
-  WeekendAreaInfoContent,
+  TourPatientInfoContent, 
+  TourAreaInfoContent,
   CustomMarkerInfoContent,
   PflegeheimInfoContent,
 } from './infoWindows';
@@ -55,15 +55,15 @@ export const MarkerInfoWindow: React.FC<MarkerInfoWindowProps> = ({
                 routes={routes} 
                 employees={employees} 
               />
-            ) : marker.type === 'weekend_patient' ? (
-              <WeekendPatientInfoContent 
+            ) : marker.type === 'tour_patient' ? (
+              <TourPatientInfoContent 
                 marker={marker} 
                 patients={patients} 
                 appointments={appointments} 
                 routes={routes} 
               />
-            ) : marker.type === 'weekend_area' ? (
-              <WeekendAreaInfoContent marker={marker} />
+            ) : marker.type === 'tour_area' ? (
+              <TourAreaInfoContent marker={marker} />
             ) : marker.type === 'custom' ? (
               <CustomMarkerInfoContent marker={marker} />
             ) : marker.type === 'pflegeheim' ? (

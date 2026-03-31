@@ -1,9 +1,36 @@
 from flask import Blueprint, jsonify, request
 from flask_cors import cross_origin
 import os
+from datetime import datetime
+
 from app.models.system_info import SystemInfo
+from app.services.holiday_service import fetch_holidays_for_year
 
 bp = Blueprint('config', __name__)
+
+@bp.route('/holidays', methods=['GET'])
+@cross_origin()
+def get_holidays():
+    """
+    NRW public holidays for a calendar year (for UI chips / lookups).
+    Query: year (optional, default current calendar year).
+    Response: { "year": int, "holidays": [ { "date": "YYYY-MM-DD", "name": "..." }, ... ] }
+    """
+    try:
+        year = request.args.get('year', type=int)
+        if year is None:
+            year = datetime.now().year
+        if year < 1990 or year > 2100:
+            return jsonify({'error': 'year out of range'}), 400
+        mapping = fetch_holidays_for_year(year)
+        items = [
+            {'date': d.isoformat(), 'name': name}
+            for d, name in sorted(mapping.items(), key=lambda x: x[0])
+        ]
+        return jsonify({'year': year, 'holidays': items}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @bp.route('/maps-api-key')
 @cross_origin()

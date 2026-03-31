@@ -11,6 +11,7 @@ interface EmployeeTableRowProps {
   assignments: Assignment[];
   employeeCapacities?: EmployeeCapacity[];
   onCellClick: (date: Date) => void;
+  weekendLayoutForDate?: (date: Date) => boolean;
 }
 
 // Kurzbezeichnungen für Kapazitätstypen in der Tabelle (Wochentag nur RB, Ärzte ebenfalls nur RB)
@@ -28,6 +29,7 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
   assignments,
   employeeCapacities,
   onCellClick,
+  weekendLayoutForDate = isWeekend,
 }) => {
   const getFunctionInfo = (functionName: string) => {
     const functionMap: Record<string, { name: string; color: string }> = {
@@ -203,7 +205,7 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
 
       {/* Date cells */}
       {dates.map((date, idx) => {
-        const isWeekendDay = isWeekend(date);
+        const isWeekendDay = weekendLayoutForDate(date);
         return (
           <Box
             key={date.toISOString()}
@@ -226,6 +228,7 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
               date={date}
               employeeId={employee.id as number}
               assignments={assignments}
+              weekendLayout={isWeekendDay}
               onClick={() => onCellClick(date)}
             />
           </Box>

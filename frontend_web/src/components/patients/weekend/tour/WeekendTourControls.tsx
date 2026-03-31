@@ -10,9 +10,6 @@ import {
     VisibilityOff as VisibilityOffIcon
 } from '@mui/icons-material';
 
-const weekendAreas = ['Nord', 'Mitte', 'Süd'] as const;
-type WeekendArea = typeof weekendAreas[number];
-
 interface WeekendTourControlsProps {
     expanded: boolean;
     isOptimizing: boolean;

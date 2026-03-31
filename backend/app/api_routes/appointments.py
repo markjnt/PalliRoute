@@ -8,6 +8,7 @@ from datetime import datetime
 from app.models.employee import Employee
 from app.services.route_optimizer import RouteOptimizer
 from app.services.route_planner import RoutePlanner
+from app.services.holiday_service import is_aw_area_assignment_day
 
 appointments_bp = Blueprint('appointments', __name__)
 route_optimizer = RouteOptimizer()
@@ -83,13 +84,13 @@ def move_appointment():
         patient_id = appointment.patient_id
         weekday = appointment.weekday  # Get the weekday of the specific appointment
         
-        # Determine if this is a weekday or weekend appointment
-        is_weekend = weekday in ['saturday', 'sunday']
+        # AW-Flächentouren: Sa/So oder Feiertags-Mo–Fr
+        is_area_tour_day = is_aw_area_assignment_day(appointment.calendar_week, weekday)
         
-        if is_weekend:
-            # Weekend appointment - move between areas
+        if is_area_tour_day:
+            # Move between areas (Nord/Mitte/Süd)
             if not source_area or not target_area:
-                return jsonify({'error': 'source_area and target_area are required for weekend appointments'}), 400
+                return jsonify({'error': 'source_area and target_area are required for area-based tours'}), 400
 
             # Get source route for this weekday, area and calendar week
             source_route_query = Route.query.filter_by(
@@ -142,14 +143,14 @@ def move_appointment():
                     route_order.append(appointment.id)
                     target_route.set_route_order(route_order)
                 
-                # Optimize weekend route (creates/updates polyline, distance, duration)
+                # Optimize area route (Wochenende / Feiertag)
                 route_optimizer.optimize_route(
                     weekday,
                     area=target_area,
                     calendar_week=appointment.calendar_week
                 )
         else:
-            # Weekday appointment - move between employees
+            # Normaler Werktag – Zuweisung zwischen Mitarbeitern
             if not source_employee_id or not target_employee_id:
                 return jsonify({'error': 'source_employee_id and target_employee_id are required for weekday appointments'}), 400
             
@@ -214,14 +215,12 @@ def move_appointment():
         return jsonify({'error': str(e)}), 500
 
 
-@appointments_bp.route('/assign-weekend-area', methods=['POST'])
-def assign_weekend_area():
+@appointments_bp.route('/assign-area', methods=['POST'])
+def assign_tour_area():
     """
-    Assign a weekend appointment that is currently unassigned to one of the weekend areas.
-    Expected JSON body: {
-        "appointment_id": 123,
-        "target_area": "Nord"  # One of: Nord, Mitte, Süd
-    }
+    Weist einen noch nicht zugewiesenen AW-Flächentermin Nord/Mitte/Süd zu (Wochenende oder NRW-Feiertag Mo–Fr).
+
+    Body: { "appointment_id": int, "target_area": "Nord"|"Mitte"|"Süd" }
     """
     try:
         data = request.get_json()
@@ -237,8 +236,10 @@ def assign_weekend_area():
 
         appointment = Appointment.query.get_or_404(appointment_id)
 
-        if appointment.weekday not in ['saturday', 'sunday']:
-            return jsonify({'error': 'Only weekend appointments can be reassigned with this endpoint'}), 400
+        if not is_aw_area_assignment_day(appointment.calendar_week, appointment.weekday):
+            return jsonify({
+                'error': 'Bereich nur an Wochenendtagen oder an Feiertagen (Mo–Fr) zuweisbar.'
+            }), 400
 
         original_area = appointment.area
         if original_area == target_area:
@@ -253,7 +254,7 @@ def assign_weekend_area():
         # Ensure target route exists (only relevant for HB/NA)
         target_route = None
         if appointment.visit_type in ('HB', 'NA'):
-            # Find weekend route for this weekday, area and calendar week
+            # Flächenroute für diesen Wochentag / Kalenderwoche
             target_route_query = Route.query.filter_by(
                 weekday=appointment.weekday,
                 area=target_area,

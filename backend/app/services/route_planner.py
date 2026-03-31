@@ -12,7 +12,7 @@ from .route_utils import (
     calculate_route_duration,
     calculate_visit_duration,
     get_gmaps_client,
-    get_weekend_start_location
+    get_tour_area_start_location
 )
 
 class RoutePlanner:
@@ -30,13 +30,12 @@ class RoutePlanner:
             calendar_week: Calendar week for the route (optional, will be detected if not provided)
         """
         try:
-            # Determine if this is a weekend route
-            is_weekend = weekday.lower() in ['saturday', 'sunday']
-            
-            if is_weekend and not area:
-                raise ValueError("Area is required for weekend routes")
-            elif not is_weekend and not employee_id:
-                raise ValueError("Employee ID is required for weekday routes")
+            is_area_route = bool(area) and employee_id is None
+
+            if not is_area_route and not employee_id:
+                raise ValueError("Employee ID is required for employee routes")
+            if is_area_route and not area:
+                raise ValueError("Area is required for area-based routes")
             
             # Get calendar week from any patient
             patient = Patient.query.filter(Patient.calendar_week.isnot(None)).first()
@@ -44,9 +43,7 @@ class RoutePlanner:
                 raise ValueError("No patients found with calendar week information")
             
             # Get route from database
-            if is_weekend:
-                # Weekend routes are identified only by weekday, area and calendar_week,
-                # independent of employee_id (AW assignment may set employee_id later).
+            if is_area_route:
                 query = Route.query.filter_by(
                     weekday=weekday.lower(),
                     area=area
@@ -55,7 +52,7 @@ class RoutePlanner:
                     query = query.filter_by(calendar_week=calendar_week)
                 route = query.first()
                 if not route:
-                    raise ValueError(f"No weekend route found for area {area} on {weekday} (KW {calendar_week})")
+                    raise ValueError(f"No area route found for {area} on {weekday} (KW {calendar_week})")
             else:
                 query = Route.query.filter_by(
                     employee_id=employee_id,
@@ -84,9 +81,8 @@ class RoutePlanner:
                 raise ValueError(f"No appointments found for the IDs in route order: {appointment_ids}")
 
             # Get coordinates for all locations
-            if is_weekend:
-                # For weekend routes, use a central location in the area as start/end point
-                start_location = get_weekend_start_location(area)
+            if is_area_route:
+                start_location = get_tour_area_start_location(area)
             else:
                 # Get employee location for weekday routes
                 employee = Employee.query.filter_by(id=employee_id).first()
@@ -138,7 +134,6 @@ class RoutePlanner:
 
         except Exception as e:
             db.session.rollback()
-            if is_weekend:
-                raise Exception(f'Failed to plan weekend route for area {area}: {str(e)}')
-            else:
-                raise Exception(f'Failed to plan route for employee {employee_id}: {str(e)}')
+            if is_area_route:
+                raise Exception(f'Failed to plan area route for {area}: {str(e)}') from e
+            raise Exception(f'Failed to plan route for employee {employee_id}: {str(e)}') from e

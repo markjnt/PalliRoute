@@ -11,6 +11,8 @@ interface EmployeeTableCellProps {
   date: Date;
   employeeId: number;
   assignments: Assignment[];
+  /** Mo–Fr-Feiertag: wie Wochenend-Zelle (Duties/Farben). */
+  weekendLayout?: boolean;
   onClick: () => void;
 }
 
@@ -18,9 +20,10 @@ export const EmployeeTableCell: React.FC<EmployeeTableCellProps> = ({
   date,
   employeeId,
   assignments,
+  weekendLayout = false,
   onClick,
 }) => {
-  const isWeekendDay = isWeekend(date);
+  const isWeekendDay = weekendLayout || isWeekend(date);
   const isTodayDate = isToday(date);
   const availableDuties = isWeekendDay ? WEEKEND_DUTIES : WEEKDAY_DUTIES;
 

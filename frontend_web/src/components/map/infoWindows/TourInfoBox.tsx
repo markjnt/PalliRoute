@@ -12,7 +12,7 @@ interface TourInfoBoxProps {
 
 /**
  * Component for displaying tour information in a colored box
- * Used in both weekday and weekend marker info windows
+ * Used in weekday markers and AW tour (Nord/Mitte/Süd) markers
  */
 export const TourInfoBox: React.FC<TourInfoBoxProps> = ({ 
   employeeName, 
@@ -22,10 +22,9 @@ export const TourInfoBox: React.FC<TourInfoBoxProps> = ({
   durationMinutes, 
   targetMinutes 
 }) => {
-  // Handle both weekday areas (Nordkreis/Südkreis) and weekend areas (Nord/Mitte/Süd)
   const isNord = area?.includes('Nordkreis');
-  const isWeekendArea = area === 'Nord' || area === 'Mitte' || area === 'Süd';
-  const areaLabel = isWeekendArea ? area : (isNord ? 'N' : 'S');
+  const isTourAreaLabel = area === 'Nord' || area === 'Mitte' || area === 'Süd';
+  const areaLabel = isTourAreaLabel ? area : (isNord ? 'N' : 'S');
   const barColor = utilization !== undefined && utilization > 100 ? 'error.main' : 'success.main';
   
   // Zeitformatierung
@@ -72,7 +71,7 @@ export const TourInfoBox: React.FC<TourInfoBoxProps> = ({
             label={areaLabel}
             size="small"
             sx={{
-              bgcolor: isWeekendArea ? 'rgba(255,255,255,0.18)' : (isNord ? 'primary.main' : 'secondary.main'),
+              bgcolor: isTourAreaLabel ? 'rgba(255,255,255,0.18)' : (isNord ? 'primary.main' : 'secondary.main'),
               color: 'white',
               fontWeight: 'bold',
               fontSize: '1rem',

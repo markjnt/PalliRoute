@@ -4,7 +4,6 @@ import {
     Typography,
     Button,
     Divider,
-    Chip,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -40,8 +39,9 @@ import { useWeekdayStore, useCalendarWeekStore } from '../../stores';
 import { useEmployees } from '../../services/queries/useEmployees';
 import { usePatients, usePatientImport, useCalendarWeeks } from '../../services/queries/usePatients';
 import { useLastPatientImportTime } from '../../services/queries/useConfig';
+import { useNrwpHolidayForTourDay, useNrwpHolidayLookupForSelectedKw } from '../../hooks';
 import { useAppointmentsByWeekday } from '../../services/queries/useAppointments';
-import { useRoutes, useOptimizeRoutes, useOptimizeWeekendRoutes, useDownloadRoutePdf } from '../../services/queries/useRoutes';
+import { useRoutes, useOptimizeRoutes, useOptimizeTourAreaRoutes, useDownloadRoutePdf } from '../../services/queries/useRoutes';
 import { useNotificationStore } from '../../stores/useNotificationStore';
 import { useLastUpdateStore } from '../../stores/useLastUpdateStore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -121,7 +121,7 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     
     const patientImportMutation = usePatientImport();
     const optimizeRoutesMutation = useOptimizeRoutes();
-    const optimizeWeekendRoutesMutation = useOptimizeWeekendRoutes();
+    const optimizeTourAreaRoutesMutation = useOptimizeTourAreaRoutes();
     const downloadPdfMutation = useDownloadRoutePdf();
     const { data: lastImportTimeData } = useLastPatientImportTime();
 
@@ -264,6 +264,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
     const currentWeekday = getCurrentWeekday();
 
+    const { isAreaTourDay } = useNrwpHolidayForTourDay(selectedWeekday);
+    const getHolidayName = useNrwpHolidayLookupForSelectedKw();
 
     // Check if selected KW matches current KW
     const currentWeek = getCurrentCalendarWeek();
@@ -283,16 +285,12 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
     const handleOptimizeAllRoutes = async () => {
         if (!routes.length) return;
 
-        // Check if this is a weekend day
-        const isWeekend = selectedWeekday === 'saturday' || selectedWeekday === 'sunday';
-
         setIsOptimizing(true);
         try {
-            if (isWeekend) {
-                // Optimize weekend routes by area
-                const weekendAreas = ['Nord', 'Mitte', 'Süd'];
-                const optimizationPromises = weekendAreas.map(area =>
-                    optimizeWeekendRoutesMutation.mutateAsync({
+            if (isAreaTourDay) {
+                const tourAreaLabels = ['Nord', 'Mitte', 'Süd'];
+                const optimizationPromises = tourAreaLabels.map(area =>
+                    optimizeTourAreaRoutesMutation.mutateAsync({
                         weekday: selectedWeekday.toLowerCase(),
                         area: area
                     })
@@ -494,7 +492,10 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                         { value: 'friday', label: 'Freitag', isWeekend: false },
                         { value: 'saturday', label: 'Samstag', isWeekend: true },
                         { value: 'sunday', label: 'Sonntag', isWeekend: true },
-                    ].map((day) => (
+                    ].map((day) => {
+                        const holidayLabel = getHolidayName(day.value as Weekday);
+                        const useOrangeRow = day.isWeekend || Boolean(holidayLabel);
+                        return (
                         <ListItem key={day.value} disablePadding>
                             <ListItemButton
                                 onClick={() => handleDayChange(day.value as Weekday)}
@@ -502,27 +503,40 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                                 sx={{
                                     borderRadius: 1,
                                     mb: 0.5,
-                                    backgroundColor: day.isWeekend ? 'warning.50' : 'transparent',
+                                    backgroundColor: useOrangeRow ? 'warning.50' : 'transparent',
                                     position: 'relative',
+                                    alignItems: 'flex-start',
+                                    py: holidayLabel ? 1 : 0.5,
                                     '&.Mui-selected': {
-                                        backgroundColor: day.isWeekend ? 'warning.main' : 'primary.main',
+                                        backgroundColor: useOrangeRow ? 'warning.main' : 'primary.main',
                                         color: 'white',
                                         '&:hover': {
-                                            backgroundColor: day.isWeekend ? 'warning.dark' : 'primary.dark',
+                                            backgroundColor: useOrangeRow ? 'warning.dark' : 'primary.dark',
                                         }
                                     },
                                     '&:hover': {
-                                        backgroundColor: day.isWeekend ? 'warning.100' : 'primary.50',
+                                        backgroundColor: useOrangeRow ? 'warning.100' : 'primary.50',
                                     }
                                 }}
                             >
                                 <ListItemText 
                                     primary={day.label}
+                                    secondary={holidayLabel ? `Feiertag: ${holidayLabel}` : undefined}
                                     primaryTypographyProps={{
                                         fontWeight: selectedWeekday === day.value ? 600 : (currentWeekday === day.value ? 500 : 400),
                                         fontSize: '0.875rem',
-                                        color: day.isWeekend && selectedWeekday !== day.value ? 'warning.dark' : 'inherit'
+                                        color: useOrangeRow && selectedWeekday !== day.value ? 'warning.dark' : 'inherit'
                                     }}
+                                    secondaryTypographyProps={holidayLabel ? {
+                                        fontSize: '0.72rem',
+                                        lineHeight: 1.2,
+                                        sx: {
+                                            mt: 0.35,
+                                            color: selectedWeekday === day.value
+                                                ? 'rgba(255, 255, 255, 0.9)'
+                                                : 'warning.dark',
+                                        },
+                                    } : undefined}
                                 />
                                 {/* Current day indicator */}
                                 {currentWeekday === day.value && (
@@ -543,7 +557,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
                                 )}
                             </ListItemButton>
                         </ListItem>
-                    ))}
+                    );
+                    })}
                 </List>
             </Popover>
 
@@ -661,8 +676,8 @@ export const TourPlanSidebar: React.FC<TourPlanSidebarProps> = ({
 
             <Divider />
 
-            {/* SearchField nur an Wochentagen anzeigen, nicht am Wochenende */}
-            {selectedWeekday !== 'saturday' && selectedWeekday !== 'sunday' && (
+            {/* SearchField nur an Werktagen ohne Feiertags-Wochenendlogik */}
+            {!isAreaTourDay && (
                 <SearchField
                     selectedDay={selectedWeekday}
                     searchTerm={searchTerm}
