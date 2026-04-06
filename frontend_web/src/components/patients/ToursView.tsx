@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
 import { Employee, Weekday } from '../../types/models';
 import { TourContainer } from './TourContainer';
+import { NursingAreaRouteSummary } from './tour/NursingAreaRouteSummary';
 import { WeekendToursView } from './weekend/WeekendToursView';
 import { Person as PersonIcon, LocalHospital as DoctorIcon, RemoveCircle as EmptyIcon } from '@mui/icons-material';
 import { useRoutes } from '../../services/queries/useRoutes';
@@ -96,6 +97,11 @@ export const ToursView: React.FC<ToursViewProps> = ({ selectedDay, searchTerm, f
 
     return (
         <Box>
+            <NursingAreaRouteSummary
+                employees={employees}
+                routes={routes}
+                selectedDay={selectedDay}
+            />
             {/* 1. Pflegetouren - Active other employees with patients */}
             {activeOtherEmployeesWithPatients.length > 0 && (
                 <Box sx={{ mb: 4 }}>
