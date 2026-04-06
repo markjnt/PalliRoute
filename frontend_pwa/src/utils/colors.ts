@@ -13,65 +13,58 @@ export const employeeTypeColors: Record<string, string> = {
     'default': '#9c27b0' // Purple - PDL, Physiotherapie, Pflegekraft, etc.
 };
 
-// Define route line colors (avoiding colors used for visit types)
+// Define vibrant route line colors (avoiding colors used elsewhere in the app)
 export const routeLineColors: string[] = [
     '#FF1493', // Deep Pink
     '#00CED1', // Dark Turquoise
     '#FF8C00', // Dark Orange
     '#8A2BE2', // Blue Violet
-    '#3CB371', // Medium Sea Green
-    '#DB7093', // Pale Violet Red
-    '#4169E1', // Royal Blue
-    '#808000', // Olive
+    '#00B894', // Mint Teal
+    '#E84393', // Vivid Pink
+    '#1E90FF', // Dodger Blue
+    '#6C5CE7', // Electric Indigo
     '#FF4500', // Orange Red
-    '#DA70D6', // Orchid
-    '#6495ED', // Cornflower Blue
-    '#CD853F', // Peru
-    '#20B2AA', // Light Sea Green
-    '#B8860B', // Dark Goldenrod
-    '#5F9EA0', // Cadet Blue
-    '#FF6347', // Tomato
-    '#7B68EE', // Medium Slate Blue
-    '#FA8072', // Salmon
-    '#556B2F', // Dark Olive Green
-    '#E9967A', // Dark Salmon
-    '#483D8B', // Dark Slate Blue
-    '#008080', // Teal
-    '#BC8F8F', // Rosy Brown
-    '#4682B4', // Steel Blue
-    '#D2691E', // Chocolate
-    '#9370DB', // Medium Purple
-    '#32CD32', // Lime Green
-    '#FF69B4', // Hot Pink
-    '#00BFFF', // Deep Sky Blue
-    '#FFD700', // Gold
-    '#8B008B', // Dark Magenta
-    '#00FA9A', // Medium Spring Green
-    '#FF7F50', // Coral
-    '#6A5ACD', // Slate Blue
-    '#98FB98', // Pale Green
-    '#DDA0DD', // Plum
-    '#F0E68C', // Khaki
-    '#E6E6FA', // Lavender
-    '#FFA07A', // Light Salmon
-    '#87CEEB', // Sky Blue
-    '#D8BFD8', // Thistle
-    '#F5DEB3', // Wheat
-    '#B0E0E6', // Powder Blue
-    '#FFB6C1', // Light Pink
-    '#C0C0C0', // Silver
-    '#90EE90', // Light Green
-    '#D3D3D3', // Light Grey
-    '#FFC0CB', // Pink
-    '#ADD8E6', // Light Blue
-    '#F0F8FF', // Alice Blue
-    '#F5F5DC', // Beige
-    '#FFE4E1', // Misty Rose
-    '#E0FFFF', // Light Cyan
-    '#FFFACD', // Lemon Chiffon
-    '#F0FFF0', // Honeydew
-    '#FFF0F5', // Lavender Blush
-    '#F8F8FF'  // Ghost White
+    '#9B59B6', // Strong Purple
+    '#16A085', // Green Teal
+    '#C0392B', // Brick Red
+    '#2980B9', // Deep Blue
+    '#27AE60', // Emerald
+    '#D35400', // Pumpkin
+    '#2C3E50', // Midnight Blue
+    '#E74C3C', // Alizarin
+    '#F39C12', // Orange Amber
+    '#7D3C98', // Dark Violet
+    '#0E7490', // Cyan Blue
+    '#BE123C', // Ruby
+    '#4338CA', // Indigo
+    '#0F766E', // Sea Green
+    '#EA580C', // Bright Orange
+    '#0891B2', // Sky Cyan
+    '#65A30D', // Olive Green
+    '#7C2D12', // Rust Brown
+    '#A21CAF', // Magenta Purple
+    '#DB2777', // Rose
+    '#0369A1', // Ocean Blue
+    '#B45309', // Burnt Orange
+    '#4D7C0F', // Moss Green
+    '#9D174D', // Dark Pink
+    '#1D4ED8', // Royal Indigo
+    '#047857', // Emerald Teal
+    '#DC2626', // Strong Red
+    '#C2185B', // Raspberry
+    '#00897B', // Teal Green
+    '#5E35B1', // Royal Purple
+    '#F4511E', // Blaze Orange
+    '#3949AB', // Cobalt Indigo
+    '#00838F', // Deep Cyan
+    '#6D4C41', // Cocoa Brown
+    '#D81B60', // Pink Crimson
+    '#039BE5', // Bright Azure
+    '#558B2F', // Forest Olive
+    '#8E24AA', // Amethyst
+    '#EF6C00', // Tangerine
+    '#00695C', // Pine Teal
+    '#AD1457'  // Dark Fuchsia
 ];
 
 // Helper function to get color for an employee ID
