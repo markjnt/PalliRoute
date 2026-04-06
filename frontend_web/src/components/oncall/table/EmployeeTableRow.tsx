@@ -11,6 +11,7 @@ interface EmployeeTableRowProps {
   assignments: Assignment[];
   employeeCapacities?: EmployeeCapacity[];
   onCellClick: (date: Date) => void;
+  onMoveAssignment: (assignmentId: number, targetEmployeeId: number, sourceDate: string, targetDate: string) => Promise<void>;
   weekendLayoutForDate?: (date: Date) => boolean;
 }
 
@@ -29,6 +30,7 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
   assignments,
   employeeCapacities,
   onCellClick,
+  onMoveAssignment,
   weekendLayoutForDate = isWeekend,
 }) => {
   const getFunctionInfo = (functionName: string) => {
@@ -230,6 +232,7 @@ export const EmployeeTableRow: React.FC<EmployeeTableRowProps> = ({
               assignments={assignments}
               weekendLayout={isWeekendDay}
               onClick={() => onCellClick(date)}
+              onMoveAssignment={onMoveAssignment}
             />
           </Box>
         );

@@ -178,6 +178,24 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
     setSelectedDate(null);
   }, []);
 
+  const handleMoveAssignment = useCallback(
+    async (assignmentId: number, targetEmployeeId: number, sourceDate: string, targetDate: string) => {
+      // Guard: only allow drag-move inside the same day column.
+      if (sourceDate !== targetDate) return;
+
+      const assignmentToMove = assignments.find((assignment) => assignment.id === assignmentId);
+      if (!assignmentToMove?.id) return;
+      if (assignmentToMove.employee_id === targetEmployeeId) return;
+      if (!assignmentToMove.shift_instance || assignmentToMove.shift_instance.date !== sourceDate) return;
+
+      await onUpdateAssignment({
+        id: assignmentToMove.id,
+        assignmentData: { employee_id: targetEmployeeId },
+      });
+    },
+    [assignments, onUpdateAssignment]
+  );
+
   // Get assignments for selected employee and date
   const selectedAssignments = useMemo(() => {
     if (!selectedEmployee || !selectedDate) return [];
@@ -376,6 +394,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
               employeeCapacities={employeeCapacities}
               weekendLayoutForDate={weekendLayoutForDate}
               onCellClick={(date) => handleCellClick(employee, date)}
+              onMoveAssignment={handleMoveAssignment}
             />
           ))}
         </Box>
