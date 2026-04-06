@@ -4,12 +4,16 @@ Auto-Planning Service: monthly duty scheduling (on-call and weekend shifts) via 
 
 import logging
 from datetime import date, datetime
-from typing import Any, Dict, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app import db
 from app.models.employee import Employee
 
-from .aplano_sync import fetch_aplano_absences_for_month, match_employee_by_name
+from .aplano_sync import (
+    fetch_aplano_absences_for_month,
+    fetch_aplano_shifts_for_month,
+    match_employee_by_name,
+)
 from .auto_planning import (
     load_planning_context,
     build_model,
@@ -99,14 +103,123 @@ class AutoPlanningService:
 
         return absent_dates
 
+    @staticmethod
+    def _extract_area_from_workspace(work_space: str) -> Optional[str]:
+        ws = (work_space or '').lower()
+        if 'nord' in ws:
+            return 'Nord'
+        if 'süd' in ws or 'sued' in ws:
+            return 'Süd'
+        if 'mitte' in ws:
+            return 'Mitte'
+        return None
+
+    @staticmethod
+    def _is_doctor_workspace(ws: str) -> bool:
+        text = (ws or '').lower()
+        # Handle umlauts and common spellings (Ärzte / Aerzte / Arzt / Doctor)
+        return any(token in text for token in ('ärzt', 'aerzt', 'arzt', 'doctor', 'doc'))
+
+    def _map_aplano_shift_to_solver_slots(self, shift: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Map one Aplano shift to one or more solver-like slot descriptors.
+        Output keys: date, category, role, time_of_day, area
+        """
+        user_name = shift.get('user')
+        date_str = shift.get('date')
+        work_space_raw = (
+            shift.get('workSpace')
+            or shift.get('name')
+            or shift.get('title')
+            or ''
+        )
+        work_space = str(work_space_raw)
+        ws = work_space.lower()
+        if not user_name or not date_str or not ws:
+            return []
+
+        try:
+            shift_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return []
+
+        area = self._extract_area_from_workspace(work_space)
+
+        # AW is always NURSING + NONE in our shift model.
+        if 'aw' in ws:
+            return [{
+                'date': shift_date,
+                'category': 'AW',
+                'role': 'NURSING',
+                'time_of_day': 'NONE',
+                'area': area,
+            }]
+
+        if 'rb' not in ws:
+            return []
+
+        role = 'DOCTOR' if self._is_doctor_workspace(ws) else 'NURSING'
+        is_weekend = shift_date.weekday() >= 5
+        category = 'RB_WEEKEND' if is_weekend else 'RB_WEEKDAY'
+
+        if role == 'NURSING' and is_weekend:
+            if 'nacht' in ws or 'night' in ws:
+                time_of_day = 'NIGHT'
+            elif 'tag' in ws or 'day' in ws:
+                time_of_day = 'DAY'
+            else:
+                # Weekend nursing RB in solver needs DAY/NIGHT to match definitions.
+                return []
+        else:
+            time_of_day = 'NONE'
+
+        return [{
+            'date': shift_date,
+            'category': category,
+            'role': role,
+            'time_of_day': time_of_day,
+            'area': area,
+        }]
+
+    def _build_prev_month_external_assignments(self, start_date: date) -> List[Dict[str, Any]]:
+        """
+        Build fixed historical assignments from Aplano shifts for previous month.
+        """
+        year, month_num = start_date.year, start_date.month
+        if month_num == 1:
+            prev_year, prev_month = year - 1, 12
+        else:
+            prev_year, prev_month = year, month_num - 1
+        prev_month_start = date(prev_year, prev_month, 1)
+
+        try:
+            raw_shifts = fetch_aplano_shifts_for_month(prev_month_start)
+        except Exception as e:
+            logger.warning('Failed to fetch Aplano shifts for previous month: %s', e)
+            raise AplanoUnavailableError(str(e)) from e
+
+        employees = list(Employee.query.all())
+        out: List[Dict[str, Any]] = []
+        for shift in raw_shifts:
+            user_name = shift.get('user', '')
+            emp = match_employee_by_name(user_name, employees)
+            if emp is None:
+                continue
+            for mapped in self._map_aplano_shift_to_solver_slots(shift):
+                mapped['employee_id'] = emp.id
+                out.append(mapped)
+        return out
+
     def plan(self, start_date: date, end_date: date) -> Dict[str, Any]:
         """
         Run CP-SAT planning for the given date range (planning month derived from start_date).
         """
         absent_dates: Set[Tuple[int, date]] = set()
+        external_fixed_assignments: List[Dict[str, Any]] = []
         if self.include_aplano:
             try:
                 absent_dates = self._build_absent_dates(start_date)
+                external_fixed_assignments = self._build_prev_month_external_assignments(start_date)
             except AplanoUnavailableError as e:
                 result = {
                     'message': 'Aplano ist nicht verfügbar.',
@@ -127,6 +240,7 @@ class AutoPlanningService:
                 end_date=end_date,
                 existing_assignments_handling=self.existing_assignments_handling,
                 absent_dates=absent_dates if absent_dates else None,
+                external_fixed_assignments=external_fixed_assignments if external_fixed_assignments else None,
             )
         except Exception as e:
             logger.exception('Failed to load planning context')

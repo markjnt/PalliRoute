@@ -5,9 +5,10 @@ employee capacities, and existing assignments (for RESPECT).
 """
 
 from calendar import monthrange
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app import db
 from app.models.employee import Employee
@@ -32,7 +33,8 @@ def _normalize_area(value: Optional[str]) -> Optional[str]:
     if not value or not (s := value.strip()):
         return None
     key = s.lower()
-    return _AREA_ALIASES.get(key, s)
+    # Unbekannte Gebiete: immer lowercase, damit Vergleiche (z. B. MA vs. Schicht) nicht an der Schreibung scheitern.
+    return _AREA_ALIASES.get(key, key)
 
 
 def _get_calendar_week(d: date) -> int:
@@ -66,6 +68,36 @@ class ShiftInfo:
     is_weekend: bool
 
 
+def _shift_slot_key(s: ShiftInfo) -> Tuple[str, str, str]:
+    """Category + role + time_of_day — same logical slot type (AW vs RB Tag/Nacht etc.)."""
+    return (
+        (s.category or '').upper(),
+        (s.role or '').upper(),
+        (s.time_of_day or '').upper(),
+    )
+
+
+def _pick_single_external_shift(
+    candidates: List[int],
+    e_idx: int,
+    shift_infos: List[ShiftInfo],
+    employees: List[PlanableEmployee],
+) -> Optional[int]:
+    """Pick exactly one shift index when Aplano maps to multiple DB slots (e.g. area unknown)."""
+    if not candidates:
+        return None
+    uniq = sorted(set(candidates), key=lambda i: shift_infos[i].id)
+    if len(uniq) == 1:
+        return uniq[0]
+    emp_area = employees[e_idx].area if 0 <= e_idx < len(employees) else None
+    if emp_area:
+        emp_key = _normalize_area(emp_area)
+        for s_idx in uniq:
+            if _normalize_area(shift_infos[s_idx].area) == emp_key:
+                return s_idx
+    return uniq[0]
+
+
 @dataclass
 class PlanningContext:
     """All input data for one planning run."""
@@ -92,6 +124,7 @@ def load_planning_context(
     end_date: date,
     existing_assignments_handling: str,
     absent_dates: Optional[Set[Tuple[int, date]]] = None,
+    external_fixed_assignments: Optional[List[Dict[str, Any]]] = None,
 ) -> PlanningContext:
     """
     Load planning context for the given date range.
@@ -205,7 +238,11 @@ def load_planning_context(
     # Shift id -> index
     shift_id_to_idx = {s.id: s.index for s in shift_infos}
 
-    # Feste Assignments: Vormonat und Folgetag (z. B. So 1.2.) werden immer respektiert.
+    # Feste Assignments (nur Solver-Input; nichts wird in der DB überschrieben):
+    # - Planungsmonat bei RESPECT: aus DB
+    # - Folgetag (z. B. So nach Monatsende): aus DB
+    # - Vormonat: aus DB; wenn Aplano-Historie mitmatcht, wird für diesen Tag nur der
+    #   Solver-Fix durch den Aplano-Match ersetzt (DB-Zeilen bleiben unverändert).
     # RESPECT/OVERWRITE gilt nur für den ausgewählten Planungsmonat.
     fixed_assignments: Set[Tuple[int, int]] = set()
     existing = (
@@ -225,11 +262,78 @@ def load_planning_context(
             continue
         shift_date = a.shift_instance.date
         if shift_date < ctx_start or shift_date > ctx_end:
-            # Vormonat oder Folgetag: immer fixieren (nur zum Planen da, nie überschreiben)
             fixed_assignments.add((e_idx, s_idx))
         elif existing_assignments_handling.lower() == 'respect':
             # Planungsmonat: nur bei RESPECT fixieren
             fixed_assignments.add((e_idx, s_idx))
+
+    if external_fixed_assignments:
+        # Lookup für Shift-Matching aus Aplano-Historie:
+        # (date, category, role, time_of_day, area?) -> shift indices
+        lookup_exact: Dict[Tuple[date, str, str, str, Optional[str]], List[int]] = {}
+        lookup_area_agnostic: Dict[Tuple[date, str, str, str], List[int]] = {}
+        for s in shift_infos:
+            exact_key = (
+                s.date,
+                (s.category or '').upper(),
+                (s.role or '').upper(),
+                (s.time_of_day or '').upper(),
+                _normalize_area(s.area),
+            )
+            lookup_exact.setdefault(exact_key, []).append(s.index)
+            no_area_key = (
+                s.date,
+                (s.category or '').upper(),
+                (s.role or '').upper(),
+                (s.time_of_day or '').upper(),
+            )
+            lookup_area_agnostic.setdefault(no_area_key, []).append(s.index)
+
+        grouped: Dict[Tuple[int, date], List[Dict[str, Any]]] = defaultdict(list)
+        for item in external_fixed_assignments:
+            employee_id = item.get('employee_id')
+            assign_date = item.get('date')
+            if employee_id is None or assign_date is None or assign_date >= ctx_start:
+                continue
+            grouped[(employee_id, assign_date)].append(item)
+
+        for (employee_id, assign_date), items in grouped.items():
+            e_idx = employee_id_to_idx.get(employee_id)
+            if e_idx is None:
+                continue
+
+            chosen_s_idx: Optional[int] = None
+            for item in items:
+                category = str(item.get('category', '')).upper()
+                role = str(item.get('role', '')).upper()
+                time_of_day = str(item.get('time_of_day', '')).upper()
+                area = _normalize_area(item.get('area'))
+
+                exact_key = (assign_date, category, role, time_of_day, area)
+                candidates = lookup_exact.get(exact_key, [])
+
+                if not candidates:
+                    no_area_key = (assign_date, category, role, time_of_day)
+                    candidates = lookup_area_agnostic.get(no_area_key, [])
+
+                chosen_s_idx = _pick_single_external_shift(candidates, e_idx, shift_infos, planable)
+                if chosen_s_idx is not None:
+                    break
+
+            if chosen_s_idx is None:
+                continue
+
+            # Nur DB-„Konflikt“ für denselben Schicht-Typ ersetzen (AW vs. RB), nicht den ganzen Tag.
+            slot_key = _shift_slot_key(shift_infos[chosen_s_idx])
+            to_remove = [
+                pair for pair in fixed_assignments
+                if pair[0] == e_idx
+                and shift_infos[pair[1]].date == assign_date
+                and _shift_slot_key(shift_infos[pair[1]]) == slot_key
+            ]
+            for pair in to_remove:
+                fixed_assignments.discard(pair)
+            fixed_assignments.add((e_idx, chosen_s_idx))
 
     ctx = PlanningContext(
         planning_month=planning_month,

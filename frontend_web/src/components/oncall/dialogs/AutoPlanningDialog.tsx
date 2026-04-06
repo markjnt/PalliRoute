@@ -291,7 +291,7 @@ export const AutoPlanningDialog: React.FC<AutoPlanningDialogProps> = ({
                     Aplano berücksichtigen
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                    Abwesenheiten aus Aplano werden berücksichtigt
+                    Abwesenheiten und Vormonats-Historie aus Aplano werden berücksichtigt
                   </Typography>
                 </Box>
               }
