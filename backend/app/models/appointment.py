@@ -4,7 +4,7 @@ import enum
 
 class VisitType(enum.Enum):
     HB = "HB"  # Hausbesuch (30 min)
-    NA = "NA"  # Nachtbesuch (90 min)
+    NA = "NA"  # Neuaufnahme (90 min)
     TK = "TK"  # Telefonkontakt (no visit)
 
 class Weekday(enum.Enum):

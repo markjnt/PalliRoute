@@ -589,6 +589,23 @@ class ExcelImportService:
         return str(value).strip()
 
     @staticmethod
+    def _is_no_visit_day_cell(value) -> bool:
+        """
+        True if the weekday column means „kein Termin“: leere Zelle, fehlender Wert (NaN),
+        oder Platzhalter wie „--“. Nicht betroffen: der Besuchstyp-Code „NA“ (Neuaufnahme)
+        in befüllten Zellen – der wird normal geparst.
+        """
+        if pd.isna(value):
+            return True
+        s = str(value).strip()
+        if not s:
+            return True
+        # Häufige Excel-Platzhalter für „kein Besuch“
+        if s in ("--", "–", "—", "−"):
+            return True
+        return False
+
+    @staticmethod
     def _normalize_phone_value(value):
         """
         Normalize phone number values that may come in as numbers (e.g. 0225198765.0).
@@ -840,7 +857,7 @@ class ExcelImportService:
                 weekday_value = row[weekday]
                 visit_type = None
                 duration = 0
-                if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
+                if not ExcelImportService._is_no_visit_day_cell(weekday_value):
                     visit_info = str(weekday_value).strip().upper()
                     if "HB" in visit_info:
                         visit_type = "HB"
@@ -989,7 +1006,7 @@ class ExcelImportService:
                     weekday_value = row[weekday]
                     visit_type = None
                     duration = 0
-                    if not pd.isna(weekday_value) and str(weekday_value).strip() != "":
+                    if not ExcelImportService._is_no_visit_day_cell(weekday_value):
                         visit_info = str(weekday_value).strip().upper()
                         if "HB" in visit_info:
                             visit_type = "HB"
