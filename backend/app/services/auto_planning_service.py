@@ -3,17 +3,28 @@ Auto-Planning Service: monthly duty scheduling (on-call and weekend shifts) via 
 """
 
 import logging
-from datetime import date, datetime
+import os
+import re
+from calendar import monthrange
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app import db
 from app.models.employee import Employee
 
 from .aplano_sync import (
+    aplano_user_display_name,
+    aplano_workspace_label,
     fetch_aplano_absences_for_month,
     fetch_aplano_shifts_for_month,
     match_employee_by_name,
 )
+
+# Wortgrenzen: vermeidet z. B. „aw“ in „raw“, „tag“ in „Tagesklinik“ (substring)
+_RE_APLANO_AW = re.compile(r'\baw\b', re.I)
+_RE_APLANO_RB = re.compile(r'\brb\b', re.I)
+_RE_APLANO_DAY = re.compile(r'\b(tag|tagschicht|day)\b', re.I)
+_RE_APLANO_NIGHT = re.compile(r'\b(nacht|nightschicht|night)\b', re.I)
 from .auto_planning import (
     load_planning_context,
     build_model,
@@ -70,6 +81,11 @@ class AutoPlanningService:
         else:
             prev_year, prev_month = year, month_num - 1
         prev_month_start = date(prev_year, prev_month, 1)
+        _, last_day = monthrange(year, month_num)
+        ctx_end = date(year, month_num, last_day)
+        load_end = ctx_end + timedelta(days=1) if ctx_end.weekday() == 5 else ctx_end
+        abs_horizon_start = prev_month_start
+        abs_horizon_end = load_end
 
         try:
             raw_absences: list = []
@@ -83,7 +99,7 @@ class AutoPlanningService:
         for absence in raw_absences:
             if absence.get('status') != 'active':
                 continue
-            user_name = absence.get('user', '')
+            user_name = aplano_user_display_name(absence.get('user'))
             start_str = absence.get('startDate', '')
             end_str = absence.get('endDate', '')
             if not user_name or not start_str or not end_str:
@@ -93,13 +109,22 @@ class AutoPlanningService:
                 end_d = datetime.strptime(end_str, '%Y-%m-%d').date()
             except ValueError:
                 continue
+            eff_start = max(start_d, abs_horizon_start)
+            eff_end = min(end_d, abs_horizon_end)
+            if eff_start > eff_end:
+                continue
             emp = match_employee_by_name(user_name, employees)
             if emp is None:
                 continue
-            current = start_d
-            while current <= end_d:
+            current = eff_start
+            while current <= eff_end:
                 absent_dates.add((emp.id, current))
                 current = date.fromordinal(current.toordinal() + 1)
+
+        logger.info(
+            'Aplano absences: %s (employee,date) marks in horizon %s..%s',
+            len(absent_dates), abs_horizon_start, abs_horizon_end,
+        )
 
         return absent_dates
 
@@ -120,56 +145,56 @@ class AutoPlanningService:
         # Handle umlauts and common spellings (Ärzte / Aerzte / Arzt / Doctor)
         return any(token in text for token in ('ärzt', 'aerzt', 'arzt', 'doctor', 'doc'))
 
-    def _map_aplano_shift_to_solver_slots(self, shift: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _map_aplano_shift_to_solver_slots(
+        self, shift: Dict[str, Any]
+    ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
         """
-        Map one Aplano shift to one or more solver-like slot descriptors.
-        Output keys: date, category, role, time_of_day, area
+        Map one Aplano shift to solver-like slot descriptors.
+        Returns (slots, None) on success, or ([], reason_code) if skipped / unmapped.
         """
-        user_name = shift.get('user')
+        user_name = aplano_user_display_name(shift.get('user'))
         date_str = shift.get('date')
-        work_space_raw = (
-            shift.get('workSpace')
-            or shift.get('name')
-            or shift.get('title')
-            or ''
+        work_space = aplano_workspace_label(
+            shift.get('workSpace') or shift.get('name') or shift.get('title')
         )
-        work_space = str(work_space_raw)
         ws = work_space.lower()
-        if not user_name or not date_str or not ws:
-            return []
+        if not user_name:
+            return [], 'missing_user'
+        if not date_str:
+            return [], 'missing_date'
+        if not work_space:
+            return [], 'missing_workspace'
 
         try:
             shift_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
-            return []
+            return [], 'bad_date'
 
         area = self._extract_area_from_workspace(work_space)
 
-        # AW is always NURSING + NONE in our shift model.
-        if 'aw' in ws:
+        if _RE_APLANO_AW.search(ws):
             return [{
                 'date': shift_date,
                 'category': 'AW',
                 'role': 'NURSING',
                 'time_of_day': 'NONE',
                 'area': area,
-            }]
+            }], None
 
-        if 'rb' not in ws:
-            return []
+        if not _RE_APLANO_RB.search(ws):
+            return [], 'not_aw_or_rb'
 
         role = 'DOCTOR' if self._is_doctor_workspace(ws) else 'NURSING'
         is_weekend = shift_date.weekday() >= 5
         category = 'RB_WEEKEND' if is_weekend else 'RB_WEEKDAY'
 
         if role == 'NURSING' and is_weekend:
-            if 'nacht' in ws or 'night' in ws:
+            if _RE_APLANO_NIGHT.search(ws):
                 time_of_day = 'NIGHT'
-            elif 'tag' in ws or 'day' in ws:
+            elif _RE_APLANO_DAY.search(ws):
                 time_of_day = 'DAY'
             else:
-                # Weekend nursing RB in solver needs DAY/NIGHT to match definitions.
-                return []
+                return [], 'weekend_rb_need_tag_or_nacht'
         else:
             time_of_day = 'NONE'
 
@@ -179,7 +204,7 @@ class AutoPlanningService:
             'role': role,
             'time_of_day': time_of_day,
             'area': area,
-        }]
+        }], None
 
     def _build_prev_month_external_assignments(self, start_date: date) -> List[Dict[str, Any]]:
         """
@@ -200,14 +225,55 @@ class AutoPlanningService:
 
         employees = list(Employee.query.all())
         out: List[Dict[str, Any]] = []
+        skip_reasons: Dict[str, int] = {}
+        unmatched_names: Set[str] = set()
+        dbg = os.environ.get('PALLIROUTE_APLANO_AUTO_PLAN_DEBUG', '').lower() in (
+            '1', 'true', 'yes',
+        )
+
         for shift in raw_shifts:
-            user_name = shift.get('user', '')
+            user_name = aplano_user_display_name(shift.get('user'))
+            ws_label = aplano_workspace_label(
+                shift.get('workSpace') or shift.get('name') or shift.get('title')
+            )
+            mapped_slots, skip = self._map_aplano_shift_to_solver_slots(shift)
+            if skip:
+                skip_reasons[skip] = skip_reasons.get(skip, 0) + 1
+            if dbg or logger.isEnabledFor(logging.DEBUG):
+                log_fn = logger.info if dbg else logger.debug
+                log_fn(
+                    'aplano_prev_month_shift id=%s date=%s user=%r workspace=%r -> slots=%s skip=%r',
+                    shift.get('id'),
+                    shift.get('date'),
+                    user_name,
+                    ws_label,
+                    mapped_slots,
+                    skip,
+                )
+            if not mapped_slots:
+                continue
             emp = match_employee_by_name(user_name, employees)
             if emp is None:
+                unmatched_names.add(user_name)
+                skip_reasons['unmatched_employee'] = skip_reasons.get('unmatched_employee', 0) + 1
+                if dbg or logger.isEnabledFor(logging.DEBUG):
+                    log_fn = logger.info if dbg else logger.debug
+                    log_fn('aplano_prev_month_shift no Employee match for name=%r', user_name)
                 continue
-            for mapped in self._map_aplano_shift_to_solver_slots(shift):
+            for mapped in mapped_slots:
                 mapped['employee_id'] = emp.id
                 out.append(mapped)
+
+        logger.info(
+            'Aplano Vormonat-Schichten: %s API-Zeilen -> %s Solver-Slots; '
+            'skip=%s; Namen ohne MA-Match=%s%s',
+            len(raw_shifts),
+            len(out),
+            dict(skip_reasons) if skip_reasons else {},
+            len(unmatched_names),
+            f' ({", ".join(sorted(unmatched_names)[:15])}{"…" if len(unmatched_names) > 15 else ""})'
+            if unmatched_names else '',
+        )
         return out
 
     def plan(self, start_date: date, end_date: date) -> Dict[str, Any]:
@@ -340,6 +406,16 @@ class AutoPlanningService:
                 'error': 'INFEASIBLE',
             }
             logger.warning('Auto-planning: %s', result['message'])
+            if self.include_aplano:
+                ad = ctx.absent_dates
+                pm0, pm1 = ctx.start_date, ctx.end_date
+                n_pm = sum(1 for (_, d) in ad if pm0 <= d <= pm1)
+                emps_pm = {eid for (eid, d) in ad if pm0 <= d <= pm1}
+                logger.warning(
+                    'Aplano INFEASIBLE: %s Abwesenheits-Markierungen im Planungsmonat, '
+                    '%s betroffene MA-IDs, %s gesamt im Horizont',
+                    n_pm, len(emps_pm), len(ad),
+                )
             return result
         if status_name not in ('OPTIMAL', 'FEASIBLE'):
             result = {

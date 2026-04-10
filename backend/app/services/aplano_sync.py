@@ -1,10 +1,59 @@
+import calendar
+import re
+import unicodedata
+from collections import defaultdict
 import requests
 from datetime import datetime, date
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from app import db
 from app.models.employee import Employee
 from app.models.employee_planning import EmployeePlanning
 from config import Config
+
+
+def aplano_user_display_name(user: Any) -> str:
+    """Normalize ``user`` (string or expanded object) for name matching."""
+    if user is None:
+        return ''
+    if isinstance(user, str):
+        return user.strip()
+    if isinstance(user, dict):
+        n = user.get('name')
+        if isinstance(n, str) and n.strip():
+            return n.strip()
+        fn = user.get('firstName') or user.get('first_name') or ''
+        ln = user.get('lastName') or user.get('last_name') or ''
+        if fn or ln:
+            return f'{str(fn).strip()} {str(ln).strip()}'.strip()
+        for key in ('displayName', 'fullName', 'label'):
+            v = user.get(key)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return ''
+    if isinstance(user, list) and user:
+        return aplano_user_display_name(user[0])
+    return ''
+
+
+def aplano_workspace_label(work_space: Any) -> str:
+    """Readable workspace / Schichtname; never ``str(dict)`` (false AW/RB matches)."""
+    if work_space is None or work_space == '':
+        return ''
+    if isinstance(work_space, str):
+        return work_space.strip()
+    if isinstance(work_space, dict):
+        for key in ('name', 'title', 'label', 'displayName', 'code'):
+            v = work_space.get(key)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        nested = work_space.get('workspace') or work_space.get('workSpace')
+        if nested is not None and nested is not work_space:
+            return aplano_workspace_label(nested)
+        return ''
+    if isinstance(work_space, list) and work_space:
+        return aplano_workspace_label(work_space[0])
+    return ''
+
 
 def fetch_aplano_shifts(calendar_week: int) -> List[Dict]:
     """
@@ -145,6 +194,8 @@ def fetch_aplano_shifts_for_month(month_start_date: date) -> List[Dict]:
     """
     Fetch shifts from Aplano API for a given month (start date of month).
 
+    One request with ``from``/``to`` over the full month (``month=`` is not supported on ``/shifts``).
+
     Args:
         month_start_date: First day of the month (e.g. date(2025, 1, 1))
 
@@ -157,11 +208,14 @@ def fetch_aplano_shifts_for_month(month_start_date: date) -> List[Dict]:
     if not Config.APLANO_API_KEY:
         raise Exception("APLANO_API_KEY not configured")
 
-    month_str = month_start_date.strftime('%Y-%m-%d')
+    y, m = month_start_date.year, month_start_date.month
+    month_end = date(y, m, calendar.monthrange(y, m)[1])
+
     url = f"{Config.APLANO_API_BASE_URL}/shifts"
     params = {
         'expand': 'true',
-        'month': month_str,
+        'from': month_start_date.strftime('%Y-%m-%d'),
+        'to': month_end.strftime('%Y-%m-%d'),
     }
     headers = {
         'accept': 'application/json',
@@ -169,7 +223,7 @@ def fetch_aplano_shifts_for_month(month_start_date: date) -> List[Dict]:
     }
 
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=30)
+        response = requests.get(url, params=params, headers=headers, timeout=60)
         response.raise_for_status()
         data = response.json()
         return data.get('data', [])
@@ -179,21 +233,140 @@ def fetch_aplano_shifts_for_month(month_start_date: date) -> List[Dict]:
         raise Exception(f"Error processing Aplano data: {str(e)}")
 
 
+def _normalize_person_name_key(name: str) -> str:
+    """Stable key for comparison: Unicode-normalize, collapse space, case-insensitive."""
+    if not name or not (s := str(name).strip()):
+        return ''
+    s = unicodedata.normalize('NFKC', s)
+    s = re.sub(r'\s+', ' ', s)
+    return s.casefold()
+
+
+def _unique_employee(candidates: List[Employee]) -> Optional[Employee]:
+    if not candidates:
+        return None
+    ids = {e.id for e in candidates}
+    if len(ids) != 1:
+        return None
+    return candidates[0]
+
+
+def _aplano_last_name_matches_db(
+    aplano_last_key: str, db_last_key: str
+) -> bool:
+    """
+    Aplano oft nur erster Nachnamensteil: ``Zimmermann`` soll zu DB-``Zimmermann-Hall`` passen.
+    Beide Argumente bereits ``_normalize_person_name_key``-normalisiert.
+    """
+    if not aplano_last_key or not db_last_key:
+        return False
+    if db_last_key == aplano_last_key:
+        return True
+    first_seg = db_last_key.split('-', 1)[0]
+    return bool(first_seg) and first_seg == aplano_last_key
+
+
 def match_employee_by_name(aplano_user_name: str, employees: List[Employee]) -> Optional[Employee]:
     """
-    Match Aplano user name to Employee record by comparing full names
-    
-    Args:
-        aplano_user_name: User name from Aplano (e.g., "Xenia Matjuchin")
-        employees: List of Employee objects
-        
-    Returns:
-        Matching Employee object or None if no match found
+    Match Aplano (or similar) display name to an Employee.
+
+    Same rules as used for KW-Planung / Aplano-Sync: exact name, normalized full name,
+    Bindestrich-Nachnamen (Aplano ``… Zimmermann`` → DB ``… Zimmermann-Hall``),
+    ``Employee.alias`` (Komma/Semikolon), ``Nachname, Vorname``, zwei Wörter vertauscht.
     """
+    raw = (aplano_user_name or '').strip()
+    if not raw:
+        return None
+
     for employee in employees:
-        full_name = f"{employee.first_name} {employee.last_name}"
-        if full_name == aplano_user_name:
+        full_name = f'{employee.first_name} {employee.last_name}'
+        if full_name == raw:
             return employee
+
+    n_aplano = _normalize_person_name_key(raw)
+    if not n_aplano:
+        return None
+
+    hits = [
+        e for e in employees
+        if _normalize_person_name_key(f'{e.first_name} {e.last_name}') == n_aplano
+    ]
+    u = _unique_employee(hits)
+    if u is not None:
+        return u
+
+    # Voller Name mit verkürztem Nachnamen aus Aplano: „Marion Zimmermann“ → DB „Marion Zimmermann-Hall“
+    hits = []
+    for e in employees:
+        if '-' not in (e.last_name or ''):
+            continue
+        first_ln = e.last_name.split('-', 1)[0].strip()
+        syn = _normalize_person_name_key(f'{e.first_name} {first_ln}')
+        if syn == n_aplano:
+            hits.append(e)
+    u = _unique_employee(hits)
+    if u is not None:
+        return u
+
+    alias_hits: List[Employee] = []
+    for e in employees:
+        if not e.alias:
+            continue
+        for part in re.split(r'[,;]', e.alias):
+            if _normalize_person_name_key(part) == n_aplano:
+                alias_hits.append(e)
+                break
+    u = _unique_employee(alias_hits)
+    if u is not None:
+        return u
+
+    if ',' in raw:
+        left, right = [p.strip() for p in raw.split(',', 1)]
+        if left and right:
+            nl, nr = _normalize_person_name_key(left), _normalize_person_name_key(right)
+            hits = [
+                e for e in employees
+                if _normalize_person_name_key(e.first_name) == nr
+                and _aplano_last_name_matches_db(nl, _normalize_person_name_key(e.last_name))
+            ]
+            u = _unique_employee(hits)
+            if u is not None:
+                return u
+
+    parts = raw.split()
+    if len(parts) == 2:
+        a = _normalize_person_name_key(parts[0])
+        b = _normalize_person_name_key(parts[1])
+        hits = []
+        for e in employees:
+            fn = _normalize_person_name_key(e.first_name)
+            ln = _normalize_person_name_key(e.last_name)
+            if (a == fn and b == ln) or (a == ln and b == fn):
+                hits.append(e)
+        u = _unique_employee(hits)
+        if u is not None:
+            return u
+
+        hits = []
+        for e in employees:
+            fn = _normalize_person_name_key(e.first_name)
+            ln = _normalize_person_name_key(e.last_name)
+            if a == fn and _aplano_last_name_matches_db(b, ln):
+                hits.append(e)
+        u = _unique_employee(hits)
+        if u is not None:
+            return u
+
+        hits = []
+        for e in employees:
+            fn = _normalize_person_name_key(e.first_name)
+            ln = _normalize_person_name_key(e.last_name)
+            if b == fn and _aplano_last_name_matches_db(a, ln):
+                hits.append(e)
+        u = _unique_employee(hits)
+        if u is not None:
+            return u
+
     return None
 
 
@@ -242,68 +415,60 @@ def sync_employee_planning(calendar_week: int) -> bool:
         shifts = fetch_aplano_shifts(calendar_week)
         absences = fetch_aplano_absences(calendar_week)
         
-        employees = Employee.query.all()
-        
-        # Group shifts by employee and date (multiple shifts per day possible)
-        employee_shifts = {}
+        employees = list(Employee.query.all())
+
+        # Nach Mitarbeiter-ID (gleiche Logik wie match_employee_by_name — konsistent zur Übersicht)
+        shifts_by_eid: Dict[int, Dict[str, List[Dict]]] = defaultdict(lambda: defaultdict(list))
         for shift in shifts:
-            user_name = shift.get('user', '')
+            user_name = aplano_user_display_name(shift.get('user'))
             shift_date = shift.get('date', '')
-            work_space = shift.get('workSpace', '')
-            
+            ws_label = aplano_workspace_label(shift.get('workSpace'))
+
             if not user_name or not shift_date:
                 continue
-                
-            # Check if workSpace contains "RB" (absence indicator)
-            is_absent = 'RB' in work_space
-            
-            if user_name not in employee_shifts:
-                employee_shifts[user_name] = {}
-            
-            if shift_date not in employee_shifts[user_name]:
-                employee_shifts[user_name][shift_date] = []
-            
-            employee_shifts[user_name][shift_date].append({
+
+            emp = match_employee_by_name(user_name, employees)
+            if emp is None:
+                continue
+
+            is_absent = 'RB' in ws_label.upper()
+            shifts_by_eid[emp.id][shift_date].append({
                 'is_absent': is_absent,
-                'work_space': work_space
+                'work_space': ws_label,
             })
-        
-        # Group absences by employee and date range
-        employee_absences = {}
+
+        absences_by_eid: Dict[int, Dict[str, str]] = defaultdict(dict)
         for absence in absences:
-            user_name = absence.get('user', '')
+            user_name = aplano_user_display_name(absence.get('user'))
             start_date_str = absence.get('startDate', '')
             end_date_str = absence.get('endDate', '')
             absence_type = absence.get('type', '')
             status = absence.get('status', '')
-            
+
             if not user_name or not start_date_str or not end_date_str or status != 'active':
                 continue
-            
-            # Parse dates
+
             try:
                 start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
                 end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
             except ValueError:
                 continue
-            
-            # Get week boundaries
+
+            emp = match_employee_by_name(user_name, employees)
+            if emp is None:
+                continue
+
             current_year = datetime.now().year
             week_start = date.fromisocalendar(current_year, calendar_week, 1)
             week_end = date.fromisocalendar(current_year, calendar_week, 7)
-            
-            # Clamp dates to week boundaries
+
             effective_start = max(start_date, week_start)
             effective_end = min(end_date, week_end)
-            
-            if user_name not in employee_absences:
-                employee_absences[user_name] = {}
-            
-            # Add absence for each day in the effective range
+
             current_date = effective_start
             while current_date <= effective_end:
                 date_str = current_date.strftime('%Y-%m-%d')
-                employee_absences[user_name][date_str] = absence_type
+                absences_by_eid[emp.id][date_str] = absence_type
                 current_date = date.fromordinal(current_date.toordinal() + 1)
         
         # Get existing planning entries for this week
@@ -318,10 +483,8 @@ def sync_employee_planning(calendar_week: int) -> bool:
         new_entries = []
         
         for employee in employees:
-            # Get employee's shifts and absences for this week
-            employee_name = f"{employee.first_name} {employee.last_name}"
-            shifts_for_employee = employee_shifts.get(employee_name, {})
-            absences_for_employee = employee_absences.get(employee_name, {})
+            shifts_for_employee = dict(shifts_by_eid.get(employee.id, {}))
+            absences_for_employee = dict(absences_by_eid.get(employee.id, {}))
             
             for weekday in weekdays:
                 # Calculate the date for this weekday in the calendar week
