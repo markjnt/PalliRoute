@@ -104,7 +104,7 @@ export const NursingAreaRouteSummary: React.FC<NursingAreaRouteSummaryProps> = (
     routes,
     selectedDay,
 }) => {
-    const [expanded, setExpanded] = useState(true);
+    const [expanded, setExpanded] = useState(false);
 
     const { nord, sued } = useMemo(() => {
         const nord = aggregateForArea(employees, routes, selectedDay, 'nord');
