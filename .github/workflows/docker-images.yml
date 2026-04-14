@@ -132,7 +132,7 @@ jobs:
     steps:
       - name: Pull & restart
         run: |
-          cd "$HOME/PalliRoute"
+          cd "$HOME/palliroute"
           docker compose pull
           docker compose up -d
           docker image prune -f
